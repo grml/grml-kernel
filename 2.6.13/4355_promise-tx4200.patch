@@ -1,0 +1,19 @@
+sata_promise: Add TX4200 (PDC40519) ID
+
+The Promise TX4200 is a 4-port SATA controller based on the PDC40519 chip. It
+meets the description of the 20319, so just a simple ID needs to be added to
+support this hardware. Thanks to Martin Povolný for testing.
+
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+
+--- linux-2.6.13-rc3-git9/drivers/scsi/sata_promise.c.orig	2005-07-28 13:29:47.000000000 +0100
++++ linux-2.6.13-rc3-git9/drivers/scsi/sata_promise.c	2005-07-28 13:30:54.000000000 +0100
+@@ -181,6 +181,8 @@ static struct pci_device_id pdc_ata_pci_
+ 	  board_20319 },
+ 	{ PCI_VENDOR_ID_PROMISE, 0x3319, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 	  board_20319 },
++	{ PCI_VENDOR_ID_PROMISE, 0x3519, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_20319 },
+ 	{ PCI_VENDOR_ID_PROMISE, 0x3d18, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 	  board_20319 },
+ 

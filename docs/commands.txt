@@ -1,0 +1,5 @@
+diff -urN -X dontdiff-mika linux-2.6.18.clean linux-2.6.18-grml > all-in-one-2.6.18-grml-1
+KVERS=2.6.18-grml KSRC=/Grml/kernel/linux-2.6.18-grml sudo fakeroot debian/rules binary-modules
+KPKG_DEST_DIR=/raid/Grml/kernel/ module-assistant -f -l '2.6.18-grml' -k /raid/Grml/kernel/linux-2.6.18-grml build ...
+make-kpkg --revision grml.01 --us --uc --rootcmd fakeroot kernel-image kernel-headers kernel-source kernel-doc
+make-kpkg --revision grml.02 --us --uc --rootcmd fakeroot kernel-image kernel-headers kernel-doc kernel-source

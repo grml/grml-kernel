@@ -1,0 +1,4395 @@
+
+From: Hans Reiser <reiser@namesys.com>
+
+The attached patch contains the following recent changes to reiser4
+which were tested thoroughly (I believe).
+
+-bug fix in readpages: missing deadlock avoidance is added
+-bug fix in invalidatepage: context initialization was too late. Moved
+to be initialized earlier
+-missing jnode releasing on error handling code pathes
+-unnecessary read/write spinlocks are replaced by plain spinlocks: that
+allowed to decrease CPU usage somewhat
+-cryptcompress plugin update (I hope Edward can say more about it)
+-sync is simplified: using the fact that all file changes merge into one
+atom on stat data update
+-readpage can now be run without preventing races with truncate. Error
+code is returned if page was truncating while readpage was running
+-filemap_nopage is eliminated as it is not needed anymore
+-bug fix in write when file is opened O_SYNC: space grabbing was missing
+-write to extent file change: reiser4 did not handle properly
+copy_from_user's fault: extent items were updated first and those
+changes did not get undone when copy_from_user failed. Fixed
+-cleanup, unused code removals, commenting
+-bug fix in umount: directory cursor destroying was missing
+
+Signed-off-by: Vladimir V. Saveliev <vs@namesys.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ fs/reiser4/as_ops.c                        |   28 +
+ fs/reiser4/debug.c                         |   10 
+ fs/reiser4/debug.h                         |    5 
+ fs/reiser4/emergency_flush.c               |   37 +
+ fs/reiser4/entd.c                          |   14 
+ fs/reiser4/entd.h                          |    1 
+ fs/reiser4/estimate.c                      |    2 
+ fs/reiser4/flush.c                         |    6 
+ fs/reiser4/fsdata.c                        |   15 
+ fs/reiser4/init_super.c                    |    4 
+ fs/reiser4/jnode.c                         |   10 
+ fs/reiser4/jnode.h                         |    2 
+ fs/reiser4/key.c                           |   23 -
+ fs/reiser4/lock.c                          |  102 +----
+ fs/reiser4/lock.h                          |   53 --
+ fs/reiser4/oid.c                           |   22 -
+ fs/reiser4/page_cache.c                    |   11 
+ fs/reiser4/page_cache.h                    |    2 
+ fs/reiser4/plugin/cluster.h                |   53 +-
+ fs/reiser4/plugin/compress/compress.c      |   23 -
+ fs/reiser4/plugin/compress/compress.h      |    1 
+ fs/reiser4/plugin/compress/compress_mode.c |  117 +++++-
+ fs/reiser4/plugin/file/cryptcompress.c     |  256 +++++++------
+ fs/reiser4/plugin/file/cryptcompress.h     |   28 +
+ fs/reiser4/plugin/file/file.c              |  359 +++++++++++--------
+ fs/reiser4/plugin/file/file.h              |    6 
+ fs/reiser4/plugin/file/tail_conversion.c   |   78 ++--
+ fs/reiser4/plugin/item/ctail.c             |   77 +---
+ fs/reiser4/plugin/item/extent_file_ops.c   |  231 ++++++------
+ fs/reiser4/plugin/object.c                 |    4 
+ fs/reiser4/plugin/plugin.h                 |   13 
+ fs/reiser4/readahead.c                     |  252 -------------
+ fs/reiser4/super.c                         |   10 
+ fs/reiser4/tree.c                          |   11 
+ fs/reiser4/tree_walk.c                     |  331 -----------------
+ fs/reiser4/txnmgr.c                        |   85 +++-
+ fs/reiser4/txnmgr.h                        |    7 
+ fs/reiser4/vfs_ops.h                       |    2 
+ fs/reiser4/wander.c                        |    1 
+ 39 files changed, 922 insertions(+), 1370 deletions(-)
+
+diff -puN fs/reiser4/as_ops.c~reiser4-bugfix-patch fs/reiser4/as_ops.c
+--- devel/fs/reiser4/as_ops.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/as_ops.c	2006-01-04 01:05:33.000000000 -0800
+@@ -133,8 +133,22 @@ reiser4_readpages(struct file *file, str
+ 	if (fsdata->ra2.readpages)
+ 		fsdata->ra2.readpages(mapping, pages, fsdata->ra2.data);
+ 	else {
+-		assert("vs-1738", lock_stack_isclean(get_current_lock_stack()));
+-		read_cache_pages(mapping, pages, filler, file);
++		/*
++		 * filler (reiser4 readpage method) may involve tree search
++		 * which is not allowed when lock stack is not clean. If lock
++		 * stack is not clean - do nothing.
++		 */
++		if (lock_stack_isclean(get_current_lock_stack()))
++			read_cache_pages(mapping, pages, filler, file);
++		else {
++			while (!list_empty(pages)) {
++				struct page *victim;
++
++				victim = list_entry(pages->prev, struct page, lru);
++				list_del(&victim->lru);
++				page_cache_release(victim);
++			}
++		}
+ 	}
+ 	reiser4_exit_context(ctx);
+ 	return 0;
+@@ -206,6 +220,10 @@ int reiser4_invalidatepage(struct page *
+ 	assert("", ergo(inode_file_plugin(inode) !=
+ 			file_plugin_by_id(CRC_FILE_PLUGIN_ID), offset == 0));
+ 
++	ctx = init_context(inode->i_sb);
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
++
+ 	node = jprivate(page);
+ 	spin_lock_jnode(node);
+ 	if (!(node->state & ((1 << JNODE_DIRTY) | (1<< JNODE_FLUSH_QUEUED) |
+@@ -217,15 +235,11 @@ int reiser4_invalidatepage(struct page *
+ 		uncapture_jnode(node);
+ 		unhash_unformatted_jnode(node);
+ 		jput(node);
++		reiser4_exit_context(ctx);
+ 		return 0;
+ 	}
+ 	spin_unlock_jnode(node);
+ 
+-
+-	ctx = init_context(inode->i_sb);
+-	if (IS_ERR(ctx))
+-		return PTR_ERR(ctx);
+-
+ 	/* capture page being truncated. */
+ 	ret = try_capture_page_to_invalidate(page);
+ 	if (ret != 0)
+diff -puN fs/reiser4/debug.c~reiser4-bugfix-patch fs/reiser4/debug.c
+--- devel/fs/reiser4/debug.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/debug.c	2006-01-04 01:05:33.000000000 -0800
+@@ -163,7 +163,7 @@ void print_lock_counters(const char *pre
+ 	       "inode: %i, "
+ 	       "cbk_cache: %i (r:%i,w%i), "
+ 	       "eflush: %i, "
+-	       "zlock: %i (r:%i, w:%i)\n"
++	       "zlock: %i,\n"
+ 	       "spin: %i, long: %i inode_sem: (r:%i,w:%i)\n"
+ 	       "d: %i, x: %i, t: %i\n", prefix,
+ 	       info->spin_locked_jnode,
+@@ -180,9 +180,7 @@ void print_lock_counters(const char *pre
+ 	       info->read_locked_cbk_cache,
+ 	       info->write_locked_cbk_cache,
+ 	       info->spin_locked_super_eflush,
+-	       info->rw_locked_zlock,
+-	       info->read_locked_zlock,
+-	       info->write_locked_zlock,
++	       info->spin_locked_zlock,
+ 	       info->spin_locked,
+ 	       info->long_term_locked_znode,
+ 	       info->inode_sem_r, info->inode_sem_w,
+@@ -198,9 +196,7 @@ int no_counters_are_held(void)
+ 
+ 	counters = lock_counters();
+ 	return
+-	    (counters->rw_locked_zlock == 0) &&
+-	    (counters->read_locked_zlock == 0) &&
+-	    (counters->write_locked_zlock == 0) &&
++	    (counters->spin_locked_zlock == 0) &&
+ 	    (counters->spin_locked_jnode == 0) &&
+ 	    (counters->rw_locked_tree == 0) &&
+ 	    (counters->read_locked_tree == 0) &&
+diff -puN fs/reiser4/debug.h~reiser4-bugfix-patch fs/reiser4/debug.h
+--- devel/fs/reiser4/debug.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/debug.h	2006-01-04 01:05:33.000000000 -0800
+@@ -103,10 +103,7 @@ typedef struct lock_counters_info {
+ 	int read_locked_cbk_cache;
+ 	int write_locked_cbk_cache;
+ 
+-	int rw_locked_zlock;
+-	int read_locked_zlock;
+-	int write_locked_zlock;
+-
++	int spin_locked_zlock;
+ 	int spin_locked_jnode;
+ 	int spin_locked_jload;
+ 	int spin_locked_txnh;
+diff -puN fs/reiser4/emergency_flush.c~reiser4-bugfix-patch fs/reiser4/emergency_flush.c
+--- devel/fs/reiser4/emergency_flush.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/emergency_flush.c	2006-01-04 01:05:33.000000000 -0800
+@@ -265,12 +265,14 @@ static kmem_cache_t *eflush_slab;
+ #define INC_STAT(node, counter)						\
+ 	reiser4_stat_inc_at_level(jnode_get_level(node), counter);
+ 
+-/* this function exists only until VM gets fixed to reserve pages properly,
+- * which might or might not be very political. */
+-/* try to flush @page to the disk
++/**
++ * emergency_flush - try to flush page to disk
++ * @page: what to write
+  *
+- * Return 0 if page was successfully paged out. 1 if it is busy, error
+- * otherwise.
++ * This is called in desperate situation when flush algorithm can not be used to
++ * flush dirty memory due to deadlocking. It writes @page to temporary allocated
++ * block. In some case it avoids temporary block allocation though. Returns 0 if
++ * page was successfully paged out, 1 if it is busy, or error.
+  */
+ int emergency_flush(struct page *page)
+ {
+@@ -296,9 +298,9 @@ int emergency_flush(struct page *page)
+ 	result = 0;
+ 	spin_lock_jnode(node);
+ 	/*
+-	 * page was dirty and under eflush. This is (only?) possible if page
++	 * if page was dirty and under eflush (this is (only?) possible if page
+ 	 * was re-dirtied through mmap(2) after eflush IO was submitted, but
+-	 * before ->releasepage() freed page.
++	 * before ->releasepage() freed page) cancel previous eflush.
+ 	 */
+ 	eflush_del(node, 1);
+ 
+@@ -312,9 +314,11 @@ int emergency_flush(struct page *page)
+ 			blk = 0ull;
+ 			efnode = NULL;
+ 
+-			/* Set JNODE_EFLUSH bit _before_ allocating a block,
++			/*
++			 * Set JNODE_EFLUSH bit _before_ allocating a block,
+ 			 * that prevents flush reserved block from using here
+-			 * and by a reiser4 flush process  */
++			 * and by a reiser4 flush process
++			 */
+ 			JF_SET(node, JNODE_EFLUSH);
+ 
+ 			blocknr_hint_init(&hint);
+@@ -346,9 +350,10 @@ int emergency_flush(struct page *page)
+ 
+ 			/* get flush queue for this node */
+ 			result = fq_by_jnode_gfp(node, &fq, GFP_ATOMIC);
+-
+-			if (result)
++			if (result) {
++				jput(node);
+ 				return result;
++			}
+ 
+ 			atom = node->atom;
+ 
+@@ -359,6 +364,7 @@ int emergency_flush(struct page *page)
+ 				spin_unlock_jnode(node);
+ 				spin_unlock_atom(atom);
+ 				fq_put(fq);
++				jput(node);
+ 				return 1;
+ 			}
+ 
+@@ -375,8 +381,11 @@ int emergency_flush(struct page *page)
+ 			if (result != 0)
+ 				lock_page(page);
+ 
+-			/* Even if we wrote nothing, We unlocked the page, so let know to the caller that page should
+-			   not be unlocked again */
++			/*
++			 * Even if we wrote nothing, We unlocked the page, so
++			 * let know to the caller that page should not be
++			 * unlocked again
++			 */
+ 			fq_put(fq);
+ 		}
+ 
+@@ -703,7 +712,7 @@ void eflush_del(jnode * node, int page_l
+ 	assert("nikita-2743", node != NULL);
+ 	assert_spin_locked(&(node->guard));
+ 
+-	if (!JF_ISSET(node, JNODE_EFLUSH))
++	if (likely(!JF_ISSET(node, JNODE_EFLUSH)))
+ 		return;
+ 
+ 	if (page_locked) {
+diff -puN fs/reiser4/entd.c~reiser4-bugfix-patch fs/reiser4/entd.c
+--- devel/fs/reiser4/entd.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/entd.c	2006-01-04 01:05:33.000000000 -0800
+@@ -305,6 +305,13 @@ int write_page_by_ent(struct page *page,
+ 	assert("", ent && ent->done == 0);
+ 
+ 	/*
++	 * we are going to unlock page and ask ent thread to write the
++	 * page. Re-dirty page before unlocking so that if ent thread fails to
++	 * write it - it will remain dirty
++	 */
++	set_page_dirty_internal(page);
++
++	/*
+ 	 * pin inode in memory, unlock page, entd_flush will iput. We can not
+ 	 * iput here becasue we can not allow delete_inode to be called here
+ 	 */
+@@ -322,7 +329,6 @@ int write_page_by_ent(struct page *page,
+ 	rq.mapping = inode->i_mapping;
+ 	rq.node = NULL;
+ 	rq.written = 0;
+-	rq.caller = get_current_context_check();
+ 	sema_init(&rq.sem, 0);
+ 
+ 	/* add request to entd's list of writepage requests */
+@@ -346,11 +352,7 @@ int write_page_by_ent(struct page *page,
+ 
+ 	if (rq.written)
+ 		/* Eventually ENTD has written the page to disk. */
+-		return 1;
+-
+-	lock_page(page);
+-	redirty_page_for_writepage(wbc, page);
+-	unlock_page(page);
++		return 0;
+ 	return 0;
+ }
+ 
+diff -puN fs/reiser4/entd.h~reiser4-bugfix-patch fs/reiser4/entd.h
+--- devel/fs/reiser4/entd.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/entd.h	2006-01-04 01:05:33.000000000 -0800
+@@ -25,7 +25,6 @@ struct wbq {
+ 	struct semaphore sem;
+ 	jnode *node; /* set if ent thread captured requested page */
+ 	int written; /* set if ent thread wrote requested page */
+-	reiser4_context *caller;
+ };
+ 
+ /* ent-thread context. This is used to synchronize starting/stopping ent
+diff -puN fs/reiser4/estimate.c~reiser4-bugfix-patch fs/reiser4/estimate.c
+--- devel/fs/reiser4/estimate.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/estimate.c	2006-01-04 01:05:33.000000000 -0800
+@@ -70,7 +70,7 @@ reiser4_block_nr estimate_insert_flow(tr
+ }
+ 
+ /* returnes max number of nodes can be occupied by disk cluster */
+-static reiser4_block_nr estimate_cluster(struct inode * inode, int unprepped)
++reiser4_block_nr estimate_cluster(struct inode * inode, int unprepped)
+ {
+ 	int per_cluster;
+ 	per_cluster = (unprepped ? 1 : cluster_nrpages(inode));
+diff -puN fs/reiser4/flush.c~reiser4-bugfix-patch fs/reiser4/flush.c
+--- devel/fs/reiser4/flush.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/flush.c	2006-01-04 01:05:33.000000000 -0800
+@@ -943,7 +943,11 @@ static jnode * find_flush_start_jnode(
+ 			list_del_init(&node->capture_link);
+ 			list_add_tail(&node->capture_link, ATOM_WB_LIST(atom));
+ 
+-			ON_DEBUG(count_jnode(atom, node, DIRTY_LIST,
++			/*
++			 * jnode is not necessarily on dirty list: if it was dirtied when
++			 * it was on flush queue - it does not get moved to dirty list
++			 */
++			ON_DEBUG(count_jnode(atom, node, NODE_LIST(node),
+ 					     WB_LIST, 1));
+ 
+ 		} else if (jnode_is_znode(node)
+diff -puN fs/reiser4/fsdata.c~reiser4-bugfix-patch fs/reiser4/fsdata.c
+--- devel/fs/reiser4/fsdata.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/fsdata.c	2006-01-04 01:05:33.000000000 -0800
+@@ -144,13 +144,19 @@ int init_super_d_info(struct super_block
+  * done_super_d_info - release per-super-block d_cursor resources
+  * @super: super block being umounted
+  *
+- * Frees hash table. Radix tree of d_cursors has nothing to free. It is called
+- * on umount.
++ * It is called on umount. Kills all directory cursors attached to suoer block.
+  */
+ void done_super_d_info(struct super_block *super)
+ {
+-	BUG_ON(get_super_private(super)->d_info.tree.rnode != NULL);
+-	d_cursor_hash_done(&get_super_private(super)->d_info.table);
++	d_cursor_info *d_info;
++	dir_cursor *cursor, *next;
++
++	d_info = &get_super_private(super)->d_info;
++	for_all_in_htable(&d_info->table, d_cursor, cursor, next)
++		kill_cursor(cursor);
++
++	BUG_ON(d_info->tree.rnode != NULL);
++	d_cursor_hash_done(&d_info->table);
+ }
+ 
+ /**
+@@ -334,6 +340,7 @@ static int insert_cursor(dir_cursor *cur
+ 			cursor->fsdata = fsdata;
+ 			cursor->info = info;
+ 			cursor->ref = 1;
++
+ 			spin_lock_inode(inode);
+ 			/* install cursor as @f's private_data, discarding old
+ 			 * one if necessary */
+diff -puN fs/reiser4/init_super.c~reiser4-bugfix-patch fs/reiser4/init_super.c
+--- devel/fs/reiser4/init_super.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/init_super.c	2006-01-04 01:05:33.000000000 -0800
+@@ -338,6 +338,8 @@ int init_super_data(struct super_block *
+ 	sbinfo->tree.carry.new_extent_flags = REISER4_NEW_EXTENT_FLAGS;
+ 	sbinfo->tree.carry.paste_flags = REISER4_PASTE_FLAGS;
+ 	sbinfo->tree.carry.insert_flags = REISER4_INSERT_FLAGS;
++	rwlock_init(&(sbinfo->tree.tree_lock));
++	spin_lock_init(&(sbinfo->tree.epoch_lock));
+ 
+ 	/* initialize default readahead params */
+ 	sbinfo->ra_params.max = num_physpages / 4;
+@@ -654,7 +656,7 @@ static struct {
+ 	},
+ 	[PSET_COMPRESSION_MODE] = {
+ 		.type = REISER4_COMPRESSION_MODE_PLUGIN_TYPE,
+-		.id = SMART_COMPRESSION_MODE_ID
++		.id = COL_16_COMPRESSION_MODE_ID
+ 	},
+ 	[PSET_CLUSTER] = {
+ 		.type = REISER4_CLUSTER_PLUGIN_TYPE,
+diff -puN fs/reiser4/jnode.c~reiser4-bugfix-patch fs/reiser4/jnode.c
+--- devel/fs/reiser4/jnode.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/jnode.c	2006-01-04 01:05:33.000000000 -0800
+@@ -38,12 +38,12 @@
+  *     page_address().
+  *
+  *     jnode and page are attached to each other by jnode_attach_page(). This
+- *     function places pointer to jnode in page_private(), sets PG_private flag
+- *     and increments page counter.
++ *     function places pointer to jnode in set_page_private(), sets PG_private
++ *     flag and increments page counter.
+  *
+  *     Opposite operation is performed by page_clear_jnode().
+  *
+- *     jnode->pg is protected by jnode spin lock, and page_private() is
++ *     jnode->pg is protected by jnode spin lock, and page->private is
+  *     protected by page lock. See comment at the top of page_cache.c for
+  *     more.
+  *
+@@ -667,7 +667,7 @@ void jnode_attach_page(jnode * node, str
+ 	assert("nikita-2060", node != NULL);
+ 	assert("nikita-2061", pg != NULL);
+ 
+-	assert("nikita-2050", page_private(pg) == 0ul);
++	assert("nikita-2050", jprivate(pg) == 0ul);
+ 	assert("nikita-2393", !PagePrivate(pg));
+ 	assert("vs-1741", node->pg == NULL);
+ 
+@@ -1927,7 +1927,6 @@ void info_jnode(const char *prefix /* pr
+ 
+ #endif				/* REISER4_DEBUG */
+ 
+-#ifdef REISER4_COPY_ON_CAPTURE
+ /* this is only used to created jnode during capture copy */
+ jnode *jclone(jnode * node)
+ {
+@@ -1943,7 +1942,6 @@ jnode *jclone(jnode * node)
+ 	JF_SET(clone, JNODE_CC);
+ 	return clone;
+ }
+-#endif  /*  REISER4_COPY_ON_CAPTURE  */
+ 
+ /* Make Linus happy.
+    Local variables:
+diff -puN fs/reiser4/jnode.h~reiser4-bugfix-patch fs/reiser4/jnode.h
+--- devel/fs/reiser4/jnode.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/jnode.h	2006-01-04 01:05:33.000000000 -0800
+@@ -328,7 +328,7 @@ static inline void spin_lock_jnode(jnode
+ 	/* check that spinlocks of lower priorities are not held */
+ 	assert("", (LOCK_CNT_NIL(rw_locked_tree) &&
+ 		    LOCK_CNT_NIL(spin_locked_txnh) &&
+-		    LOCK_CNT_NIL(rw_locked_zlock) &&
++		    LOCK_CNT_NIL(spin_locked_zlock) &&
+ 		    LOCK_CNT_NIL(rw_locked_dk) &&
+ 		    LOCK_CNT_LT(spin_locked_jnode, 2)));
+ 
+diff -puN fs/reiser4/key.c~reiser4-bugfix-patch fs/reiser4/key.c
+--- devel/fs/reiser4/key.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/key.c	2006-01-04 01:05:33.000000000 -0800
+@@ -126,29 +126,6 @@ void print_key(const char *prefix /* pre
+ 
+ #endif
+ 
+-#if 0
+-/* like print_key() but outputs key representation into @buffer. */
+-int sprintf_key(char *buffer /* buffer to print key into */ ,
+-		const reiser4_key * key /* key to print */ )
+-{
+-	if (REISER4_LARGE_KEY)
+-		return sprintf(buffer, "(%Lx:%x:%Lx:%Lx:%Lx:%Lx)",
+-			       (unsigned long long)get_key_locality(key),
+-			       get_key_type(key),
+-			       (unsigned long long)get_key_ordering(key),
+-			       (unsigned long long)get_key_band(key),
+-			       (unsigned long long)get_key_objectid(key),
+-			       (unsigned long long)get_key_offset(key));
+-	else
+-		return sprintf(buffer, "(%Lx:%x:%Lx:%Lx:%Lx)",
+-			       (unsigned long long)get_key_locality(key),
+-			       get_key_type(key),
+-			       (unsigned long long)get_key_band(key),
+-			       (unsigned long long)get_key_objectid(key),
+-			       (unsigned long long)get_key_offset(key));
+-}
+-#endif  /*  0  */
+-
+ /* Make Linus happy.
+    Local variables:
+    c-indentation-style: "K&R"
+diff -puN fs/reiser4/lock.c~reiser4-bugfix-patch fs/reiser4/lock.c
+--- devel/fs/reiser4/lock.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/lock.c	2006-01-04 01:05:33.000000000 -0800
+@@ -243,7 +243,7 @@ static void wake_up_all_lopri_owners(zno
+ {
+ 	lock_handle *handle;
+ 
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 	list_for_each_entry(handle, &node->lock.owners, owners_link) {
+ 		spin_lock_stack(handle->owner);
+ 
+@@ -268,7 +268,7 @@ static inline void
+ link_object(lock_handle * handle, lock_stack * owner, znode * node)
+ {
+ 	assert("jmacd-810", handle->owner == NULL);
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 	handle->owner = owner;
+ 	handle->node = node;
+@@ -290,7 +290,7 @@ static inline void unlink_object(lock_ha
+ {
+ 	assert("zam-354", handle->owner != NULL);
+ 	assert("nikita-1608", handle->node != NULL);
+-	assert_rw_locked(&(handle->node->lock.guard));
++	assert_spin_locked(&(handle->node->lock.guard));
+ 	assert("nikita-1829", handle->owner == get_current_lock_stack());
+ 	assert("reiser4-5", handle->owner->nr_locks > 0);
+ 
+@@ -316,7 +316,7 @@ static void lock_object(lock_stack * own
+ 
+ 	request = &owner->request;
+ 	node = request->node;
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 	if (request->mode == ZNODE_READ_LOCK) {
+ 		node->lock.nr_readers++;
+ 	} else {
+@@ -346,7 +346,7 @@ static int recursive(lock_stack * owner)
+ 	/* Owners list is not empty for a locked node */
+ 	assert("zam-314", !list_empty_careful(&node->lock.owners));
+ 	assert("nikita-1841", owner == get_current_lock_stack());
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 
+ 	lh = list_entry(node->lock.owners.next, lock_handle, owners_link);
+@@ -429,7 +429,7 @@ int znode_is_write_locked(const znode * 
+ */
+ static inline int check_deadlock_condition(znode * node)
+ {
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 	return node->lock.nr_hipri_requests > 0
+ 	    && node->lock.nr_hipri_owners == 0;
+ }
+@@ -447,7 +447,7 @@ static int can_lock_object(lock_stack * 
+ {
+ 	znode *node = owner->request.node;
+ 
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 	/* See if the node is disconnected. */
+ 	if (unlikely(ZF_ISSET(node, JNODE_IS_DYING)))
+@@ -484,7 +484,7 @@ static void set_high_priority(lock_stack
+ 		while (&owner->locks != &item->locks_link) {
+ 			znode *node = item->node;
+ 
+-			write_lock_zlock(&node->lock);
++			spin_lock_zlock(&node->lock);
+ 
+ 			node->lock.nr_hipri_owners++;
+ 
+@@ -492,7 +492,7 @@ static void set_high_priority(lock_stack
+ 			   previous statement (nr_hipri_owners ++) guarantees
+ 			   that signaled will be never set again. */
+ 			item->signaled = 0;
+-			write_unlock_zlock(&node->lock);
++			spin_unlock_zlock(&node->lock);
+ 
+ 			item = list_entry(item->locks_link.next, lock_handle, locks_link);
+ 		}
+@@ -514,7 +514,7 @@ static void set_low_priority(lock_stack 
+ 		lock_handle *handle = list_entry(owner->locks.next, lock_handle, locks_link);
+ 		while (&owner->locks != &handle->locks_link) {
+ 			znode *node = handle->node;
+-			write_lock_zlock(&node->lock);
++			spin_lock_zlock(&node->lock);
+ 			/* this thread just was hipri owner of @node, so
+ 			   nr_hipri_owners has to be greater than zero. */
+ 			assert("nikita-1835", node->lock.nr_hipri_owners > 0);
+@@ -530,7 +530,7 @@ static void set_low_priority(lock_stack 
+ 				handle->signaled = 1;
+ 				atomic_inc(&owner->nr_signaled);
+ 			}
+-			write_unlock_zlock(&node->lock);
++			spin_unlock_zlock(&node->lock);
+ 			handle = list_entry(handle->locks_link.next, lock_handle, locks_link);
+ 		}
+ 		owner->curpri = 0;
+@@ -555,7 +555,7 @@ static void invalidate_all_lock_requests
+ {
+ 	lock_stack *requestor, *tmp;
+ 
+-	assert_rw_write_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 	list_for_each_entry_safe(requestor, tmp, &node->lock.requestors, requestors_link) {
+ 		remove_lock_request(requestor);
+@@ -569,7 +569,7 @@ static void dispatch_lock_requests(znode
+ {
+ 	lock_stack *requestor, *tmp;
+ 
+-	assert_rw_write_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 	list_for_each_entry_safe(requestor, tmp, &node->lock.requestors, requestors_link) {
+ 		if (znode_is_write_locked(node))
+@@ -621,7 +621,7 @@ void longterm_unlock_znode(lock_handle *
+ 	/* true if node is to die and write lock is released */
+ 	youdie = ZF_ISSET(node, JNODE_HEARD_BANSHEE) && (readers < 0);
+ 
+-	write_lock_zlock(&node->lock);
++	spin_lock_zlock(&node->lock);
+ 
+ 	assert("zam-101", znode_is_locked(node));
+ 
+@@ -664,7 +664,7 @@ void longterm_unlock_znode(lock_handle *
+ 		dispatch_lock_requests(node);
+ 	if (check_deadlock_condition(node))
+ 		wake_up_all_lopri_owners(node);
+-	write_unlock_zlock(&node->lock);
++	spin_unlock_zlock(&node->lock);
+ 
+ 	/* minus one reference from handle->node */
+ 	handle->node = NULL;
+@@ -680,7 +680,7 @@ lock_tail(lock_stack * owner, int ok, zn
+ {
+ 	znode *node = owner->request.node;
+ 
+-	assert_rw_write_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 	/* If we broke with (ok == 0) it means we can_lock, now do it. */
+ 	if (ok == 0) {
+@@ -696,7 +696,7 @@ lock_tail(lock_stack * owner, int ok, zn
+ 
+ 		LOCK_CNT_INC(long_term_locked_znode);
+ 	}
+-	write_unlock_zlock(&node->lock);
++	spin_unlock_zlock(&node->lock);
+ 	ON_DEBUG(check_lock_data());
+ 	ON_DEBUG(check_lock_node_data(node));
+ 	return ok;
+@@ -720,9 +720,9 @@ static int longterm_lock_tryfast(lock_st
+ 	assert("nikita-3341", request_is_deadlock_safe(node,
+ 						       ZNODE_READ_LOCK,
+ 						       ZNODE_LOCK_LOPRI));
+-	read_lock_zlock(lock);
++	spin_lock_zlock(lock);
+ 	result = can_lock_object(owner);
+-	read_unlock_zlock(lock);
++	spin_unlock_zlock(lock);
+ 
+ 	if (likely(result != -EINVAL)) {
+ 		spin_lock_znode(node);
+@@ -730,14 +730,14 @@ static int longterm_lock_tryfast(lock_st
+ 		    try_capture(ZJNODE(node), ZNODE_READ_LOCK, 0,
+ 				1 /* can copy on capture */ );
+ 		spin_unlock_znode(node);
+-		write_lock_zlock(lock);
++		spin_lock_zlock(lock);
+ 		if (unlikely(result != 0)) {
+ 			owner->request.mode = 0;
+ 		} else {
+ 			result = can_lock_object(owner);
+ 			if (unlikely(result == -E_REPEAT)) {
+ 				/* fall back to longterm_lock_znode() */
+-				write_unlock_zlock(lock);
++				spin_unlock_zlock(lock);
+ 				return 1;
+ 			}
+ 		}
+@@ -820,7 +820,7 @@ int longterm_lock_znode(
+ 	has_atom = (txnh->atom != NULL);
+ 
+ 	/* Synchronize on node's zlock guard lock. */
+-	write_lock_zlock(lock);
++	spin_lock_zlock(lock);
+ 
+ 	if (znode_is_locked(node) &&
+ 	    mode == ZNODE_WRITE_LOCK && recursive(owner))
+@@ -912,13 +912,13 @@ int longterm_lock_znode(
+ 			 * JNODE_IS_DYING and this will be noted by
+ 			 * can_lock_object() below.
+ 			 */
+-			write_unlock_zlock(lock);
++			spin_unlock_zlock(lock);
+ 			spin_lock_znode(node);
+ 			ret =
+ 			    try_capture(ZJNODE(node), mode, cap_flags,
+ 					1 /* can copy on capture */ );
+ 			spin_unlock_znode(node);
+-			write_lock_zlock(lock);
++			spin_lock_zlock(lock);
+ 			if (unlikely(ret != 0)) {
+ 				/* In the failure case, the txnmgr releases
+ 				   the znode's lock (or in some cases, it was
+@@ -951,7 +951,7 @@ int longterm_lock_znode(
+ 			break;
+ 		}
+ 
+-		assert_rw_locked(&(node->lock.guard));
++		assert_spin_locked(&(node->lock.guard));
+ 		if (hipri) {
+ 			/* If we are going in high priority direction then
+ 			   increase high priority requests counter for the
+@@ -969,14 +969,14 @@ int longterm_lock_znode(
+ 
+ 		/* Ok, here we have prepared a lock request, so unlock
+ 		   a znode ... */
+-		write_unlock_zlock(lock);
++		spin_unlock_zlock(lock);
+ 		/* ... and sleep */
+ 		go_to_sleep(owner);
+ 		if (owner->request.mode == ZNODE_NO_LOCK)
+ 			goto request_is_done;
+-		write_lock_zlock(lock);
++		spin_lock_zlock(lock);
+ 		if (owner->request.mode == ZNODE_NO_LOCK) {
+-			write_unlock_zlock(lock);
++			spin_unlock_zlock(lock);
+ 		request_is_done:
+ 			if (owner->request.ret_code == 0) {
+ 				LOCK_CNT_INC(long_term_locked_znode);
+@@ -1006,7 +1006,7 @@ void invalidate_lock(lock_handle * handl
+ 	assert("nikita-1793", !ZF_ISSET(node, JNODE_RIGHT_CONNECTED));
+ 	assert("nikita-1394", ZF_ISSET(node, JNODE_HEARD_BANSHEE));
+ 	assert("nikita-3097", znode_is_wlocked_once(node));
+-	assert_rw_locked(&(node->lock.guard));
++	assert_spin_locked(&(node->lock.guard));
+ 
+ 	if (handle->signaled)
+ 		atomic_dec(&owner->nr_signaled);
+@@ -1016,7 +1016,7 @@ void invalidate_lock(lock_handle * handl
+ 	node->lock.nr_readers = 0;
+ 
+ 	invalidate_all_lock_requests(node);
+-	write_unlock_zlock(&node->lock);
++	spin_unlock_zlock(&node->lock);
+ }
+ 
+ /* Initializes lock_stack. */
+@@ -1037,7 +1037,7 @@ void reiser4_init_lock(zlock * lock	/* p
+ 					 * structure. */ )
+ {
+ 	memset(lock, 0, sizeof(zlock));
+-	rwlock_init(&lock->guard);
++	spin_lock_init(&lock->guard);
+ 	INIT_LIST_HEAD(&lock->requestors);
+ 	INIT_LIST_HEAD(&lock->owners);
+ }
+@@ -1074,7 +1074,7 @@ move_lh_internal(lock_handle * new, lock
+ 	assert("nikita-1827", owner == get_current_lock_stack());
+ 	assert("nikita-1831", new->owner == NULL);
+ 
+-	write_lock_zlock(&node->lock);
++	spin_lock_zlock(&node->lock);
+ 
+ 	signaled = old->signaled;
+ 	if (unlink_old) {
+@@ -1098,7 +1098,7 @@ move_lh_internal(lock_handle * new, lock
+ 	link_object(new, owner, node);
+ 	new->signaled = signaled;
+ 
+-	write_unlock_zlock(&node->lock);
++	spin_unlock_zlock(&node->lock);
+ }
+ 
+ void move_lh(lock_handle * new, lock_handle * old)
+@@ -1183,38 +1183,6 @@ int lock_stack_isclean(lock_stack * owne
+ 
+ #if REISER4_DEBUG
+ 
+-#if 0
+-/* Debugging help */
+-void print_lock_stack(const char *prefix, lock_stack * owner)
+-{
+-	lock_handle *handle;
+-
+-	spin_lock_stack(owner);
+-
+-	printk("%s:\n", prefix);
+-	printk(".... nr_signaled %d\n", atomic_read(&owner->nr_signaled));
+-	printk(".... curpri %s\n", owner->curpri ? "high" : "low");
+-
+-	if (owner->request.mode != 0) {
+-		printk(".... current request: %s",
+-		       owner->request.mode ==
+-		       ZNODE_WRITE_LOCK ? "write" : "read");
+-		print_address("", znode_get_block(owner->request.node));
+-	}
+-
+-	printk(".... current locks:\n");
+-
+-	list_for_each_entry(handle, &owner->locks, locks_link) {
+-		if (handle->node != NULL)
+-			print_address(znode_is_rlocked(handle->node) ?
+-				      "......  read" : "...... write",
+-				      znode_get_block(handle->node));
+-	}
+-
+-	spin_unlock_stack(owner);
+-}
+-#endif  /*  0  */
+-
+ /*
+  * debugging functions
+  */
+@@ -1246,10 +1214,10 @@ void check_lock_data(void)
+ /* check consistency of locking data structures for @node */
+ void check_lock_node_data(znode * node)
+ {
+-	read_lock_zlock(&node->lock);
++	spin_lock_zlock(&node->lock);
+ 	list_check(&node->lock.owners);
+ 	list_check(&node->lock.requestors);
+-	read_unlock_zlock(&node->lock);
++	spin_unlock_zlock(&node->lock);
+ }
+ 
+ /* check that given lock request is dead lock safe. This check is, of course,
+diff -puN fs/reiser4/lock.h~reiser4-bugfix-patch fs/reiser4/lock.h
+--- devel/fs/reiser4/lock.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/lock.h	2006-01-04 01:05:33.000000000 -0800
+@@ -22,7 +22,7 @@
+ 
+ /* Per-znode lock object */
+ struct zlock {
+-	rwlock_t guard;
++	spinlock_t guard;
+ 	/* The number of readers if positive; the number of recursively taken
+ 	   write locks if negative. Protected by zlock spin lock. */
+ 	int nr_readers;
+@@ -39,65 +39,30 @@ struct zlock {
+ 	struct list_head requestors;
+ };
+ 
+-static inline void read_lock_zlock(zlock *lock)
++static inline void spin_lock_zlock(zlock *lock)
+ {
+ 	/* check that zlock is not locked */
+-	assert("", (LOCK_CNT_NIL(rw_locked_zlock) &&
+-		    LOCK_CNT_NIL(read_locked_zlock) &&
+-		    LOCK_CNT_NIL(write_locked_zlock)));
++	assert("", LOCK_CNT_NIL(spin_locked_zlock));
+ 	/* check that spinlocks of lower priorities are not held */
+ 	assert("", LOCK_CNT_NIL(spin_locked_stack));
+ 
+-	read_lock(&(lock->guard));
++	spin_lock(&lock->guard);
+ 
+-	LOCK_CNT_INC(read_locked_zlock);
+-	LOCK_CNT_INC(rw_locked_zlock);
++	LOCK_CNT_INC(spin_locked_zlock);
+ 	LOCK_CNT_INC(spin_locked);
+ }
+ 
+-static inline void read_unlock_zlock(zlock *lock)
++static inline void spin_unlock_zlock(zlock *lock)
+ {
+-	assert("nikita-1375", LOCK_CNT_GTZ(read_locked_zlock));
+-	assert("nikita-1376", LOCK_CNT_GTZ(rw_locked_zlock));
++	assert("nikita-1375", LOCK_CNT_GTZ(spin_locked_zlock));
+ 	assert("nikita-1376", LOCK_CNT_GTZ(spin_locked));
+ 
+-	LOCK_CNT_DEC(read_locked_zlock);
+-	LOCK_CNT_DEC(rw_locked_zlock);
++	LOCK_CNT_DEC(spin_locked_zlock);
+ 	LOCK_CNT_DEC(spin_locked);
+ 
+-	read_unlock(&(lock->guard));
++	spin_unlock(&lock->guard);
+ }
+ 
+-static inline void write_lock_zlock(zlock *lock)
+-{
+-	/* check that zlock is not locked */
+-	assert("", (LOCK_CNT_NIL(rw_locked_zlock) &&
+-		    LOCK_CNT_NIL(read_locked_zlock) &&
+-		    LOCK_CNT_NIL(write_locked_zlock)));
+-	/* check that spinlocks of lower priorities are not held */
+-	assert("", LOCK_CNT_NIL(spin_locked_stack));
+-
+-	write_lock(&(lock->guard));
+-
+-	LOCK_CNT_INC(write_locked_zlock);
+-	LOCK_CNT_INC(rw_locked_zlock);
+-	LOCK_CNT_INC(spin_locked);
+-}
+-
+-static inline void write_unlock_zlock(zlock *lock)
+-{
+-	assert("nikita-1375", LOCK_CNT_GTZ(write_locked_zlock));
+-	assert("nikita-1376", LOCK_CNT_GTZ(rw_locked_zlock));
+-	assert("nikita-1376", LOCK_CNT_GTZ(spin_locked));
+-
+-	LOCK_CNT_DEC(write_locked_zlock);
+-	LOCK_CNT_DEC(rw_locked_zlock);
+-	LOCK_CNT_DEC(spin_locked);
+-
+-	write_unlock(&(lock->guard));
+-}
+-
+-
+ #define lock_is_locked(lock)          ((lock)->nr_readers != 0)
+ #define lock_is_rlocked(lock)         ((lock)->nr_readers > 0)
+ #define lock_is_wlocked(lock)         ((lock)->nr_readers < 0)
+diff -puN fs/reiser4/oid.c~reiser4-bugfix-patch fs/reiser4/oid.c
+--- devel/fs/reiser4/oid.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/oid.c	2006-01-04 01:05:33.000000000 -0800
+@@ -100,28 +100,6 @@ long oids_used(const struct super_block 
+ 		return (long)-1;
+ }
+ 
+-#if 0
+-/*
+- * return number of "free" oids. This is used by statfs(2) to report "free"
+- * inodes.
+- */
+-long oids_free(const struct super_block *super)
+-{
+-	reiser4_super_info_data *sbinfo;
+-	oid_t oids;
+-
+-	sbinfo = get_super_private(super);
+-
+-	spin_lock_reiser4_super(sbinfo);
+-	oids = ABSOLUTE_MAX_OID - OIDS_RESERVED - sbinfo->next_to_use;
+-	spin_unlock_reiser4_super(sbinfo);
+-	if (oids < (__u64) ((long)~0) >> 1)
+-		return (long)oids;
+-	else
+-		return (long)-1;
+-}
+-#endif  /*  0  */
+-
+ /*
+  * Count oid as allocated in atom. This is done after call to oid_allocate()
+  * at the point when we are irrevocably committed to creation of the new file
+diff -puN fs/reiser4/page_cache.c~reiser4-bugfix-patch fs/reiser4/page_cache.c
+--- devel/fs/reiser4/page_cache.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/page_cache.c	2006-01-04 01:05:33.000000000 -0800
+@@ -474,6 +474,10 @@ int set_page_dirty_internal(struct page 
+ 
+ 		__mark_inode_dirty(mapping->host, I_DIRTY_PAGES);
+ 	}
++
++	/* znode must be dirty ? */
++	if (mapping->host == get_super_fake(mapping->host->i_sb))
++		assert("", JF_ISSET(jprivate(page), JNODE_DIRTY));
+ 	return 0;
+ }
+ 
+@@ -489,12 +493,14 @@ static int can_hit_entd(reiser4_context 
+ }
+ 
+ /**
+- * reiser4_writepage -
++ * reiser4_writepage - writepage of struct address_space_operations
+  * @page: page to write
+  * @wbc:
++ *
++ *
+  */
+ /* Common memory pressure notification. */
+-int reiser4_writepage(struct page *page /* page to start writeback from */ ,
++int reiser4_writepage(struct page *page,
+ 		      struct writeback_control *wbc)
+ {
+ 	struct super_block *s;
+@@ -570,6 +576,7 @@ int reiser4_writepage(struct page *page 
+ static int formatted_set_page_dirty(struct page *page)
+ {
+ 	assert("nikita-2173", page != NULL);
++	BUG();
+ 	return __set_page_dirty_nobuffers(page);
+ }
+ 
+diff -puN fs/reiser4/page_cache.h~reiser4-bugfix-patch fs/reiser4/page_cache.h
+--- devel/fs/reiser4/page_cache.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/page_cache.h	2006-01-04 01:05:33.000000000 -0800
+@@ -30,7 +30,7 @@ static inline void lock_and_wait_page_wr
+ 		reiser4_wait_page_writeback(page);
+ }
+ 
+-#define jprivate(page) ((jnode *) page_private(page))
++#define jprivate(page) ((jnode *)page_private(page))
+ 
+ extern int page_io(struct page *page, jnode * node, int rw, int gfp);
+ extern void drop_page(struct page *page);
+diff -puN fs/reiser4/plugin/cluster.h~reiser4-bugfix-patch fs/reiser4/plugin/cluster.h
+--- devel/fs/reiser4/plugin/cluster.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/cluster.h	2006-01-04 01:05:33.000000000 -0800
+@@ -8,16 +8,6 @@
+ 
+ #include "../inode.h"
+ 
+-static inline loff_t min_count(loff_t a, loff_t b)
+-{
+-	return (a < b ? a : b);
+-}
+-
+-static inline loff_t max_count(loff_t a, loff_t b)
+-{
+-	return (a > b ? a : b);
+-}
+-
+ static inline int inode_cluster_shift(struct inode *inode)
+ {
+ 	assert("edward-92", inode != NULL);
+@@ -44,38 +34,37 @@ static inline size_t inode_cluster_size(
+ 	return 1U << inode_cluster_shift(inode);
+ }
+ 
+-static inline unsigned long pg_to_clust(unsigned long idx, struct inode *inode)
++static inline cloff_t pg_to_clust(pgoff_t idx, struct inode *inode)
+ {
+ 	return idx >> cluster_nrpages_shift(inode);
+ }
+ 
+-static inline unsigned long clust_to_pg(unsigned long idx, struct inode *inode)
++static inline pgoff_t clust_to_pg(cloff_t idx, struct inode *inode)
+ {
+ 	return idx << cluster_nrpages_shift(inode);
+ }
+ 
+-static inline unsigned long
+-pg_to_clust_to_pg(unsigned long idx, struct inode *inode)
++static inline pgoff_t pg_to_clust_to_pg(pgoff_t idx, struct inode *inode)
+ {
+ 	return clust_to_pg(pg_to_clust(idx, inode), inode);
+ }
+ 
+-static inline unsigned long off_to_pg(loff_t off)
++static inline pgoff_t off_to_pg(loff_t off)
+ {
+ 	return (off >> PAGE_CACHE_SHIFT);
+ }
+ 
+-static inline loff_t pg_to_off(unsigned long idx)
++static inline loff_t pg_to_off(pgoff_t idx)
+ {
+ 	return ((loff_t) (idx) << PAGE_CACHE_SHIFT);
+ }
+ 
+-static inline unsigned long off_to_clust(loff_t off, struct inode *inode)
++static inline cloff_t off_to_clust(loff_t off, struct inode *inode)
+ {
+ 	return off >> inode_cluster_shift(inode);
+ }
+ 
+-static inline loff_t clust_to_off(unsigned long idx, struct inode *inode)
++static inline loff_t clust_to_off(cloff_t idx, struct inode *inode)
+ {
+ 	return (loff_t) idx << inode_cluster_shift(inode);
+ }
+@@ -86,7 +75,7 @@ static inline unsigned long count_to_nr(
+ }
+ 
+ /* number of pages occupied by @count bytes */
+-static inline unsigned long count_to_nrpages(loff_t count)
++static inline pgoff_t count_to_nrpages(loff_t count)
+ {
+ 	return count_to_nr(count, PAGE_CACHE_SHIFT);
+ }
+@@ -108,7 +97,7 @@ static inline loff_t off_to_clust_to_off
+ 	return clust_to_off(off_to_clust(off, inode), inode);
+ }
+ 
+-static inline unsigned long off_to_clust_to_pg(loff_t off, struct inode *inode)
++static inline pgoff_t off_to_clust_to_pg(loff_t off, struct inode *inode)
+ {
+ 	return clust_to_pg(off_to_clust(off, inode), inode);
+ }
+@@ -143,23 +132,27 @@ static inline pgoff_t size_to_next_pg(lo
+ 	return (size ? off_to_pg(size - 1) + 1 : 0);
+ }
+ 
+-static inline unsigned off_to_pgcount(loff_t off, unsigned long idx)
++/* how many bytes of file of size @cnt can be contained
++   in page of index @idx */
++static inline unsigned cnt_to_pgcnt(loff_t cnt, pgoff_t idx)
+ {
+-	if (idx > off_to_pg(off))
++	if (idx > off_to_pg(cnt))
+ 		return 0;
+-	if (idx < off_to_pg(off))
++	if (idx < off_to_pg(cnt))
+ 		return PAGE_CACHE_SIZE;
+-	return off_to_pgoff(off);
++	return off_to_pgoff(cnt);
+ }
+ 
+-static inline unsigned
+-off_to_count(loff_t off, unsigned long idx, struct inode *inode)
++/* how many bytes of file of size @cnt can be contained
++   in logical cluster of index @idx */
++static inline unsigned cnt_to_clcnt(loff_t cnt, cloff_t idx,
++				    struct inode *inode)
+ {
+-	if (idx > off_to_clust(off, inode))
++	if (idx > off_to_clust(cnt, inode))
+ 		return 0;
+-	if (idx < off_to_clust(off, inode))
++	if (idx < off_to_clust(cnt, inode))
+ 		return inode_cluster_size(inode);
+-	return off_to_cloff(off, inode);
++	return off_to_cloff(cnt, inode);
+ }
+ 
+ static inline unsigned
+@@ -168,7 +161,7 @@ fsize_to_count(reiser4_cluster_t * clust
+ 	assert("edward-288", clust != NULL);
+ 	assert("edward-289", inode != NULL);
+ 
+-	return off_to_count(inode->i_size, clust->index, inode);
++	return cnt_to_clcnt(inode->i_size, clust->index, inode);
+ }
+ 
+ static inline int
+diff -puN fs/reiser4/plugin/compress/compress.c~reiser4-bugfix-patch fs/reiser4/plugin/compress/compress.c
+--- devel/fs/reiser4/plugin/compress/compress.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/compress/compress.c	2006-01-04 01:05:33.000000000 -0800
+@@ -394,7 +394,7 @@ compression_plugin compression_plugins[L
+ 			.id = LZO1_NO_COMPRESSION_ID,
+ 			.pops = &compression_plugin_ops,
+ 			.label = "lzo1_no",
+-			.desc = "lzo1 no compression transform",
++			.desc = "Disable lzo1 compression transform",
+ 			.linkage = {NULL, NULL}
+ 		},
+ 		.dual = LZO1_COMPRESSION_ID,
+@@ -432,7 +432,7 @@ compression_plugin compression_plugins[L
+ 			.id = GZIP1_NO_COMPRESSION_ID,
+ 			.pops = &compression_plugin_ops,
+ 			.label = "gzip1_no",
+-			.desc =	"gzip1 no compression transform",
++			.desc =	"Disable gzip1 compression transform",
+ 			.linkage = {NULL, NULL}
+ 		},
+ 		.dual = GZIP1_COMPRESSION_ID,
+@@ -444,25 +444,6 @@ compression_plugin compression_plugins[L
+ 		.checksum = NULL,
+ 		.compress = NULL,
+ 		.decompress = gzip1_decompress
+-	},
+-	[NONE_COMPRESSION_ID] = {
+-		.h = {
+-			.type_id = REISER4_COMPRESSION_PLUGIN_TYPE,
+-			.id = NONE_COMPRESSION_ID,
+-			.pops = &compression_plugin_ops,
+-			.label = "none",
+-			.desc = "No compression transform",
+-			.linkage = {NULL, NULL}
+-		},
+-		.dual = NONE_COMPRESSION_ID,
+-		.init = NULL,
+-		.overrun = NULL,
+-		.alloc = NULL,
+-		.free = NULL,
+-		.min_size_deflate = NULL,
+-		.checksum = NULL,
+-		.compress = NULL,
+-		.decompress = NULL
+ 	}
+ };
+ 
+diff -puN fs/reiser4/plugin/compress/compress.h~reiser4-bugfix-patch fs/reiser4/plugin/compress/compress.h
+--- devel/fs/reiser4/plugin/compress/compress.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/compress/compress.h	2006-01-04 01:05:33.000000000 -0800
+@@ -17,7 +17,6 @@ typedef enum {
+ 	LZO1_NO_COMPRESSION_ID,
+ 	GZIP1_COMPRESSION_ID,
+ 	GZIP1_NO_COMPRESSION_ID,
+-	NONE_COMPRESSION_ID,
+ 	LAST_COMPRESSION_ID,
+ } reiser4_compression_id;
+ 
+diff -puN fs/reiser4/plugin/compress/compress_mode.c~reiser4-bugfix-patch fs/reiser4/plugin/compress/compress_mode.c
+--- devel/fs/reiser4/plugin/compress/compress_mode.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/compress/compress_mode.c	2006-01-04 01:05:33.000000000 -0800
+@@ -1,18 +1,31 @@
+ /* Copyright 2001, 2002, 2003 by Hans Reiser, licensing governed by reiser4/README */
++/* This file contains Reiser4 compression mode plugins.
+ 
+-/* reiser4 compression mode plugin (used by cryptcompress object plugin) */
+-
++   Compression mode plugin is a set of handlers called by compressor
++   at flush time and represent some heuristics including the ones
++   which are to avoid compression of incompressible data, see
++   http://www.namesys.com/cryptcompress_design.html for more details.
++*/
+ #include "../../inode.h"
+ #include "../plugin.h"
+ 
+-/* plugin->should_deflate() */
+-static int should_deflate_test(cloff_t index)
++static int should_deflate_test(struct inode * inode, cloff_t index)
+ {
+ 	return !test_bit(0, &index);
+ }
+ 
+-/* plugin->discard_hook() */
+-static int discard_nocond(struct inode *inode, cloff_t index)
++static int should_deflate_none(struct inode * inode, cloff_t index)
++{
++	return 0;
++}
++
++static int should_deflate_common(struct inode * inode, cloff_t index)
++{
++	return inode_compression_plugin(inode)->compress != NULL;
++}
++
++/* generic turn on/off compression */
++int switch_compression(struct inode *inode)
+ {
+ 	int result;
+ 
+@@ -27,40 +40,102 @@ static int discard_nocond(struct inode *
+ 	return 0;
+ }
+ 
+-static int discard_first(struct inode *inode, cloff_t index)
++static int switch_compression_on_zero(struct inode *inode, cloff_t index)
+ {
+ 	assert("edward-1308", inode != NULL);
++	return (index ? 0 : switch_compression(inode));
++}
+ 
+-	return (index ? 0 : discard_nocond(inode, index));
++static int turn_off_compression(struct inode *inode, cloff_t index)
++{
++	return (inode_compression_plugin(inode)->compress ?
++		switch_compression(inode) : 0);
+ }
+ 
++static int turn_on_compression(struct inode *inode, cloff_t index)
++{
++	return (inode_compression_plugin(inode)->compress ?
++		0 : switch_compression(inode));
++}
++
++/* Check on lattice (COL) of some sparseness factor,
++   the family of adaptive compression modes which define
++   the following behavior:
++
++   Compression is on: try to compress everything and turn
++   it off, whenever cluster is incompressible.
++
++   Compression is off: try to compress clusters of indexes
++   k * FACTOR (k = 0, 1, 2, ...) and turn it on, if some of
++   them is compressible. */
++
++/* check if @index belongs to one-dimensional lattice
++   of sparce factor @factor */
++static int check_on_lattice(cloff_t index, int factor)
++{
++	return (factor ? index % factor == 0: index == 0);
++}
++
++#define DEFINE_CHECK_ON_LATTICE(FACTOR)                                 \
++	static int check_on_lattice_ ## FACTOR (struct inode * inode,   \
++						cloff_t index)		\
++{                                                                       \
++	return should_deflate_common(inode, index) ||			\
++		check_on_lattice(index, FACTOR);			\
++}
++
++#define SUPPORT_COL_COMPRESSION_MODE(FACTOR, LABEL)                     \
++[COL_ ## FACTOR ## _COMPRESSION_MODE_ID] = {                            \
++	.h = {                                                          \
++		.type_id = REISER4_COMPRESSION_MODE_PLUGIN_TYPE,        \
++		.id = COL_ ## FACTOR ## _COMPRESSION_MODE_ID,           \
++		.pops = NULL,                                           \
++		.label = LABEL,                                         \
++		.desc = LABEL,                                          \
++		.linkage = {NULL, NULL}                                 \
++	},                                                              \
++	.should_deflate = check_on_lattice_ ## FACTOR,                  \
++	.accept_hook =  turn_on_compression,                            \
++	.discard_hook = turn_off_compression                            \
++}
++
++DEFINE_CHECK_ON_LATTICE(8)
++DEFINE_CHECK_ON_LATTICE(16)
++DEFINE_CHECK_ON_LATTICE(32)
++
+ /* compression mode_plugins */
+ compression_mode_plugin compression_mode_plugins[LAST_COMPRESSION_MODE_ID] = {
+-	[SMART_COMPRESSION_MODE_ID] = {
++	[NONE_COMPRESSION_MODE_ID] = {
+ 		.h = {
+ 			.type_id = REISER4_COMPRESSION_MODE_PLUGIN_TYPE,
+-			.id = SMART_COMPRESSION_MODE_ID,
++			.id = NONE_COMPRESSION_MODE_ID,
+ 			.pops = NULL,
+-			.label = "if-0-compressible",
+-			.desc = "If-first-cluster-compressible heuristic",
++			.label = "none",
++			.desc = "Don't compress",
+ 			.linkage = {NULL, NULL}
+ 		},
+-		.should_deflate = NULL,
++		.should_deflate = should_deflate_none,
+ 		.accept_hook = NULL,
+-		.discard_hook = discard_first
++		.discard_hook = NULL
+ 	},
+-	[LAZY_COMPRESSION_MODE_ID] = {
++	/* Check-on-lattice adaptive compression modes */
++	SUPPORT_COL_COMPRESSION_MODE(8, "col8"),
++	SUPPORT_COL_COMPRESSION_MODE(16, "col16"),
++	SUPPORT_COL_COMPRESSION_MODE(32, "col32"),
++	/* Turn off compression if logical cluster of index == 0
++	   is incompressible, then don't check anymore */
++	[COZ_COMPRESSION_MODE_ID] = {
+ 		.h = {
+ 			.type_id = REISER4_COMPRESSION_MODE_PLUGIN_TYPE,
+-			.id = LAZY_COMPRESSION_MODE_ID,
++			.id = COZ_COMPRESSION_MODE_ID,
+ 			.pops = NULL,
+-			.label = "if-all-compressible",
+-			.desc = "If-all-compressible heuristic",
++			.label = "coz",
++			.desc = "Check on zero",
+ 			.linkage = {NULL, NULL}
+ 		},
+-		.should_deflate = NULL,
++		.should_deflate = should_deflate_common,
+ 		.accept_hook = NULL,
+-		.discard_hook = discard_nocond
++		.discard_hook = switch_compression_on_zero
+ 	},
+ 	[FORCE_COMPRESSION_MODE_ID] = {
+ 		.h = {
+@@ -80,7 +155,7 @@ compression_mode_plugin compression_mode
+ 			.type_id = REISER4_COMPRESSION_MODE_PLUGIN_TYPE,
+ 			.id = TEST_COMPRESSION_MODE_ID,
+ 			.pops = NULL,
+-			.label = "test",	/* This mode is only for benchmarks */
++			.label = "test", /* This mode is for benchmarks only */
+ 			.desc = "Don't compress odd clusters",
+ 			.linkage = {NULL, NULL}
+ 		},
+diff -puN fs/reiser4/plugin/file/cryptcompress.c~reiser4-bugfix-patch fs/reiser4/plugin/file/cryptcompress.c
+--- devel/fs/reiser4/plugin/file/cryptcompress.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/file/cryptcompress.c	2006-01-04 01:05:33.000000000 -0800
+@@ -9,6 +9,7 @@
+ #include "../object.h"
+ #include "../../tree_walk.h"
+ #include "funcs.h"
++#include "cryptcompress.h"
+ 
+ #include <asm/scatterlist.h>
+ #include <linux/pagevec.h>
+@@ -85,6 +86,7 @@ crypto_stat_t * alloc_crypto_stat (struc
+ 	crypto_stat_t * info;
+ 	int fipsize;
+ 
++	assert("edward-1421", 0);
+ 	info = kmalloc(sizeof(*info), GFP_KERNEL);
+ 	if (!info)
+ 		return ERR_PTR(-ENOMEM);
+@@ -161,6 +163,7 @@ static int create_keyid (crypto_stat_t *
+ 	struct crypto_tfm * ctfm;
+ 	struct scatterlist sg;
+ 
++	assert("edward-1422", 0);
+ 	assert("edward-1367", info != NULL);
+ 	assert("edward-1368", info->keyid != NULL);
+ 
+@@ -415,12 +418,8 @@ inode_set_compression(struct inode * obj
+ static void
+ inode_set_compression_mode(struct inode * object)
+ {
+-	compression_mode_plugin * mplug;
+ 	reiser4_inode * info = reiser4_inode_data(object);
+ 
+-	mplug = inode_compression_mode_plugin(object);
+-
+-	plugin_set_compression_mode(&info->pset, mplug);
+ 	info->plugin_mask |= (1 << PSET_COMPRESSION_MODE);
+ 	return;
+ }
+@@ -437,7 +436,8 @@ static int inode_set_cluster(struct inod
+ 
+ 	if (cplug->shift < PAGE_CACHE_SHIFT) {
+ 		warning("edward-1320",
+-			"Can not support cluster size %p", cplug->h.label);
++			"Can not support %p clusters (less then page size)",
++			cplug->h.label);
+ 		return RETERR(-EINVAL);
+ 	}
+ 	info->plugin_mask |= (1 << PSET_CLUSTER);
+@@ -862,17 +862,19 @@ static int deflate_overhead(struct inode
+ 		checksum ? DC_CHECKSUM_SIZE : 0);
+ }
+ 
+-/* to estimate size of allocating transform stream */
+-static unsigned deflate_overrun(struct inode *inode, int in_len)
++static unsigned deflate_overrun(struct inode * inode, int ilen)
+ {
+-	return (inode_compression_plugin(inode)->overrun != NULL ?
+-		inode_compression_plugin(inode)->overrun(in_len) :
+-		0);
++	return max_count
++		(coa_overrun(inode_compression_plugin(inode), ilen),
++		 coa_overrun(dual_compression_plugin
++			     (inode_compression_plugin(inode)), ilen));
+ }
+ 
+-/* Estimating compressibility of a logical cluster.
+-   This is a sanity check which uses various policies represented by
+-   compression mode plugin. */
++/* Estimating compressibility of a logical cluster by various
++   policies represented by compression mode plugin.
++   If this returns false, then compressor won't be called for
++   the cluster of index @index.
++*/
+ static int try_compress(tfm_cluster_t * tc, cloff_t index, struct inode *inode)
+ {
+ 	compression_plugin *cplug = inode_compression_plugin(inode);
+@@ -882,19 +884,18 @@ static int try_compress(tfm_cluster_t * 
+ 	assert("edward-1322", cplug != NULL);
+ 	assert("edward-1323", mplug != NULL);
+ 
+-	return (cplug->compress != NULL) &&
+-		/* estimate by size */
+-		(cplug->min_size_deflate != NULL ?
++	return /* estimate by size */
++		(cplug->min_size_deflate ?
+ 		 tc->len >= cplug->min_size_deflate() :
+ 		 1) &&
+ 		/* estimate by content */
+-		(mplug->should_deflate != NULL ?
+-		 mplug->should_deflate(index) :
++		(mplug->should_deflate ?
++		 mplug->should_deflate(inode, index) :
+ 		 1);
+ }
+ 
+-/* Evaluating the results of compression transform.
+-   Returns true, if we need to accept the    */
++/* Evaluating results of compression transform.
++   Returns true, if we need to accept this results */
+ static int
+ save_compressed(int size_before, int size_after, struct inode * inode)
+ {
+@@ -1025,14 +1026,28 @@ int deflate_cluster(reiser4_cluster_t * 
+ 			inode_compression_mode_plugin(inode);
+ 		assert("edward-602", coplug != NULL);
+ 
++		if (coplug->compress == NULL)
++			coplug = dual_compression_plugin(coplug);
++		assert("edward-1423", coplug->compress != NULL);
++
++		result = grab_coa(tc, coplug);
++		if (result) {
++		    warning("edward-1424",
++			    "alloc_coa failed with ret=%d, skipped compression",
++			    result);
++		    goto cipher;
++		}
+ 		result = grab_tfm_stream(inode, tc, OUTPUT_STREAM);
+-		if (result)
+-			return result;
++		if (result) {
++		    warning("edward-1425",
++			 "alloc stream failed with ret=%d, skipped compression",
++			    result);
++		    goto cipher;
++		}
+ 		dst_len = tfm_stream_size(tc, OUTPUT_STREAM);
+ 		coplug->compress(get_coa(tc, coplug->h.id),
+ 				 tfm_input_data(clust), tc->len,
+ 				 tfm_output_data(clust), &dst_len);
+-
+ 		/* make sure we didn't overwrite extra bytes */
+ 		assert("edward-603",
+ 		       dst_len <= tfm_stream_size(tc, OUTPUT_STREAM));
+@@ -1041,27 +1056,36 @@ int deflate_cluster(reiser4_cluster_t * 
+ 		if (save_compressed(tc->len, dst_len, inode)) {
+ 			/* good result, accept */
+ 			tc->len = dst_len;
+-			if (mplug->accept_hook != NULL)
+-				mplug->accept_hook(inode);
++			if (mplug->accept_hook != NULL) {
++			       result = mplug->accept_hook(inode, clust->index);
++			       if (result)
++				       warning("edward-1426",
++					       "accept_hook failed with ret=%d",
++					       result);
++			}
+ 			compressed = 1;
+ 		}
+ 		else {
+ 			/* bad result, discard */
+ #if REISER4_DEBUG
+-			warning("edward-1338",
+-				"incompressible data: inode %llu, cluster %lu",
+-				(unsigned long long)get_inode_oid(inode),
+-				clust->index);
++			if (cluster_is_complete(clust, inode))
++			      warning("edward-1338",
++				      "incompressible cluster %lu (inode %llu)",
++				      clust->index,
++				      (unsigned long long)get_inode_oid(inode));
+ #endif
+ 			if (mplug->discard_hook != NULL &&
+ 			    cluster_is_complete(clust, inode)) {
+ 				result = mplug->discard_hook(inode,
+ 							     clust->index);
+ 				if (result)
+-					return result;
++				      warning("edward-1427",
++					      "discard_hook failed with ret=%d",
++					      result);
+ 			}
+ 		}
+ 	}
++ cipher:
+ 	if (need_cipher(inode)) {
+ 		cipher_plugin * ciplug;
+ 		struct crypto_tfm * tfm;
+@@ -1191,6 +1215,7 @@ int readpage_cryptcompress(struct file *
+ 		return PTR_ERR(ctx);
+ 	result = check_cryptcompress(page->mapping->host);
+ 	if (result) {
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return result;
+ 	}
+@@ -1200,7 +1225,6 @@ int readpage_cryptcompress(struct file *
+ 
+ 	if (PageUptodate(page)) {
+ 		warning("edward-1338", "page is already uptodate\n");
+-		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return 0;
+ 	}
+@@ -1208,12 +1232,14 @@ int readpage_cryptcompress(struct file *
+ 	clust.file = file;
+ 	iplug = item_plugin_by_id(CTAIL_ID);
+ 	if (!iplug->s.file.readpage) {
++		unlock_page(page);
+ 		put_cluster_handle(&clust);
+ 		reiser4_exit_context(ctx);
+ 		return -EINVAL;
+ 	}
+ 	result = iplug->s.file.readpage(&clust, page);
+-
++	if (result)
++		unlock_page(page);
+ 	assert("edward-64",
+ 	       ergo(result == 0, (PageLocked(page) || PageUptodate(page))));
+ 	put_cluster_handle(&clust);
+@@ -1221,7 +1247,6 @@ int readpage_cryptcompress(struct file *
+ 	return result;
+ }
+ 
+-#if 0
+ /* plugin->readpages() */
+ void
+ readpages_cryptcompress(struct file *file, struct address_space *mapping,
+@@ -1245,7 +1270,6 @@ readpages_cryptcompress(struct file *fil
+ 
+ 	return;
+ }
+-#endif  /*  0  */
+ 
+ /* how much pages will be captured */
+ static int cluster_nrpages_to_capture(reiser4_cluster_t * clust)
+@@ -1271,20 +1295,12 @@ static void set_cluster_pages_dirty(reis
+ 	for (i = 0; i < nrpages; i++) {
+ 
+ 		pg = clust->pages[i];
+-
+ 		assert("edward-968", pg != NULL);
+-
+ 		lock_page(pg);
+-
+ 		assert("edward-1065", PageUptodate(pg));
+-
+ 		set_page_dirty_internal(pg);
+-
+-		if (!PageReferenced(pg))
+-			SetPageReferenced(pg);
+-		mark_page_accessed(pg);
+-
+ 		unlock_page(pg);
++		mark_page_accessed(pg);
+ 	}
+ }
+ 
+@@ -1349,9 +1365,10 @@ static void inode_set_new_size(reiser4_c
+ 	return;
+ }
+ 
+-/* . reserve space for a disk cluster if its jnode is not dirty;
+-   . update set of pages referenced by this jnode
+-   . update jnode's counter of referenced pages (excluding first one)
++/* Check in page cluster modifications.
++   . Make jnode dirty, if it wasn't;
++   . Reserve space for a disk cluster update by flush algorithm, if needed;
++   . Clean up extra-references of cluster pages.
+ */
+ static void
+ make_cluster_jnode_dirty_locked(reiser4_cluster_t * clust, jnode * node,
+@@ -1372,11 +1389,11 @@ make_cluster_jnode_dirty_locked(reiser4_
+ 	if (JF_ISSET(node, JNODE_DIRTY)) {
+ 		/* there are >= 1 pages already referenced by this jnode */
+ 		assert("edward-973",
+-		       count_to_nrpages(off_to_count
++		       count_to_nrpages(cnt_to_clcnt
+ 					(*old_isize, clust->index, inode)));
+ 		old_refcnt =
+-		    count_to_nrpages(off_to_count
+-				     (*old_isize, clust->index, inode)) - 1;
++			count_to_nrpages(cnt_to_clcnt
++					 (*old_isize, clust->index, inode)) - 1;
+ 		/* space for the disk cluster is already reserved */
+ 
+ 		free_reserved4cluster(inode, clust,
+@@ -1417,9 +1434,9 @@ make_cluster_jnode_dirty_locked(reiser4_
+ 	return;
+ }
+ 
+-/* This is the interface to capture page cluster.
+-   All the cluster pages contain dependent modifications
+-   and should be committed at the same time */
++/* This function spawns a transaction and
++   is called by any thread as a final step in page cluster modification.
++*/
+ static int try_capture_cluster(reiser4_cluster_t * clust, struct inode *inode)
+ {
+ 	int result = 0;
+@@ -1451,7 +1468,12 @@ static int try_capture_cluster(reiser4_c
+ 	return result;
+ }
+ 
+-/* Collect unlocked cluster pages and jnode */
++/* Collect unlocked cluster pages for any modifications and attach a jnode.
++   We allocate only one jnode per cluster, this jnode is binded to the first
++   page of this cluster.
++   All extra-references will be released under jnode lock in
++   make_cluster_jnode_dirty_locked() when spawning a transaction.
++*/
+ static int
+ grab_cluster_pages_jnode(struct inode *inode, reiser4_cluster_t * clust)
+ {
+@@ -1502,12 +1524,14 @@ grab_cluster_pages_jnode(struct inode *i
+ 	return 0;
+ }
+ 
+-/* collect unlocked cluster pages */
++/* Collect unlocked cluster pages by any thread wich won't modify it. */
+ static int grab_cluster_pages(struct inode *inode, reiser4_cluster_t * clust)
+ {
+ 	int i;
+ 	int result = 0;
+ 
++	assert("edward-1428", inode != NULL);
++	assert("edward-1429", inode->i_mapping != NULL);
+ 	assert("edward-787", clust != NULL);
+ 	assert("edward-788", clust->pages != NULL);
+ 	assert("edward-789", clust->nr_pages != 0);
+@@ -1558,7 +1582,7 @@ int jnode_of_cluster(const jnode * node,
+ 	return 0;
+ }
+ 
+-/* put cluster pages */
++/* put cluster pages starting from @from */
+ static void release_cluster_pages(reiser4_cluster_t * clust, int from)
+ {
+ 	int i;
+@@ -1736,8 +1760,8 @@ void forget_cluster_pages(struct page **
+ 	}
+ }
+ 
+-/* Prepare input stream for transform operations.
+-   Try to do it in one step. Return -E_REPEAT when it is
++/* Check out last modifications we are about to commit.
++   Prepare input stream for transform operations, return -E_REPEAT, if it is
+    impossible because of races with concurrent processes.
+ */
+ int
+@@ -1756,6 +1780,12 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 	assert("edward-241", schedulable());
+ 	assert("edward-718", crc_inode_ok(inode));
+ 
++	result = grab_tfm_stream(inode, tc, INPUT_STREAM);
++	if (result) {
++		warning("edward-1430",
++			"alloc stream failed with ret=%d", result);
++		return result;
++	}
+ 	spin_lock_jnode(node);
+ 
+ 	if (!JF_ISSET(node, JNODE_DIRTY)) {
+@@ -1769,6 +1799,8 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 			clust->index, (unsigned long long)get_inode_oid(inode));
+ 		return RETERR(-E_REPEAT);
+ 	}
++	/* Check out a size of logical cluster and
++	   calculate a number of cluster pages to commit. */
+ 	tc->len = tc->lsize = fsize_to_count(clust, inode);
+ 	clust->nr_pages = count_to_nrpages(tc->len);
+ 
+@@ -1779,23 +1811,14 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 	cluster_reserved2grabbed(estimate_update_cluster(inode));
+ 	uncapture_cluster_jnode(node);
+ 
+-	/* Try to create input stream for the found size (tc->len).
+-	   Starting from this point the page cluster can be modified
+-	   (truncated, appended) by concurrent processes, so we need
+-	   to worry if the constructed stream is valid */
+-
+ 	assert("edward-1224", schedulable());
+-
+-	result = grab_tfm_stream(inode, tc, INPUT_STREAM);
+-	if (result)
+-		return result;
+-
++	/* Check out cluster pages to commit */
+ 	nr_pages =
+-	    find_get_pages(inode->i_mapping, clust_to_pg(clust->index, inode),
+-			   clust->nr_pages, clust->pages);
++	      find_get_pages(inode->i_mapping, clust_to_pg(clust->index, inode),
++			     clust->nr_pages, clust->pages);
+ 
+ 	if (nr_pages != clust->nr_pages) {
+-		/* the page cluster get truncated, try again */
++		/* the page cluster got truncated, try again */
+ 		assert("edward-1280", nr_pages < clust->nr_pages);
+ 		warning("edward-1281", "Page cluster of index %lu (inode %llu)"
+ 			" get truncated from %u to %u pages\n",
+@@ -1805,6 +1828,10 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 		forget_cluster_pages(clust->pages, nr_pages);
+ 		return RETERR(-E_REPEAT);
+ 	}
++	/* Try to construct input stream from the checked out cluster pages.
++	   Note, that the last ones can be modified (truncated, appended) by
++	   concurrent processes, so we need to worry this is not mucked up
++	   so the constructed stream became invalid */
+ 	for (i = 0; i < clust->nr_pages; i++) {
+ 		char *data;
+ 
+@@ -1813,7 +1840,7 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 		if (clust->pages[i]->index !=
+ 		    clust_to_pg(clust->index, inode) + i) {
+ 			/* holes in the indices of found group of pages:
+-			   page cluster get truncated, transform impossible */
++			   page cluster got truncated, transform impossible */
+ 			warning("edward-1282",
+ 				"Hole in the indices: "
+ 				"Page %d in the cluster of index %lu "
+@@ -1827,7 +1854,7 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 			goto finish;
+ 		}
+ 		if (!PageUptodate(clust->pages[i])) {
+-			/* page cluster get truncated, transform impossible */
++			/* page cluster got truncated, transform impossible */
+ 			assert("edward-1283", !PageDirty(clust->pages[i]));
+ 			warning("edward-1284",
+ 				"Page of index %lu (inode %llu) "
+@@ -1842,10 +1869,10 @@ flush_cluster_pages(reiser4_cluster_t * 
+ 		lock_page(clust->pages[i]);
+ 		data = kmap(clust->pages[i]);
+ 
+-		assert("edward-986", off_to_pgcount(tc->len, i) != 0);
++		assert("edward-986", cnt_to_pgcnt(tc->len, i) != 0);
+ 
+ 		memcpy(tfm_stream_data(tc, INPUT_STREAM) + pg_to_off(i),
+-		       data, off_to_pgcount(tc->len, i));
++		       data, cnt_to_pgcnt(tc->len, i));
+ 		kunmap(clust->pages[i]);
+ 		unlock_page(clust->pages[i]);
+ 	}
+@@ -2264,7 +2291,7 @@ read_some_cluster_pages(struct inode *in
+ 			       tfm_cluster_is_uptodate(&clust->tc));
+ 		}
+ 		lock_page(pg);
+-		result = do_readpage_ctail(clust, pg);
++		result = do_readpage_ctail(inode, clust, pg);
+ 		unlock_page(pg);
+ 		assert("edward-993", !result);
+ 		if (result) {
+@@ -2424,7 +2451,7 @@ void truncate_page_cluster(struct inode 
+ 	}
+ 	/* jnode is present and may be dirty, if so, put
+ 	   all the cluster pages except the first one */
+-	nr_pages = count_to_nrpages(off_to_count(inode->i_size, index, inode));
++	nr_pages = count_to_nrpages(cnt_to_clcnt(inode->i_size, index, inode));
+ 
+ 	found = find_get_pages(inode->i_mapping, clust_to_pg(index, inode),
+ 			       nr_pages, pages);
+@@ -2524,9 +2551,8 @@ prepare_cluster(struct inode *inode,
+ 	free_reserved4cluster(inode, clust,
+ 			      estimate_update_cluster(inode));
+       err1:
+-	page_cache_release(clust->pages[0]);
+ 	release_cluster_pages_and_jnode(clust);
+-	assert("edward-1125", 0);
++	assert("edward-1125", result == -ENOSPC);
+ 	return result;
+ }
+ 
+@@ -2698,7 +2724,7 @@ write_cryptcompress_flow(struct file *fi
+ 		     i < count_to_nrpages(win.off + win.count);
+ 		     i++, src += page_count) {
+ 			page_count =
+-			    off_to_pgcount(win.off + win.count, i) - page_off;
++			    cnt_to_pgcnt(win.off + win.count, i) - page_off;
+ 
+ 			assert("edward-1039",
+ 			       page_off + page_count <= PAGE_CACHE_SIZE);
+@@ -2712,7 +2738,7 @@ write_cryptcompress_flow(struct file *fi
+ 			if (unlikely(result)) {
+ 				unlock_page(clust.pages[i]);
+ 				result = -EFAULT;
+-				goto err3;
++				goto err2;
+ 			}
+ 			SetPageUptodate(clust.pages[i]);
+ 			unlock_page(clust.pages[i]);
+@@ -2744,8 +2770,6 @@ write_cryptcompress_flow(struct file *fi
+ 		assert("edward-755", hint->lh.owner == NULL);
+ 		reset_cluster_params(&clust);
+ 		continue;
+-	      err3:
+-		page_cache_release(clust.pages[0]);
+ 	      err2:
+ 		release_cluster_pages_and_jnode(&clust);
+ 	      err1:
+@@ -2792,8 +2816,6 @@ static ssize_t write_crc_file(struct fil
+ 	if (unlikely(count == 0))
+ 		return 0;
+ 
+-	/* FIXME-EDWARD: other UNIX features */
+-
+ 	down_write(&info->lock);
+ 	LOCK_CNT_INC(inode_sem_w);
+ 
+@@ -2932,15 +2954,6 @@ ssize_t read_cryptcompress(struct file *
+ 	return result;
+ }
+ 
+-static void
+-set_append_cluster_key(const coord_t * coord, reiser4_key * key,
+-		       struct inode *inode)
+-{
+-	item_key_by_coord(coord, key);
+-	set_key_offset(key,
+-		       clust_to_off(clust_by_coord(coord, inode) + 1, inode));
+-}
+-
+ /* If @index > 0, find real disk cluster of the index (@index - 1),
+    If @index == 0 find the real disk cluster of the object of maximal index.
+    Keep incremented index of the result in @found.
+@@ -2961,9 +2974,8 @@ find_real_disk_cluster(struct inode *ino
+ 	lookup_bias bias;
+ 	coord_t *coord;
+ 	item_plugin *iplug;
+-	file_plugin *fplug = inode_file_plugin(inode);
+ 
+-	assert("edward-1131", fplug == file_plugin_by_id(CRC_FILE_PLUGIN_ID));
++	assert("edward-1131", inode != NULL);
+ 	assert("edward-95", crc_inode_ok(inode));
+ 
+ 	hint = kmalloc(sizeof(*hint), GFP_KERNEL);
+@@ -2977,7 +2989,7 @@ find_real_disk_cluster(struct inode *ino
+ 	    (index ? clust_to_off(index, inode) -
+ 	     1 : get_key_offset(max_key()));
+ 
+-	fplug->key_by_inode(inode, offset, &key);
++	key_by_inode_cryptcompress(inode, offset, &key);
+ 
+ 	/* find the last item of this object */
+ 	result =
+@@ -3008,9 +3020,8 @@ find_real_disk_cluster(struct inode *ino
+ 	assert("edward-277", iplug == item_plugin_by_id(CTAIL_ID));
+ 	assert("edward-1202", ctail_ok(coord));
+ 
+-	set_append_cluster_key(coord, &key, inode);
+-
+-	*found = off_to_clust(get_key_offset(&key), inode);
++	item_key_by_coord(coord, &key);
++	*found = off_to_clust(get_key_offset(&key), inode) + 1;
+ 
+ 	assert("edward-1132", ergo(index, index == *found));
+ 
+@@ -3196,15 +3207,13 @@ cryptcompress_append_hole(struct inode *
+ 	result = alloc_cluster_pgset(&clust, cluster_nrpages(inode));
+ 	if (result)
+ 		goto out;
++	if (off_to_cloff(inode->i_size, inode) == 0)
++		goto fake_append;
+ 	hole_size = new_size - inode->i_size;
+ 	nr_zeroes =
+-	    min_count(inode_cluster_size(inode) -
+-		      off_to_cloff(inode->i_size, inode), hole_size);
+-	nr_zeroes +=
+-		(new_size % PAGE_CACHE_SIZE ?
+-		 PAGE_CACHE_SIZE - new_size % PAGE_CACHE_SIZE :
+-		 0);
+-
++		inode_cluster_size(inode) - off_to_cloff(inode->i_size, inode);
++	if (hole_size < nr_zeroes)
++		nr_zeroes = hole_size;
+ 	set_window(&clust, &win, inode, inode->i_size,
+ 		   inode->i_size + nr_zeroes);
+ 	win.stat = HOLE_WINDOW;
+@@ -3214,19 +3223,18 @@ cryptcompress_append_hole(struct inode *
+ 
+ 	result = prepare_cluster(inode, 0, 0, &clust, PCL_APPEND);
+ 
+-	assert("edward-1271", !result);
++	assert("edward-1271", !result || result == -ENOSPC);
+ 	if (result)
+ 		goto out;
+ 	assert("edward-1139",
+ 	       clust.dstat == PREP_DISK_CLUSTER ||
+ 	       clust.dstat == UNPR_DISK_CLUSTER);
+ 
+-	hole_size -= nr_zeroes;
+-	if (!hole_size)
+-		/* nothing to append anymore */
++	assert("edward-1431", hole_size >= nr_zeroes);
++	if (hole_size == nr_zeroes)
++	/* nothing to append anymore */
+ 		goto out;
+-
+-	/* fake_append: */
++      fake_append:
+ 	INODE_SET_FIELD(inode, i_size, new_size);
+       out:
+ 	done_lh(lh);
+@@ -3382,7 +3390,7 @@ prune_cryptcompress(struct inode *inode,
+ 	truncate_inode_pages(inode->i_mapping, new_size);
+ 	INODE_SET_FIELD(inode, i_size, new_size);
+       out:
+-	assert("edward-1334", !result);
++	assert("edward-1334", !result || result == -ENOSPC);
+ 	assert("edward-1209",
+ 	       pages_truncate_ok(inode, old_size, count_to_nrpages(new_size)));
+ 	assert("edward-1335",
+@@ -3657,7 +3665,6 @@ int mmap_cryptcompress(struct file *file
+ /* plugin->u.file.release */
+ /* plugin->u.file.get_block */
+ 
+-#if 0
+ /* implentation of vfs' bmap method of struct address_space_operations for
+    cryptcompress plugin
+ */
+@@ -3667,7 +3674,7 @@ sector_t bmap_cryptcompress(struct addre
+ 	sector_t block;
+ 
+ 	inode = mapping->host;
+-	if (off_to_cloff ((loff_t)block * current_blocksize, inode))
++	if (off_to_cloff ((loff_t)lblock * current_blocksize, inode))
+ 		/* mapping not cluster offsets is meaningless */
+ 		return RETERR(-EINVAL);
+ 	else {
+@@ -3720,7 +3727,6 @@ sector_t bmap_cryptcompress(struct addre
+ 		return result;
+ 	}
+ }
+-#endif  /*  0  */
+ 
+ /* this is implementation of delete method of file plugin for
+    cryptcompress objects */
+@@ -3847,6 +3853,22 @@ sendfile_cryptcompress(struct file *file
+ 	return result;
+ }
+ 
++/*
++ * release_cryptcompress - release of struct file_operations
++ * @inode: inode of released file
++ * @file: file to release
++ */
++int release_cryptcompress(struct inode *inode, struct file *file)
++{
++	reiser4_context *ctx = init_context(inode->i_sb);
++
++	if (IS_ERR(ctx))
++		return PTR_ERR(ctx);
++	reiser4_free_file_fsdata(file);
++	reiser4_exit_context(ctx);
++	return 0;
++}
++
+ static int
+ save_len_cryptcompress_plugin(struct inode *inode, reiser4_plugin * plugin)
+ {
+@@ -3888,7 +3910,7 @@ struct reiser4_plugin_ops cryptcompress_
+   mode-name: "LC"
+   c-basic-offset: 8
+   tab-width: 8
+-  fill-column: 120
++  fill-column: 80
+   scroll-step: 1
+   End:
+ */
+diff -puN fs/reiser4/plugin/file/cryptcompress.h~reiser4-bugfix-patch fs/reiser4/plugin/file/cryptcompress.h
+--- devel/fs/reiser4/plugin/file/cryptcompress.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/file/cryptcompress.h	2006-01-04 01:05:33.000000000 -0800
+@@ -16,6 +16,16 @@
+ #define MAX_CLUSTER_NRPAGES (1U << MAX_CLUSTER_SHIFT >> PAGE_CACHE_SHIFT)
+ #define DC_CHECKSUM_SIZE 4
+ 
++static inline loff_t min_count(loff_t a, loff_t b)
++{
++	return (a < b ? a : b);
++}
++
++static inline loff_t max_count(loff_t a, loff_t b)
++{
++	return (a > b ? a : b);
++}
++
+ #if REISER4_DEBUG
+ static inline int cluster_shift_ok(int shift)
+ {
+@@ -150,6 +160,13 @@ alloc_coa(tfm_cluster_t * tc, compressio
+ 	return 0;
+ }
+ 
++static inline int
++grab_coa(tfm_cluster_t * tc, compression_plugin * cplug)
++{
++	return (cplug->alloc && !get_coa(tc, cplug->h.id) ?
++		alloc_coa(tc, cplug) : 0);
++}
++
+ static inline void free_coa_set(tfm_cluster_t * tc)
+ {
+ 	reiser4_compression_id i;
+@@ -230,6 +247,11 @@ static inline void free_tfm_stream(tfm_c
+ 	set_tfm_stream(tc, id, 0);
+ }
+ 
++static inline unsigned coa_overrun(compression_plugin * cplug, int ilen)
++{
++	return (cplug->overrun != NULL ? cplug->overrun(ilen) : 0);
++}
++
+ static inline void free_tfm_unit(tfm_cluster_t * tc)
+ {
+ 	tfm_stream_id id;
+@@ -382,6 +404,7 @@ static inline void free_cluster_pgset(re
+ {
+ 	assert("edward-951", clust->pages != NULL);
+ 	kfree(clust->pages);
++	clust->pages = NULL;
+ }
+ 
+ static inline void put_cluster_handle(reiser4_cluster_t * clust)
+@@ -424,7 +447,8 @@ int host_allows_crypto_stat(struct inode
+ int crc_inode_ok(struct inode *inode);
+ int jnode_of_cluster(const jnode * node, struct page * page);
+ extern int ctail_read_disk_cluster (reiser4_cluster_t *, struct inode *, int);
+-extern int do_readpage_ctail(reiser4_cluster_t *, struct page * page);
++extern int do_readpage_ctail(struct inode *, reiser4_cluster_t *,
++			     struct page * page);
+ extern int ctail_insert_unprepped_cluster(reiser4_cluster_t * clust,
+ 					  struct inode * inode);
+ int bind_cryptcompress(struct inode *child, struct inode *parent);
+@@ -440,6 +464,8 @@ void detach_crypto_stat(struct inode * i
+ void change_crypto_stat(struct inode * inode, crypto_stat_t * new);
+ int can_inherit_crypto_crc(struct inode *child, struct inode *parent);
+ crypto_stat_t * alloc_crypto_stat (struct inode * inode);
++int switch_compression(struct inode *inode);
++
+ 
+ static inline reiser4_tfma_t *
+ info_get_tfma (crypto_stat_t * info, reiser4_tfm id)
+diff -puN fs/reiser4/plugin/file/file.c~reiser4-bugfix-patch fs/reiser4/plugin/file/file.c
+--- devel/fs/reiser4/plugin/file/file.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/file/file.c	2006-01-04 01:05:33.000000000 -0800
+@@ -1,10 +1,13 @@
+ /* Copyright 2001, 2002, 2003, 2004 by Hans Reiser, licensing governed by
+  * reiser4/README */
+ 
+-/* this file contains implementations of inode/file/address_space/file plugin
+-   operations specific for "unix file plugin" (plugin id is
+-   UNIX_FILE_PLUGIN_ID)
+-*/
++/*
++ * this file contains implementations of inode/file/address_space/file plugin
++ * operations specific for "unix file plugin" (plugin id is
++ * UNIX_FILE_PLUGIN_ID). "Unix file" is either built of tail items only
++ * (FORMATTING_ID) or of extent items only (EXTENT_POINTER_ID) or empty (have
++ * no items but stat data)
++ */
+ 
+ #include "../../inode.h"
+ #include "../../super.h"
+@@ -20,9 +23,6 @@
+ #include <linux/pagevec.h>
+ #include <linux/syscalls.h>
+ 
+-/* "Unix file" are built either of tail items only (FORMATTING_ID) or of extent
+-   items only (EXTENT_POINTER_ID) or empty (have no items but stat data)
+-*/
+ 
+ static int unpack(struct file *file, struct inode *inode, int forever);
+ 
+@@ -62,6 +62,13 @@ static void set_file_state_unknown(struc
+ 	unix_file_inode_data(inode)->container = UF_CONTAINER_UNKNOWN;
+ }
+ 
++/**
++ * less_than_ldk - compare key and znode's left delimiting key
++ * @node: node whose left delimiting key to compare with @key
++ * @key: key to compare with @node's left delimiting key
++ *
++ * Returns true if @key is less than left delimiting key of @node.
++ */
+ static int less_than_ldk(znode *node, const reiser4_key *key)
+ {
+ 	int result;
+@@ -72,6 +79,13 @@ static int less_than_ldk(znode *node, co
+ 	return result;
+ }
+ 
++/**
++ * equal_to_rdk - compare key and znode's right delimiting key
++ * @node: node whose right delimiting key to compare with @key
++ * @key: key to compare with @node's right delimiting key
++ *
++ * Returns true if @key is equal to right delimiting key of @node.
++ */
+ int equal_to_rdk(znode *node, const reiser4_key *key)
+ {
+ 	int result;
+@@ -84,7 +98,14 @@ int equal_to_rdk(znode *node, const reis
+ 
+ #if REISER4_DEBUG
+ 
+-static int less_than_rdk(znode * node, const reiser4_key * key)
++/**
++ * less_than_rdk - compare key and znode's right delimiting key
++ * @node: node whose right delimiting key to compare with @key
++ * @key: key to compare with @node's right delimiting key
++ *
++ * Returns true if @key is less than right delimiting key of @node.
++ */
++static int less_than_rdk(znode *node, const reiser4_key *key)
+ {
+ 	int result;
+ 
+@@ -94,7 +115,14 @@ static int less_than_rdk(znode * node, c
+ 	return result;
+ }
+ 
+-int equal_to_ldk(znode * node, const reiser4_key * key)
++/**
++ * equal_to_ldk - compare key and znode's left delimiting key
++ * @node: node whose left delimiting key to compare with @key
++ * @key: key to compare with @node's left delimiting key
++ *
++ * Returns true if @key is equal to left delimiting key of @node.
++ */
++int equal_to_ldk(znode *node, const reiser4_key *key)
+ {
+ 	int result;
+ 
+@@ -104,9 +132,16 @@ int equal_to_ldk(znode * node, const rei
+ 	return result;
+ }
+ 
+-/* get key of item next to one @coord is set to */
+-static reiser4_key *get_next_item_key(const coord_t * coord,
+-				      reiser4_key * next_key)
++/**
++ * get_next_item_key - get key of item next to the one @coord is set to
++ * @coord: left neighbor of item which key is to be calculated
++ * @next_key: where to store key of next item
++ *
++ * If @coord is set to last item in the node - return right delimiting key of
++ * coord->node. Otherwise - return key of next item in the node.
++ */
++static reiser4_key *get_next_item_key(const coord_t *coord,
++				      reiser4_key *next_key)
+ {
+ 	if (coord->item_pos == node_num_items(coord->node) - 1) {
+ 		/* get key of next item if it is in right neighbor */
+@@ -126,11 +161,12 @@ static reiser4_key *get_next_item_key(co
+ }
+ 
+ /**
+- * item_of_that_file
+- * @coord:
+- * @key:
++ * item_of_that_file - check whether item if of certain file
++ * @coord: item to check
++ * @key: key of position in a file
+  *
+- * Returns true if @key is a key of position if @coord is set to item of fileif item of file
++ * @key is key of position in a file. Returns true if @coord is set to an item
++ * of that file.
+  */
+ static int item_of_that_file(const coord_t *coord, const reiser4_key *key)
+ {
+@@ -142,12 +178,18 @@ static int item_of_that_file(const coord
+ 	return keylt(key, iplug->b.max_key_inside(coord, &max_possible));
+ }
+ 
+-static int check_coord(const coord_t * coord, const reiser4_key * key)
++/**
++ * check_coord - check whether coord corresponds to key
++ * @coord: coord to check
++ * @key: key @coord has to correspond to
++ *
++ * Returns true if @coord is set as if it was set as result of lookup with @key
++ * in coord->node.
++ */
++static int check_coord(const coord_t *coord, const reiser4_key *key)
+ {
+ 	coord_t twin;
+ 
+-	if (!REISER4_DEBUG)
+-		return 1;
+ 	node_plugin_by_node(coord->node)->lookup(coord->node, key,
+ 						 FIND_MAX_NOT_MORE_THAN, &twin);
+ 	return coords_equal(coord, &twin);
+@@ -163,9 +205,17 @@ static int file_is_empty(const struct in
+ 	return unix_file_inode_data(inode)->container == UF_CONTAINER_EMPTY;
+ }
+ 
+-#endif				/* REISER4_DEBUG */
++#endif /* REISER4_DEBUG */
+ 
+-static void init_uf_coord(uf_coord_t * uf_coord, lock_handle * lh)
++
++/**
++ * init_uf_coord - initialize extended coord
++ * @uf_coord:
++ * @lh:
++ *
++ *
++ */
++static void init_uf_coord(uf_coord_t *uf_coord, lock_handle *lh)
+ {
+ 	coord_init_zero(&uf_coord->coord);
+ 	coord_clear_iplug(&uf_coord->coord);
+@@ -611,7 +661,7 @@ int find_or_create_extent(struct page *p
+ 
+ static int filler(void *vp, struct page *page)
+ {
+-	return readpage_unix_file(vp, page);
++	return readpage_unix_file_nolock(vp, page);
+ }
+ 
+ /* part of truncate_file_body: it is called when truncate is used to make file
+@@ -1321,6 +1371,7 @@ capture_anonymous_jnodes(struct address_
+ 		return result;
+ 	return nr;
+ #else				/* REISER4_USE_EFLUSH */
++	*from = to;
+ 	return 0;
+ #endif
+ }
+@@ -1478,9 +1529,14 @@ static int commit_file_atoms(struct inod
+ 	return result;
+ }
+ 
+-/* reiser4 writepages() address space operation this captures anonymous pages
+-   and anonymous jnodes. Anonymous pages are pages which are dirtied via
+-   mmapping. Anonymous jnodes are ones which were created by reiser4_writepage
++/**
++ * writepages_unix_file - writepages of struct address_space_operations
++ * @mapping:
++ * @wbc:
++ *
++ * This captures anonymous pages and anonymous jnodes. Anonymous pages are
++ * pages which are dirtied via mmapping. Anonymous jnodes are ones which were
++ * created by reiser4_writepage.
+  */
+ int
+ writepages_unix_file(struct address_space *mapping,
+@@ -1502,9 +1558,9 @@ writepages_unix_file(struct address_spac
+ 	nr_pages =
+ 	    (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
+ 	uf_info = unix_file_inode_data(inode);
++
+ 	do {
+ 		reiser4_context *ctx;
+-		int dont_get_nea;
+ 
+ 		if (wbc->sync_mode != WB_SYNC_ALL)
+ 			to_capture = min(wbc->nr_to_write, CAPTURE_APAGE_BURST);
+@@ -1524,31 +1580,31 @@ writepages_unix_file(struct address_spac
+ 
+ 		txn_restart_current();
+ 
+-		/*
+-		 * suppose thread T1 has got nonexlusive access (NEA) on a file
+-		 * F, asked entd to flush to reclaim some memory and waits
+-		 * until entd completes. Another thread T2 tries to get
+-		 * exclusive access to file F. Then entd will deadlock on
+-		 * getting NEA to file F (because read-down request get blocked
+-		 * if there is write request in a queue in linux read-write
+-		 * semaphore implementation). To avoid this problem we make
+-		 * entd to not get NEA to F if it is obtained by T1.
+-		 */
+-		dont_get_nea = 0;
++		/* we have to get nonexclusive access to the file */
+ 		if (get_current_context()->entd) {
+-			entd_context *ent = get_entd_context(inode->i_sb);
+-
+-			if (ent->cur_request->caller != NULL &&
+-			    mapping == ent->cur_request->caller->vp)
+-				/*
+-				 * process which is waiting for entd has got
+-				 * NEA on a file we are about to capture pages
+-				 * of. Skip getting NEA therefore.
+-				 */
+-				dont_get_nea = 1;
+-		}
+-		if (dont_get_nea == 0)
++			/*
++			 * use nonblocking version of nonexclusive_access to
++			 * avoid deadlock which might look like the following:
++			 * process P1 holds NEA on file F1 and called entd to
++			 * reclaim some memory. Entd works for P1 and is going
++			 * to capture pages of file F2. To do that entd has to
++			 * get NEA to F2. F2 is held by process P2 which also
++			 * called entd. But entd is serving P1 at the moment
++			 * and P2 has to wait. Process P3 trying to get EA to
++			 * file F2. Existence of pending EA request to file F2
++			 * makes impossible for entd to get NEA to file
++			 * F2. Neither of these process can continue. Using
++			 * nonblocking version of gettign NEA is supposed to
++			 * avoid this deadlock.
++			 */
++			if (try_to_get_nonexclusive_access(uf_info) == 0) {
++				result = RETERR(-EBUSY);
++				reiser4_exit_context(ctx);
++				break;
++			}
++		} else
+ 			get_nonexclusive_access(uf_info, 0);
++
+ 		while (to_capture > 0) {
+ 			pgoff_t start;
+ 
+@@ -1559,7 +1615,7 @@ writepages_unix_file(struct address_spac
+ 				    capture_anonymous_pages(inode->i_mapping,
+ 							    &pindex,
+ 							    to_capture);
+-				if (result < 0)
++				if (result <= 0)
+ 					break;
+ 				to_capture -= result;
+ 				wbc->nr_to_write -= result;
+@@ -1588,8 +1644,7 @@ writepages_unix_file(struct address_spac
+ 			/* there may be left more pages */
+ 			__mark_inode_dirty(inode, I_DIRTY_PAGES);
+ 
+-		if (dont_get_nea == 0)
+-			drop_nonexclusive_access(uf_info);
++		drop_nonexclusive_access(uf_info);
+ 		if (result < 0) {
+ 			/* error happened */
+ 			reiser4_exit_context(ctx);
+@@ -1608,8 +1663,10 @@ writepages_unix_file(struct address_spac
+       end:
+ 	if (is_in_reiser4_context()) {
+ 		if (get_current_context()->nr_captured >= CAPTURE_APAGE_BURST) {
+-			/* there are already pages to flush, flush them out, do
+-			   not delay until end of reiser4_sync_inodes */
++			/*
++			 * there are already pages to flush, flush them out, do
++			 * not delay until end of reiser4_sync_inodes
++			 */
+ 			writeout(inode->i_sb, wbc);
+ 			get_current_context()->nr_captured = 0;
+ 		}
+@@ -1631,55 +1688,37 @@ writepages_unix_file(struct address_spac
+  */
+ int sync_unix_file(struct file *file, struct dentry *dentry, int datasync)
+ {
+-	int result;
+ 	reiser4_context *ctx;
++	txn_atom *atom;
++	reiser4_block_nr reserve;
+ 
+ 	ctx = init_context(dentry->d_inode->i_sb);
+ 	if (IS_ERR(ctx))
+ 		return PTR_ERR(ctx);
+ 
+-	assert("nikita-3486", ctx->trans->atom == NULL);
+-	result = commit_file_atoms(dentry->d_inode);
+-	assert("nikita-3484", ergo(result == 0, ctx->trans->atom == NULL));
+-	if (result == 0 && !datasync) {
+-		do {
+-			/* commit "meta-data"---stat data in our case */
+-			lock_handle lh;
+-			coord_t coord;
+-			reiser4_key key;
+-
+-			coord_init_zero(&coord);
+-			init_lh(&lh);
+-			/* locate stat-data in a tree and return with znode
+-			 * locked */
+-			result =
+-			    locate_inode_sd(dentry->d_inode, &key, &coord, &lh);
+-			if (result == 0) {
+-				jnode *node;
+-				txn_atom *atom;
+-
+-				node = jref(ZJNODE(coord.node));
+-				done_lh(&lh);
+-				txn_restart_current();
+-				spin_lock_jnode(node);
+-				atom = jnode_get_atom(node);
+-				spin_unlock_jnode(node);
+-				result = sync_atom(atom);
+-				jput(node);
+-			} else
+-				done_lh(&lh);
+-		} while (result == -E_REPEAT);
++	reserve = estimate_update_common(dentry->d_inode);
++	if (reiser4_grab_space(reserve, BA_CAN_COMMIT)) {
++		reiser4_exit_context(ctx);
++		return RETERR(-ENOSPC);
+ 	}
++	write_sd_by_inode_common(dentry->d_inode);
++
++	atom = get_current_atom_locked();
++	spin_lock_txnh(ctx->trans);
++	force_commit_atom(ctx->trans);
+ 	reiser4_exit_context(ctx);
+-	return result;
++	return 0;
+ }
+ 
+-/* plugin->u.file.readpage
+-   page must be not out of file. This is called either via page fault and in
+-   that case vp is struct file *file, or on truncate when last page of a file
+-   is to be read to perform its partial truncate and in that case vp is 0
+-*/
+-int readpage_unix_file(struct file *file, struct page *page)
++/**
++ * readpage_unix_file_nolock - readpage of struct address_space_operations
++ * @file:
++ * @page:
++ *
++ * Compose a key and search for item containing information about @page
++ * data. If item is found - its readpage method is called.
++ */
++int readpage_unix_file_nolock(struct file *file, struct page *page)
+ {
+ 	reiser4_context *ctx;
+ 	int result;
+@@ -1693,17 +1732,24 @@ int readpage_unix_file(struct file *file
+ 	assert("vs-1062", PageLocked(page));
+ 	assert("vs-976", !PageUptodate(page));
+ 	assert("vs-1061", page->mapping && page->mapping->host);
+-	assert("vs-1078",
+-	       (page->mapping->host->i_size >
+-		((loff_t) page->index << PAGE_CACHE_SHIFT)));
++
++	if ((page->mapping->host->i_size <=
++	     ((loff_t) page->index << PAGE_CACHE_SHIFT))) {
++		/* page is out of file already */
++		unlock_page(page);
++		return -EINVAL;
++	}
+ 
+ 	inode = page->mapping->host;
+ 	ctx = init_context(inode->i_sb);
+-	if (IS_ERR(ctx))
++	if (IS_ERR(ctx)) {
++		unlock_page(page);
+ 		return PTR_ERR(ctx);
++	}
+ 
+ 	hint = kmalloc(sizeof(*hint), GFP_KERNEL);
+ 	if (hint == NULL) {
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return RETERR(-ENOMEM);
+ 	}
+@@ -1711,6 +1757,7 @@ int readpage_unix_file(struct file *file
+ 	result = load_file_hint(file, hint);
+ 	if (result) {
+ 		kfree(hint);
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return result;
+ 	}
+@@ -1722,22 +1769,44 @@ int readpage_unix_file(struct file *file
+ 				       &key);
+ 
+ 	/* look for file metadata corresponding to first byte of page */
++	page_cache_get(page);
+ 	unlock_page(page);
+ 	result = find_file_item(hint, &key, ZNODE_READ_LOCK, inode);
+ 	lock_page(page);
+-	if (result != CBK_COORD_FOUND) {
+-		/* this indicates file corruption */
++	page_cache_release(page);
++
++	if (page->mapping == NULL) {
++		/*
++		 * readpage allows truncate to run concurrently. Page was
++		 * truncated while it was not locked
++		 */
+ 		done_lh(lh);
++		kfree(hint);
+ 		unlock_page(page);
++		reiser4_exit_context(ctx);
++		return -EINVAL;
++	}
++
++	if (result != CBK_COORD_FOUND || hint->ext_coord.coord.between != AT_UNIT) {
++		if (result == CBK_COORD_FOUND &&
++		    hint->ext_coord.coord.between != AT_UNIT)
++			/* file is truncated */
++			result = -EINVAL;
++		done_lh(lh);
+ 		kfree(hint);
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return result;
+ 	}
+ 
++	/*
++	 * item corresponding to page is found. It can not be removed because
++	 * znode lock is held
++	 */
+ 	if (PageUptodate(page)) {
+ 		done_lh(lh);
+-		unlock_page(page);
+ 		kfree(hint);
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return 0;
+ 	}
+@@ -1746,8 +1815,8 @@ int readpage_unix_file(struct file *file
+ 	result = zload(coord->node);
+ 	if (result) {
+ 		done_lh(lh);
+-		unlock_page(page);
+ 		kfree(hint);
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return result;
+ 	}
+@@ -1764,17 +1833,18 @@ int readpage_unix_file(struct file *file
+ 			"No file items found (%d). File is corrupted?\n",
+ 			page->index, (unsigned long long)get_inode_oid(inode),
+ 			inode->i_size, result);
+-
+ 		zrelse(coord->node);
+ 		done_lh(lh);
+-		unlock_page(page);
+ 		kfree(hint);
++		unlock_page(page);
+ 		reiser4_exit_context(ctx);
+ 		return RETERR(-EIO);
+ 	}
+ 
+-	/* get plugin of found item or use plugin if extent if there are no
+-	   one */
++	/*
++	 * get plugin of found item or use plugin if extent if there are no
++	 * one
++	 */
+ 	iplug = item_plugin_by_coord(coord);
+ 	if (iplug->s.file.readpage)
+ 		result = iplug->s.file.readpage(coord, page);
+@@ -1790,20 +1860,33 @@ int readpage_unix_file(struct file *file
+ 		unlock_page(page);
+ 		unset_hint(hint);
+ 	}
++	assert("vs-979",
++	       ergo(result == 0, (PageLocked(page) || PageUptodate(page))));
++	assert("vs-9791", ergo(result != 0, !PageLocked(page)));
++
+ 	zrelse(coord->node);
+ 	done_lh(lh);
+ 
+ 	save_file_hint(file, hint);
+ 	kfree(hint);
+ 
+-	assert("vs-979",
+-	       ergo(result == 0, (PageLocked(page) || PageUptodate(page))));
+-	assert("vs-9791", ergo(result != 0, !PageLocked(page)));
+-
+ 	reiser4_exit_context(ctx);
+ 	return result;
+ }
+ 
++/**
++ * readpage_unix_file - readpage of struct address_space_operations
++ * @file: file @page belongs to
++ * @page: page to read
++ *
++ * Get non exclusive access to a file to avoid races with truncate. If page is
++ * out of file - return error. Call readpage_unix_file_nolock to do the rest.
++ */
++int readpage_unix_file(struct file *file, struct page *page)
++{
++	return readpage_unix_file_nolock(file, page);
++}
++
+ /* returns 1 if file of that size (@new_size) has to be stored in unformatted
+    nodes */
+ /* Audited by: green(2002.06.15) */
+@@ -1849,11 +1932,28 @@ get_nr_pages_nr_bytes(unsigned long addr
+ 	return nr_bytes;
+ }
+ 
++/**
++ * adjust_nr_bytes - recalcualte number of bytes more accurately
++ * @addr: address of user space buffer
++ * @count: number of bytes to be written
++ * @nr_pages: number of pages faulted into pagetables
++ *
++ * Sometimes get_user_pages "gets" less pages than it is asked for. When this
++ * happens we have to recalculate number of bytes which will be written/read in
++ * one iteration of read/write.
++ */
+ static size_t adjust_nr_bytes(unsigned long addr, size_t count, int nr_pages)
+ {
+-	if (count > nr_pages * PAGE_CACHE_SIZE)
+-		return (nr_pages * PAGE_CACHE_SIZE) -
+-		    (addr & (PAGE_CACHE_SIZE - 1));
++	size_t bytes;
++
++	bytes = 0;
++	if (addr % PAGE_CACHE_SIZE) {
++		nr_pages --;
++		bytes = PAGE_CACHE_SIZE - (addr % PAGE_CACHE_SIZE);
++	}
++	bytes += nr_pages * PAGE_CACHE_SIZE;
++	if (count > bytes)
++		return bytes;
+ 	return count;
+ }
+ 
+@@ -2017,6 +2117,7 @@ read_unix_file(struct file *file, char _
+ 			left = size - *off;
+ 
+ 		if (user_space) {
++			memset(pages, 0, sizeof(pages));
+ 			to_read = get_nr_pages_nr_bytes(addr, left, &nr_pages);
+ 			nr_pages =
+ 			    reiser4_get_user_pages(pages, addr, nr_pages, READ);
+@@ -2269,36 +2370,6 @@ write_flow(hint_t * hint, struct file *f
+ 	return append_and_or_overwrite(hint, file, inode, &flow, exclusive);
+ }
+ 
+-static struct page *unix_file_filemap_nopage(struct vm_area_struct *area,
+-					     unsigned long address, int *unused)
+-{
+-	struct page *page;
+-	struct inode *inode;
+-	reiser4_context *ctx;
+-
+-	inode = area->vm_file->f_dentry->d_inode;
+-	ctx = init_context(inode->i_sb);
+-	if (IS_ERR(ctx))
+-		return (struct page *)ctx;
+-
+-	/* block filemap_nopage if copy on capture is processing with a node of this file */
+-	down_read(&reiser4_inode_data(inode)->coc_sem);
+-	/* second argument is to note that current atom may exist */
+-	get_nonexclusive_access(unix_file_inode_data(inode), 1);
+-
+-	page = filemap_nopage(area, address, NULL);
+-
+-	drop_nonexclusive_access(unix_file_inode_data(inode));
+-	up_read(&reiser4_inode_data(inode)->coc_sem);
+-
+-	reiser4_exit_context(ctx);
+-	return page;
+-}
+-
+-static struct vm_operations_struct unix_file_vm_ops = {
+-	.nopage = unix_file_filemap_nopage,
+-};
+-
+ /* This function takes care about @file's pages. First of all it checks if
+    filesystems readonly and if so gets out. Otherwise, it throws out all
+    pages of file if it was mapped for read and going to be mapped for write
+@@ -2401,7 +2472,6 @@ int mmap_unix_file(struct file *file, st
+ 	if (result == 0) {
+ 		/* mark file as having mapping. */
+ 		inode_set_flag(inode, REISER4_HAS_MMAP);
+-		vma->vm_ops = &unix_file_vm_ops;
+ 	}
+ 
+ 	drop_exclusive_access(uf_info);
+@@ -2638,6 +2708,7 @@ ssize_t write_unix_file(struct file *fil
+ 
+ 	if ((file->f_flags & O_SYNC) || IS_SYNC(inode)) {
+ 		txn_restart_current();
++		grab_space_enable();
+ 		result =
+ 		    sync_unix_file(file, file->f_dentry,
+ 				   0 /* data and stat data */ );
+@@ -2774,8 +2845,6 @@ static int unpack(struct file *filp, str
+ 			tograb =
+ 			    inode_file_plugin(inode)->estimate.update(inode);
+ 			result = reiser4_grab_space(tograb, BA_CAN_COMMIT);
+-			if (result == 0)
+-				file_accessed(filp);
+ 		}
+ 	}
+ 
+diff -puN fs/reiser4/plugin/file/file.h~reiser4-bugfix-patch fs/reiser4/plugin/file/file.h
+--- devel/fs/reiser4/plugin/file/file.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/file/file.h	2006-01-04 01:05:33.000000000 -0800
+@@ -27,6 +27,7 @@ ssize_t sendfile_unix_file(struct file *
+ 
+ /* address space operations */
+ int readpage_unix_file(struct file *, struct page *);
++int readpage_unix_file_nolock(struct file *, struct page *);
+ int writepages_unix_file(struct address_space *, struct writeback_control *);
+ int prepare_write_unix_file(struct file *, struct page *, unsigned from,
+ 			    unsigned to);
+@@ -105,6 +106,7 @@ void get_exclusive_access(unix_file_info
+ void drop_exclusive_access(unix_file_info_t *);
+ void get_nonexclusive_access(unix_file_info_t *, int);
+ void drop_nonexclusive_access(unix_file_info_t *);
++int try_to_get_nonexclusive_access(unix_file_info_t *);
+ 
+ #include "../item/extent.h"
+ #include "../item/tail.h"
+@@ -184,11 +186,15 @@ ssize_t write_cryptcompress(struct file 
+ int mmap_cryptcompress(struct file *, struct vm_area_struct *);
+ ssize_t sendfile_cryptcompress(struct file *file, loff_t *ppos, size_t count,
+ 			       read_actor_t actor, void *target);
++int release_cryptcompress(struct inode *, struct file *);
+ 
+ /* address space operations */
+ extern int readpage_cryptcompress(struct file *, struct page *);
+ extern int writepages_cryptcompress(struct address_space *,
+ 				     struct writeback_control *);
++extern void readpages_cryptcompress(struct file *, struct address_space *,
++				    struct list_head *pages);
++extern sector_t bmap_cryptcompress(struct address_space *, sector_t lblock);
+ 
+ 
+ /* file plugin operations */
+diff -puN fs/reiser4/plugin/file/tail_conversion.c~reiser4-bugfix-patch fs/reiser4/plugin/file/tail_conversion.c
+--- devel/fs/reiser4/plugin/file/tail_conversion.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/file/tail_conversion.c	2006-01-04 01:05:33.000000000 -0800
+@@ -47,8 +47,30 @@ void drop_exclusive_access(unix_file_inf
+ 	LOCK_CNT_DEC(inode_sem_w);
+ }
+ 
+-/* nonexclusive access to a file is acquired for read, write, readpage */
+-void get_nonexclusive_access(unix_file_info_t * uf_info, int atom_may_exist)
++/**
++ * nea_grabbed - do something when file semaphore is down_read-ed
++ * @uf_info:
++ *
++ * This is called when nonexclisive access is obtained on file. All it does is
++ * for debugging purposes.
++ */
++static void nea_grabbed(unix_file_info_t *uf_info)
++{
++#if REISER4_DEBUG
++	LOCK_CNT_INC(inode_sem_r);
++	assert("vs-1716", uf_info->ea_owner == NULL);
++	atomic_inc(&uf_info->nr_neas);
++	uf_info->last_reader = current;
++#endif
++}
++
++/**
++ * get_nonexclusive_access - get nonexclusive access to a file
++ * @uf_info: unix file specific part of inode to obtain access to
++ *
++ * Nonexclusive access is obtained on a file before read, write, readpage.
++ */
++void get_nonexclusive_access(unix_file_info_t *uf_info, int atom_may_exist)
+ {
+ 	assert("nikita-3029", schedulable());
+ 	/* unix_file_filemap_nopage may call this when current atom exist already */
+@@ -57,21 +79,26 @@ void get_nonexclusive_access(unix_file_i
+ 		    get_current_context()->trans->atom == NULL));
+ 	BUG_ON(atom_may_exist == 0
+ 	       && get_current_context()->trans->atom != NULL);
+-	assert("", get_current_context()->vp == NULL);
+ 
+ 	down_read(&uf_info->latch);
+-	/*
+-	 * this is to avoid rwsem deadlock on ent thread. See comment in
+-	 * writepages_unix_file
+-	 */
+-	get_current_context()->vp = unix_file_info_to_inode(uf_info)->i_mapping;
+ 
+-	LOCK_CNT_INC(inode_sem_r);
+-	assert("vs-1716", uf_info->ea_owner == NULL);
+-#if REISER4_DEBUG
+-	atomic_inc(&uf_info->nr_neas);
+-	uf_info->last_reader = current;
+-#endif
++	nea_grabbed(uf_info);
++}
++
++/**
++ * try_to_get_nonexclusive_access - try to get nonexclusive access to a file
++ * @uf_info: unix file specific part of inode to obtain access to
++ *
++ * Non-blocking version of nonexclusive access obtaining.
++ */
++int try_to_get_nonexclusive_access(unix_file_info_t *uf_info)
++{
++	int result;
++
++	result = down_read_trylock(&uf_info->latch);
++	if (result)
++		nea_grabbed(uf_info);
++	return result;
+ }
+ 
+ void drop_nonexclusive_access(unix_file_info_t * uf_info)
+@@ -80,7 +107,6 @@ void drop_nonexclusive_access(unix_file_
+ 	assert("vs-1719", atomic_read(&uf_info->nr_neas) > 0);
+ 	ON_DEBUG(atomic_dec(&uf_info->nr_neas));
+ 
+-	get_current_context()->vp = NULL;
+ 	up_read(&uf_info->latch);
+ 
+ 	LOCK_CNT_DEC(inode_sem_r);
+@@ -575,7 +601,7 @@ static int reserve_extent2tail_iteration
+ 
+ static int filler(void *vp, struct page *page)
+ {
+-	return readpage_unix_file(vp, page);
++	return readpage_unix_file_nolock(vp, page);
+ }
+ 
+ /* for every page of file: read page, cut part of extent pointing to this page,
+@@ -681,7 +707,7 @@ int extent2tail(unix_file_info_t * uf_in
+ 		/* page is already detached from jnode and mapping. */
+ 		assert("vs-1086", page->mapping == NULL);
+ 		assert("nikita-2690",
+-		       (!PagePrivate(page) && page_private(page) == 0));
++		       (!PagePrivate(page) && jprivate(page) == 0));
+ 		/* waiting for writeback completion with page lock held is
+ 		 * perfectly valid. */
+ 		wait_on_page_writeback(page);
+@@ -765,12 +791,12 @@ int finish_conversion(struct inode *inod
+ }
+ 
+ /*
+-   Local variables:
+-   c-indentation-style: "K&R"
+-   mode-name: "LC"
+-   c-basic-offset: 8
+-   tab-width: 8
+-   fill-column: 120
+-   scroll-step: 1
+-   End:
+-*/
++ * Local variables:
++ * c-indentation-style: "K&R"
++ * mode-name: "LC"
++ * c-basic-offset: 8
++ * tab-width: 8
++ * fill-column: 79
++ * scroll-step: 1
++ * End:
++ */
+diff -puN fs/reiser4/plugin/item/ctail.c~reiser4-bugfix-patch fs/reiser4/plugin/item/ctail.c
+--- devel/fs/reiser4/plugin/item/ctail.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/item/ctail.c	2006-01-04 01:05:33.000000000 -0800
+@@ -51,7 +51,7 @@ int cluster_shift_by_coord(const coord_t
+ 	return get_unaligned(&ctail_formatted_at(coord)->cluster_shift);
+ }
+ 
+-static unsigned long off_by_coord(const coord_t * coord)
++static loff_t off_by_coord(const coord_t * coord)
+ {
+ 	reiser4_key key;
+ 	return get_key_offset(item_key_by_coord(coord, &key));
+@@ -68,7 +68,7 @@ static int coord_is_unprepped_ctail(cons
+ 	return (int)cluster_shift_by_coord(coord) == (int)UCTAIL_SHIFT;
+ }
+ 
+-unsigned long clust_by_coord(const coord_t * coord, struct inode *inode)
++cloff_t clust_by_coord(const coord_t * coord, struct inode *inode)
+ {
+ 	int shift;
+ 
+@@ -84,7 +84,7 @@ unsigned long clust_by_coord(const coord
+ 	return off_by_coord(coord) >> shift;
+ }
+ 
+-static int unsigned long disk_cluster_size(const coord_t * coord)
++static int disk_cluster_size(const coord_t * coord)
+ {
+ 	assert("edward-1156",
+ 	       item_plugin_by_coord(coord) == item_plugin_by_id(CTAIL_ID));
+@@ -101,8 +101,8 @@ static int is_disk_cluster_key(const rei
+ 	assert("edward-1239", item_id_by_coord(coord) == CTAIL_ID);
+ 
+ 	return coord_is_unprepped_ctail(coord) ||
+-	    ((get_key_offset(key) & ((loff_t) disk_cluster_size(coord) - 1)) ==
+-	     0);
++	    ((get_key_offset(key) &
++	      ((loff_t) disk_cluster_size(coord) - 1)) == 0);
+ }
+ 
+ static char *first_unit(coord_t * coord)
+@@ -327,7 +327,6 @@ copy_units_ctail(coord_t * target, coord
+ 
+ 		if (free_space == count) {
+ 			init_ctail(target, source, NULL);
+-			//assert("edward-861", cluster_shift_by_coord(target) == d8tocpu(&ctail_formatted_at(target)->body[count]));
+ 		} else {
+ 			/* new item has been created */
+ 			assert("edward-862", ctail_ok(target));
+@@ -398,16 +397,15 @@ static int ctail_convertible(const coord
+ 	item_key_by_coord(coord, &key);
+ 	child = jlookup(current_tree,
+ 			get_key_objectid(&key),
+-			clust_by_coord(coord,
+-				       NULL) << cluster_shift_by_coord(coord));
++			off_to_pg(off_by_coord(coord)));
+ 	if (!child)
+ 		return 0;
+-	/* NOTE-Edward: jnode spin lock is removed here: test_bit is atomic */
+ 	result = JF_ISSET(child, JNODE_DIRTY);
+ 	jput(child);
+ 	return result;
+ }
+ 
++/* FIXME-EDWARD */
+ /* plugin->u.item.b.shift_hook */
+ int shift_hook_ctail(const coord_t * item /* coord of item */ ,
+ 		     unsigned from UNUSED_ARG /* start unit */ ,
+@@ -538,11 +536,6 @@ int ctail_read_disk_cluster(reiser4_clus
+ 			    int write)
+ {
+ 	int result;
+-	compression_plugin *cplug;
+-#if REISER4_DEBUG
+-	reiser4_inode *info;
+-	info = reiser4_inode_data(inode);
+-#endif
+ 	assert("edward-671", clust->hint != NULL);
+ 	assert("edward-140", clust->dstat == INVAL_DISK_CLUSTER);
+ 	assert("edward-672", crc_inode_ok(inode));
+@@ -556,7 +549,6 @@ int ctail_read_disk_cluster(reiser4_clus
+ 	assert("edward-1340", !result);
+ 	if (result)
+ 		return result;
+-
+ 	if (!write)
+ 		/* write still need the lock to insert unprepped
+ 		   items, etc... */
+@@ -570,12 +562,9 @@ int ctail_read_disk_cluster(reiser4_clus
+ 		tfm_cluster_set_uptodate(&clust->tc);
+ 		return 0;
+ 	}
+-	cplug = inode_compression_plugin(inode);
+-	if (cplug->alloc && !get_coa(&clust->tc, cplug->h.id)) {
+-		result = alloc_coa(&clust->tc, cplug);
+-		if (result)
+-			return result;
+-	}
++	result = grab_coa(&clust->tc, inode_compression_plugin(inode));
++	if (result)
++		return result;
+ 	result = inflate_cluster(clust, inode);
+ 	if (result)
+ 		return result;
+@@ -584,11 +573,11 @@ int ctail_read_disk_cluster(reiser4_clus
+ }
+ 
+ /* read one locked page */
+-int do_readpage_ctail(reiser4_cluster_t * clust, struct page *page)
++int do_readpage_ctail(struct inode * inode, reiser4_cluster_t * clust,
++		      struct page *page)
+ {
+ 	int ret;
+ 	unsigned cloff;
+-	struct inode *inode;
+ 	char *data;
+ 	size_t pgcnt;
+ 	tfm_cluster_t *tc = &clust->tc;
+@@ -598,8 +587,6 @@ int do_readpage_ctail(reiser4_cluster_t 
+ 	if (PageUptodate(page))
+ 		goto exit;
+ 
+-	inode = page->mapping->host;
+-
+ 	if (!tfm_cluster_is_uptodate(&clust->tc)) {
+ 		clust->index = pg_to_clust(page->index, inode);
+ 		unlock_page(page);
+@@ -613,7 +600,7 @@ int do_readpage_ctail(reiser4_cluster_t 
+ 		goto exit;
+ 
+ 	/* bytes in the page */
+-	pgcnt = off_to_pgcount(i_size_read(inode), page->index);
++	pgcnt = cnt_to_pgcnt(i_size_read(inode), page->index);
+ 
+ 	if (pgcnt == 0) {
+ 		assert("edward-1290", 0);
+@@ -685,7 +672,7 @@ int readpage_ctail(void *vp, struct page
+ 		return result;
+ 	}
+ 	assert("vs-25", hint->ext_coord.lh == &hint->lh);
+-	result = do_readpage_ctail(clust, page);
++	result = do_readpage_ctail(page->mapping->host, clust, page);
+ 
+ 	assert("edward-213", PageLocked(page));
+ 	assert("edward-1163", ergo(!result, PageUptodate(page)));
+@@ -725,7 +712,7 @@ ctail_read_page_cluster(reiser4_cluster_
+ 	for (i = 0; i < clust->nr_pages; i++) {
+ 		struct page *page = clust->pages[i];
+ 		lock_page(page);
+-		result = do_readpage_ctail(clust, page);
++		result = do_readpage_ctail(inode, clust, page);
+ 		unlock_page(page);
+ 		if (result)
+ 			break;
+@@ -784,8 +771,10 @@ readpages_ctail(void *vp, struct address
+ 	assert("vs-26", hint->ext_coord.lh == &hint->lh);
+ 
+ 	/* address_space-level file readahead doesn't know about
+-	   reiser4 page clustering, so we work around this fact */
+-
++	   reiser4 concept of clustering, so we work around this
++	   fact: with each page of the list @pages address space
++	   will be populated with the whole page cluster.
++	*/
+ 	while (!list_empty(pages)) {
+ 		page = list_to_page(pages);
+ 		list_del(&page->lru);
+@@ -808,7 +797,7 @@ readpages_ctail(void *vp, struct address
+ 		assert("edward-869", !tfm_cluster_is_uptodate(&clust.tc));
+ 		lock_page(page);
+ 
+-		ret = do_readpage_ctail(&clust, page);
++		ret = do_readpage_ctail(inode, &clust, page);
+ 		if (!pagevec_add(&lru_pvec, page))
+ 			__pagevec_lru_add(&lru_pvec);
+ 		if (ret) {
+@@ -851,8 +840,7 @@ reiser4_key *append_key_ctail(const coor
+ 	item_key_by_coord(coord, key);
+ 	set_key_offset(key,
+ 		       ((__u64) (clust_by_coord(coord, NULL)) +
+-			1) << cluster_shift_by_coord(coord) <<
+-		       PAGE_CACHE_SHIFT);
++			1) << cluster_shift_by_coord(coord));
+ 	return key;
+ }
+ 
+@@ -1106,12 +1094,9 @@ int scan_ctail(flush_scan * scan)
+ 		znode_make_dirty(scan->parent_lock.node);
+ 
+ 	if (!znode_convertible(scan->parent_lock.node)) {
+-		/* NOTE-Edward: jnode spinlock is removed. test_bit is atomic */
+-		if (JF_ISSET(scan->node, JNODE_DIRTY)) {
+-			warning("edward-873",
+-				"child is dirty but parent not squeezable");
++		if (JF_ISSET(scan->node, JNODE_DIRTY))
+ 			znode_set_convertible(scan->parent_lock.node);
+-		} else {
++		else {
+ 			warning("edward-681",
+ 				"cluster page is already processed");
+ 			return -EAGAIN;
+@@ -1255,11 +1240,9 @@ static int attach_convert_idata(flush_po
+ 			return ret;
+ 	}
+ 	clust = &pos->sq->clust;
+-	if (cplug->alloc && !get_coa(&clust->tc, cplug->h.id)) {
+-		ret = alloc_coa(&clust->tc, cplug);
+-		if (ret)
+-			goto err;
+-	}
++	ret = grab_coa(&clust->tc, cplug);
++	if (ret)
++		goto err;
+ 	ret = set_cluster_by_page(clust,
+ 				  jnode_page(pos->child),
+ 				  MAX_CLUSTER_NRPAGES);
+@@ -1283,13 +1266,7 @@ static int attach_convert_idata(flush_po
+ 	if (ret)
+ 		goto err;
+ 
+-	assert("edward-830",
+-	       equi(get_coa(&clust->tc, cplug->h.id), cplug->alloc));
+-
+-	ret = deflate_cluster(clust, inode);
+-	if (ret)
+-		goto err;
+-
++	deflate_cluster(clust, inode);
+ 	inc_item_convert_count(pos);
+ 
+ 	/* make flow by transformed stream */
+diff -puN fs/reiser4/plugin/item/extent_file_ops.c~reiser4-bugfix-patch fs/reiser4/plugin/item/extent_file_ops.c
+--- devel/fs/reiser4/plugin/item/extent_file_ops.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/item/extent_file_ops.c	2006-01-04 01:05:33.000000000 -0800
+@@ -528,6 +528,42 @@ check_make_extent_result(int result, wri
+ #endif
+ 
+ /**
++ * get_extent -
++ *
++ *
++ *
++ */
++static extent_state
++get_extent(struct make_extent_handle *h)
++{
++	extent_coord_extension_t *ext_coord;
++	reiser4_extent *ext;
++
++	assert("vs-1312", h->uf_coord->coord.between == AT_UNIT);
++
++	ext_coord = ext_coord_by_uf_coord(h->uf_coord);
++	ext = ext_by_ext_coord(h->uf_coord);
++
++	switch (state_of_extent(ext)) {
++	case ALLOCATED_EXTENT:
++		h->blocknr = extent_get_start(ext) + ext_coord->pos_in_unit;
++		return ALLOCATED_EXTENT;
++
++	case HOLE_EXTENT:
++		return HOLE_EXTENT;
++
++	case UNALLOCATED_EXTENT:
++		return UNALLOCATED_EXTENT;
++
++	default:
++		break;
++	}
++
++	return RETERR(-EIO);
++}
++
++
++/**
+  * make_extent - make sure that non hole extent corresponding h->pkey exists
+  * @h: structure containing coordinate, lock handle, key, etc
+  * @mode: preliminary hint obtained via search
+@@ -586,26 +622,29 @@ make_extent(struct make_extent_handle *h
+ 	return result;
+ }
+ 
+-/* estimate and reserve space which may be required for writing one page of file */
+-static int
+-reserve_extent_write_iteration(struct inode *inode, reiser4_tree * tree)
++/**
++ * reserve_extent_write_iteration - reserve space for one page file write
++ * @inode:
++ * @tree:
++ *
++ * Estimates and reserves space which may be required for writing one page of
++ * file.
++ */
++static int reserve_extent_write_iteration(struct inode *inode,
++					  reiser4_tree *tree)
+ {
+-	int result;
+-
+ 	grab_space_enable();
+-	/* one unformatted node and one insertion into tree and one stat data update may be involved */
+-	result = reiser4_grab_space(1 +	/* Hans removed reservation for balancing here. */
+-				    /* if extent items will be ever used by plugins other than unix file plugin - estimate update should instead be taken by
+-				       inode_file_plugin(inode)->estimate.update(inode)
+-				     */
+-				    estimate_update_common(inode),
+-				    0 /* flags */ );
+-	return result;
++	/*
++	 * one unformatted node and one insertion into tree (Hans removed
++	 * reservation for balancing here) and one stat data update may be
++	 * involved
++	 */
++	return reiser4_grab_space(1 + estimate_update_common(inode),
++				  0 /* flags */ );
+ }
+ 
+-static void
+-write_move_coord(coord_t * coord, uf_coord_t * uf_coord, write_mode_t mode,
+-		 int full_page)
++static void write_move_coord(coord_t *coord, uf_coord_t *uf_coord,
++			     write_mode_t mode, int full_page)
+ {
+ 	extent_coord_extension_t *ext_coord;
+ 
+@@ -659,9 +698,19 @@ write_move_coord(coord_t * coord, uf_coo
+ 		ext_coord->pos_in_unit++;
+ }
+ 
+-static int
+-write_is_partial(struct inode *inode, loff_t file_off, unsigned page_off,
+-		 unsigned count)
++/**
++ * write_is_partial - check if page is being overwritten partially
++ * @inode:
++ * @file_off: position in a file write starts at
++ * @page_off: offset within a page write starts at
++ * @count: number of bytes to be written to a page
++ *
++ * Returns true if page has to be read before overwrite so that old data do not
++ * get lost. O is returned if all old data in a page are going to be
++ * overwritten.
++ */
++static int write_is_partial(struct inode *inode, loff_t file_off,
++			    unsigned page_off, unsigned count)
+ {
+ 	if (count == inode->i_sb->s_blocksize)
+ 		return 0;
+@@ -763,7 +812,7 @@ extent_balance_dirty_pages(struct inode 
+  *
+  * Write flow's data into file by pages.
+  */
+-static int extent_write_flow(struct inode *inode, flow_t * flow, hint_t * hint,
++static int extent_write_flow(struct inode *inode, flow_t *flow, hint_t *hint,
+ 			     int grabbed, write_mode_t mode)
+ {
+ 	int result;
+@@ -805,6 +854,8 @@ static int extent_write_flow(struct inod
+ 	oid = get_inode_oid(inode);
+ 	coord = coord_by_uf_coord(h->uf_coord);
+ 	do {
++		int do_make_extent = 1;
++
+ 		if (!grabbed) {
+ 			result = reserve_extent_write_iteration(inode, tree);
+ 			if (result)
+@@ -815,10 +866,6 @@ static int extent_write_flow(struct inod
+ 		if (count > flow->length)
+ 			count = flow->length;
+ 
+-		result = make_extent(h, mode);
+-		if (result)
+-			goto exit1;
+-
+ 		/* look for jnode and create it if it does not exist yet */
+ 		j = find_get_jnode(tree, inode->i_mapping, oid, page_nr);
+ 		if (IS_ERR(j)) {
+@@ -835,66 +882,46 @@ static int extent_write_flow(struct inod
+ 
+ 		page_cache_get(page);
+ 
+-		if (!PageUptodate(page)) {
+-			if (mode == OVERWRITE_ITEM) {
+-				int blocknr_set = 0;
+-				/* this page may be either an anonymous page (a
+-				   page which was dirtied via mmap,
+-				   writepage-ed and for which extent pointer
+-				   was just created. In this case jnode is
+-				   eflushed) or correspond to not page cached
+-				   block (in which case created == 0). In
+-				   either case we have to read this page if it
+-				   is being overwritten partially */
+-				if (write_is_partial
+-				    (inode, file_off, page_off, count)
+-				    && (h->created == 0
+-					|| JF_ISSET(j, JNODE_EFLUSH))) {
+-					if (!JF_ISSET(j, JNODE_EFLUSH)) {
+-						/* eflush bit can be neither
+-						   set nor cleared by other
+-						   process because page
+-						   attached to jnode is
+-						   locked */
+-						spin_lock_jnode(j);
+-						assign_jnode_blocknr(j, h->blocknr,
+-								     h->created);
+-						blocknr_set = 1;
+-						spin_unlock_jnode(j);
+-					}
+-					result =
+-					    page_io(page, j, READ, GFP_KERNEL);
+-					if (result)
+-						goto exit3;
+-
+-					lock_page(page);
+-					if (!PageUptodate(page))
+-						goto exit3;
+-				} else {
+-					zero_around(page, page_off, count);
+-				}
+-
+-				/* assign blocknr to jnode if it is not assigned yet */
++		if (!PageUptodate(page) &&
++		    mode == OVERWRITE_ITEM &&
++		    write_is_partial(inode, file_off, page_off, count)) {
++			/*
++			 * page may have to be read before copy_from_user
++			 */
++			if (get_extent(h) != HOLE_EXTENT) {
++				if (*jnode_get_block(j) == 0)
++					assign_jnode_blocknr(j, h->blocknr, 0);
++				result = page_io(page, j, READ, GFP_KERNEL);
++				if (result)
++					goto exit3;
++				lock_page(page);
++				if (!PageUptodate(page))
++					goto exit3;
++				do_make_extent = 0;
+ 				spin_lock_jnode(j);
+ 				eflush_del(j, 1);
+-				if (blocknr_set == 0)
+-					assign_jnode_blocknr(j, h->blocknr,
+-							     h->created);
+ 				spin_unlock_jnode(j);
+ 			} else {
+-				/* new page added to the file. No need to carry
+-				   about data it might contain. Zero content of
+-				   new page around write area */
+-				assert("vs-1681", !JF_ISSET(j, JNODE_EFLUSH));
+ 				zero_around(page, page_off, count);
+-
+-				/* assign blocknr to jnode if it is not
+-				   assigned yet */
+-				spin_lock_jnode(j);
+-				assign_jnode_blocknr(j, h->blocknr, h->created);
+-				spin_unlock_jnode(j);
+ 			}
+ 		} else {
++			if (!PageUptodate(page))
++				zero_around(page, page_off, count);
++		}
++
++		assert("nikita-3033", schedulable());
++		/* copy user data into page */
++		result = __copy_from_user((char *)kmap(page) + page_off,
++					  (const char __user *)flow->data,
++					  count);
++		kunmap(page);
++		if (unlikely(result)) {
++			result = RETERR(-EFAULT);
++			goto exit3;
++		}
++
++		if (do_make_extent) {
++			result = make_extent(h, mode);
+ 			spin_lock_jnode(j);
+ 			eflush_del(j, 1);
+ 			assign_jnode_blocknr(j, h->blocknr, h->created);
+@@ -906,20 +933,6 @@ static int extent_write_flow(struct inod
+ 				   jnode_page(j) == page));
+ 		spin_unlock_jnode(j);
+ #endif
+-		assert("nikita-3033", schedulable());
+-
+-		/* copy user data into page */
+-		result =
+-		    __copy_from_user((char *)kmap(page) + page_off,
+-				     (const char __user *)flow->data,
+-				     count);
+-		kunmap(page);
+-		if (unlikely(result)) {
+-			/* FIXME: write(fd, 0, 10); to empty file will write no
+-			   data but file will get increased size. */
+-			result = RETERR(-EFAULT);
+-			goto exit3;
+-		}
+ 
+ 		set_page_dirty_internal(page);
+ 		SetPageUptodate(page);
+@@ -962,12 +975,14 @@ static int extent_write_flow(struct inod
+ 		set_key_offset(h->u.replace.pkey, (loff_t) page_nr << PAGE_CACHE_SHIFT);
+ 
+ 		if (flow->length && h->uf_coord->valid == 1) {
+-			/* loop continues - try to obtain lock validating a
+-			   seal set in extent_balance_dirty_pages */
+-			result =
+-			    hint_validate(hint, &flow->key,
+-					  0 /* do not check key */ ,
+-					  ZNODE_WRITE_LOCK);
++			/*
++			 * flow contains data to write, coord looks set
++			 * properly - try to obtain lock validating a seal set
++			 * in extent_balance_dirty_pages
++			 */
++			result = hint_validate(hint, &flow->key,
++					       0 /* do not check key */,
++					       ZNODE_WRITE_LOCK);
+ 			if (result == 0)
+ 				continue;
+ 		}
+@@ -1364,7 +1379,7 @@ static int call_readpage(struct file *fi
+ {
+ 	int result;
+ 
+-	result = readpage_unix_file(file, page);
++	result = readpage_unix_file_nolock(file, page);
+ 	if (result)
+ 		return result;
+ 
+@@ -1381,7 +1396,7 @@ static int call_readpage(struct file *fi
+ 
+ static int filler(void *vp, struct page *page)
+ {
+-	return readpage_unix_file(vp, page);
++	return readpage_unix_file_nolock(vp, page);
+ }
+ 
+ /* Implements plugin->u.item.s.file.read operation for extent items. */
+@@ -1760,12 +1775,12 @@ void init_coord_extension_extent(uf_coor
+ }
+ 
+ /*
+-   Local variables:
+-   c-indentation-style: "K&R"
+-   mode-name: "LC"
+-   c-basic-offset: 8
+-   tab-width: 8
+-   fill-column: 120
+-   scroll-step: 1
+-   End:
+-*/
++ * Local variables:
++ * c-indentation-style: "K&R"
++ * mode-name: "LC"
++ * c-basic-offset: 8
++ * tab-width: 8
++ * fill-column: 79
++ * scroll-step: 1
++ * End:
++ */
+diff -puN fs/reiser4/plugin/object.c~reiser4-bugfix-patch fs/reiser4/plugin/object.c
+--- devel/fs/reiser4/plugin/object.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/object.c	2006-01-04 01:05:33.000000000 -0800
+@@ -305,6 +305,7 @@ file_plugin file_plugins[LAST_FILE_PLUGI
+ 			.read = read_cryptcompress,
+ 			.write = write_cryptcompress,
+ 			.mmap = mmap_cryptcompress,
++			.release = release_cryptcompress,
+ 			.fsync = sync_common,
+ 			.sendfile = sendfile_cryptcompress
+ 		},
+@@ -316,7 +317,8 @@ file_plugin file_plugins[LAST_FILE_PLUGI
+ 			.set_page_dirty = reiser4_set_page_dirty,
+ 			.readpages = reiser4_readpages,
+ 			.prepare_write = prepare_write_common,
+-			.invalidatepage = reiser4_invalidatepage
++			.invalidatepage = reiser4_invalidatepage,
++			.releasepage = reiser4_releasepage
+ 		},
+ 		.write_sd_by_inode = write_sd_by_inode_common,
+ 		.flow_by_inode = flow_by_inode_cryptcompress,
+diff -puN fs/reiser4/plugin/plugin.h~reiser4-bugfix-patch fs/reiser4/plugin/plugin.h
+--- devel/fs/reiser4/plugin/plugin.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/plugin/plugin.h	2006-01-04 01:05:33.000000000 -0800
+@@ -506,9 +506,9 @@ typedef struct compression_mode_plugin {
+ 	plugin_header h;
+ 	/* this is called when estimating compressibility
+ 	   of a logical cluster by its content */
+-	int (*should_deflate) (cloff_t index);
++	int (*should_deflate) (struct inode * inode, cloff_t index);
+ 	/* this is called when results of compression should be saved */
+-	void (*accept_hook) (struct inode * inode);
++	int (*accept_hook) (struct inode * inode, cloff_t index);
+ 	/* this is called when results of compression should be discarded */
+ 	int (*discard_hook) (struct inode * inode, cloff_t index);
+ } compression_mode_plugin;
+@@ -710,11 +710,14 @@ typedef enum {
+ 
+ /* builtin compression mode plugins */
+ typedef enum {
+-	SMART_COMPRESSION_MODE_ID,
+-	LAZY_COMPRESSION_MODE_ID,
++	NONE_COMPRESSION_MODE_ID,
++	COL_8_COMPRESSION_MODE_ID,
++	COL_16_COMPRESSION_MODE_ID,
++	COL_32_COMPRESSION_MODE_ID,
++	COZ_COMPRESSION_MODE_ID,
+ 	FORCE_COMPRESSION_MODE_ID,
+ 	TEST_COMPRESSION_MODE_ID,
+-	LAST_COMPRESSION_MODE_ID
++  	LAST_COMPRESSION_MODE_ID
+ } reiser4_compression_mode_id;
+ 
+ /* builtin cluster plugins */
+diff -puN fs/reiser4/readahead.c~reiser4-bugfix-patch fs/reiser4/readahead.c
+--- devel/fs/reiser4/readahead.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/readahead.c	2006-01-04 01:05:33.000000000 -0800
+@@ -116,258 +116,6 @@ void formatted_readahead(znode * node, r
+ 	done_lh(&next_lh);
+ }
+ 
+-#if 0
+-
+-static inline loff_t get_max_readahead(struct reiser4_file_ra_state *ra)
+-{
+-	/* NOTE: ra->max_window_size is initialized in
+-	 * reiser4_get_file_fsdata(). */
+-	return ra->max_window_size;
+-}
+-
+-static inline loff_t get_min_readahead(struct reiser4_file_ra_state *ra)
+-{
+-	return VM_MIN_READAHEAD * 1024;
+-}
+-
+-/* Start read for the given window. */
+-static loff_t do_reiser4_file_readahead(struct inode *inode, loff_t offset,
+-					loff_t size)
+-{
+-	reiser4_tree *tree = current_tree;
+-	reiser4_inode *object;
+-	loff_t result;
+-	reiser4_key *start_key;
+-	reiser4_key *stop_key;
+-	lock_handle *lock;
+-	lock_handle *next_lock;
+-	coord_t *coord;
+-	tap_t *tap;
+-
+-	assert("zam-994", lock_stack_isclean(get_current_lock_stack()));
+-
+-	start_key = kmalloc(2 * sizeof(reiser4_key) + 2 * sizeof(lock_handle) +
+-			    sizeof(coord_t) + sizeof(tap_t), GFP_KERNEL);
+-	if (start_key == NULL)
+-		return RETERR(-ENOMEM);
+-	stop_key = start_key + 1;
+-	lock = (lock_handle *) (stop_key + 1);
+-	next_lock = lock + 1;
+-	coord = (coord_t *) (next_lock + 1);
+-	tap = (tap_t *) (coord + 1);
+-
+-	object = reiser4_inode_data(inode);
+-	key_by_inode_and_offset_common(inode, offset, start_key);
+-	key_by_inode_and_offset_common(inode, offset + size, stop_key);
+-
+-	init_lh(lock);
+-	init_lh(next_lock);
+-
+-	/* Stop on twig level */
+-	result =
+-	    coord_by_key(current_tree, start_key, coord, lock, ZNODE_READ_LOCK,
+-			 FIND_EXACT, TWIG_LEVEL, TWIG_LEVEL, 0, NULL);
+-	if (result < 0)
+-		goto error;
+-	if (result != CBK_COORD_FOUND) {
+-		result = 0;
+-		goto error;
+-	}
+-
+-	tap_init(tap, coord, lock, ZNODE_WRITE_LOCK);
+-	result = tap_load(tap);
+-	if (result)
+-		goto error0;
+-
+-	/* Advance coord to right (even across node boundaries) while coord key
+-	 * less than stop_key.  */
+-	while (1) {
+-		znode *child;
+-		reiser4_block_nr blk;
+-
+-		/* Currently this read-ahead is for formatted nodes only */
+-		if (!item_is_internal(coord))
+-			break;
+-
+-		item_key_by_coord(coord, start_key);
+-		if (keyge(start_key, stop_key))
+-			break;
+-
+-		result = item_utmost_child_real_block(coord, LEFT_SIDE, &blk);
+-		if (result || blk == 0)
+-			break;
+-
+-		child = zget(tree, &blk, lock->node, LEAF_LEVEL, GFP_KERNEL);
+-
+-		if (IS_ERR(child)) {
+-			result = PTR_ERR(child);
+-			break;
+-		}
+-
+-		/* If znode's page is present that usually means that i/o was
+-		 * already started for the page. */
+-		if (znode_page(child) == NULL) {
+-			result = jstartio(ZJNODE(child));
+-			if (result) {
+-				zput(child);
+-				break;
+-			}
+-		}
+-		zput(child);
+-
+-		/* Advance coord by one unit ... */
+-		result = coord_next_unit(coord);
+-		if (result == 0)
+-			continue;
+-
+-		/* ... and continue on the right neighbor if needed. */
+-		result =
+-		    reiser4_get_right_neighbor(next_lock, lock->node,
+-					       ZNODE_READ_LOCK,
+-					       GN_CAN_USE_UPPER_LEVELS);
+-		if (result)
+-			break;
+-
+-		if (znode_page(next_lock->node) == NULL) {
+-			loff_t end_offset;
+-
+-			result = jstartio(ZJNODE(next_lock->node));
+-			if (result)
+-				break;
+-
+-			read_lock_dk(tree);
+-			end_offset =
+-			    get_key_offset(znode_get_ld_key(next_lock->node));
+-			read_unlock_dk(tree);
+-
+-			result = end_offset - offset;
+-			break;
+-		}
+-
+-		result = tap_move(tap, next_lock);
+-		if (result)
+-			break;
+-
+-		done_lh(next_lock);
+-		coord_init_first_unit(coord, lock->node);
+-	}
+-
+-	if (!result || result == -E_NO_NEIGHBOR)
+-		result = size;
+-      error0:
+-	tap_done(tap);
+-      error:
+-	done_lh(lock);
+-	done_lh(next_lock);
+-	kfree(start_key);
+-	return result;
+-}
+-
+-typedef unsigned long long int ull_t;
+-#define PRINTK(...) noop
+-/* This is derived from the linux original read-ahead code (mm/readahead.c), and
+- * cannot be licensed from Namesys in its current state.  */
+-int reiser4_file_readahead(struct file *file, loff_t offset, size_t size)
+-{
+-	loff_t min;
+-	loff_t max;
+-	loff_t orig_next_size;
+-	loff_t actual;
+-	struct reiser4_file_ra_state *ra;
+-	struct inode *inode = file->f_dentry->d_inode;
+-
+-	assert("zam-995", inode != NULL);
+-
+-	PRINTK("R/A REQ: off=%llu, size=%llu\n", (ull_t) offset, (ull_t) size);
+-	ra = &reiser4_get_file_fsdata(file)->ra1;
+-
+-	max = get_max_readahead(ra);
+-	if (max == 0)
+-		goto out;
+-
+-	min = get_min_readahead(ra);
+-	orig_next_size = ra->next_size;
+-
+-	if (!ra->slow_start) {
+-		ra->slow_start = 1;
+-		/*
+-		 * Special case - first read from first page.
+-		 * We'll assume it's a whole-file read, and
+-		 * grow the window fast.
+-		 */
+-		ra->next_size = max / 2;
+-		goto do_io;
+-
+-	}
+-
+-	/*
+-	 * Is this request outside the current window?
+-	 */
+-	if (offset < ra->start || offset > (ra->start + ra->size)) {
+-		/* R/A miss. */
+-
+-		/* next r/a window size is shrunk by fixed offset and enlarged
+-		 * by 2 * size of read request.  This makes r/a window smaller
+-		 * for small unordered requests and larger for big read
+-		 * requests.  */
+-		ra->next_size += -2 * PAGE_CACHE_SIZE + 2 * size;
+-		if (ra->next_size < 0)
+-			ra->next_size = 0;
+-	      do_io:
+-		ra->start = offset;
+-		ra->size = size + orig_next_size;
+-		actual = do_reiser4_file_readahead(inode, offset, ra->size);
+-		if (actual > 0)
+-			ra->size = actual;
+-
+-		ra->ahead_start = ra->start + ra->size;
+-		ra->ahead_size = ra->next_size;
+-
+-		actual =
+-		    do_reiser4_file_readahead(inode, ra->ahead_start,
+-					      ra->ahead_size);
+-		if (actual > 0)
+-			ra->ahead_size = actual;
+-
+-		PRINTK("R/A MISS: cur = [%llu, +%llu[, ahead = [%llu, +%llu[\n",
+-		       (ull_t) ra->start, (ull_t) ra->size,
+-		       (ull_t) ra->ahead_start, (ull_t) ra->ahead_size);
+-	} else {
+-		/* R/A hit. */
+-
+-		/* Enlarge r/a window size. */
+-		ra->next_size += 2 * size;
+-		if (ra->next_size > max)
+-			ra->next_size = max;
+-
+-		PRINTK("R/A HIT\n");
+-		while (offset + size >= ra->ahead_start) {
+-			ra->start = ra->ahead_start;
+-			ra->size = ra->ahead_size;
+-
+-			ra->ahead_start = ra->start + ra->size;
+-			ra->ahead_size = ra->next_size;
+-
+-			actual =
+-			    do_reiser4_file_readahead(inode, ra->ahead_start,
+-						      ra->ahead_size);
+-			if (actual > 0) {
+-				ra->ahead_size = actual;
+-			}
+-
+-			PRINTK
+-			    ("R/A ADVANCE: cur = [%llu, +%llu[, ahead = [%llu, +%llu[\n",
+-			     (ull_t) ra->start, (ull_t) ra->size,
+-			     (ull_t) ra->ahead_start, (ull_t) ra->ahead_size);
+-
+-		}
+-	}
+-
+-      out:
+-	return 0;
+-}
+-#endif  /*  0  */
+-
+ void reiser4_readdir_readahead_init(struct inode *dir, tap_t * tap)
+ {
+ 	reiser4_key *stop_key;
+diff -puN fs/reiser4/super.c~reiser4-bugfix-patch fs/reiser4/super.c
+--- devel/fs/reiser4/super.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/super.c	2006-01-04 01:05:33.000000000 -0800
+@@ -120,16 +120,6 @@ __u32 reiser4_mkfs_id(const struct super
+ 	return get_super_private(super)->mkfs_id;
+ }
+ 
+-#if 0
+-/* set mkfs unique identifier */
+-void reiser4_set_mkfs_id(const struct super_block *super, __u32 id)
+-{
+-	assert("vpf-223", super != NULL);
+-	assert("vpf-224", is_reiser4_super(super));
+-	get_super_private(super)->mkfs_id = id;
+-}
+-#endif  /*  0  */
+-
+ /* amount of free blocks in file system */
+ __u64 reiser4_free_committed_blocks(const struct super_block *super)
+ {
+diff -puN fs/reiser4/tree.c~reiser4-bugfix-patch fs/reiser4/tree.c
+--- devel/fs/reiser4/tree.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/tree.c	2006-01-04 01:05:33.000000000 -0800
+@@ -1817,14 +1817,6 @@ cut_tree(reiser4_tree * tree, const reis
+ 	return result;
+ }
+ 
+-/* first step of reiser4 tree initialization */
+-static void init_tree_0(reiser4_tree * tree)
+-{
+-	assert("zam-683", tree != NULL);
+-	rwlock_init(&tree->tree_lock);
+-	spin_lock_init(&tree->epoch_lock);
+-}
+-
+ /* finishing reiser4 initialization */
+ int init_tree(reiser4_tree * tree	/* pointer to structure being
+ 					 * initialized */ ,
+@@ -1841,9 +1833,6 @@ int init_tree(reiser4_tree * tree	/* poi
+ 	assert("nikita-309", nplug != NULL);
+ 	assert("zam-587", tree->super != NULL);
+ 
+-	/* someone might not call init_tree_0 before calling init_tree. */
+-	init_tree_0(tree);
+-
+ 	tree->root_block = *root_block;
+ 	tree->height = height;
+ 	tree->estimate_one_insert = calc_estimate_one_insert(height);
+diff -puN fs/reiser4/tree_walk.c~reiser4-bugfix-patch fs/reiser4/tree_walk.c
+--- devel/fs/reiser4/tree_walk.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/tree_walk.c	2006-01-04 01:05:33.000000000 -0800
+@@ -915,337 +915,6 @@ void sibling_list_insert_nolock(znode * 
+ 	assert("nikita-3281", check_sibling_list(before));
+ }
+ 
+-#if 0
+-
+-struct tw_handle {
+-	/* A key for tree walking (re)start, updated after each successful tree
+-	 * node processing */
+-	reiser4_key start_key;
+-	/* A tree traversal current position. */
+-	tap_t tap;
+-	/* An externally supplied pair of functions for formatted and
+-	 * unformatted nodes processing. */
+-	struct tree_walk_actor *actor;
+-	/* It is passed to actor functions as is. */
+-	void *opaque;
+-	/* A direction of a tree traversal: 1 if going from right to left. */
+-	unsigned int go_left:1;
+-	/* "Done" flag */
+-	unsigned int done:1;
+-	/* Current node was processed completely */
+-	unsigned int node_completed:1;
+-};
+-
+-/* it locks the root node, handles the restarts inside */
+-static int lock_tree_root(lock_handle * lock, znode_lock_mode mode)
+-{
+-	int ret;
+-
+-	reiser4_tree *tree = current_tree;
+-	lock_handle uber_znode_lock;
+-	znode *root;
+-
+-	init_lh(&uber_znode_lock);
+-      again:
+-
+-	ret = get_uber_znode(tree, mode, ZNODE_LOCK_HIPRI, &uber_znode_lock);
+-	if (ret)
+-		return ret;
+-
+-	root =
+-	    zget(tree, &tree->root_block, uber_znode_lock.node, tree->height,
+-		 GFP_KERNEL);
+-	if (IS_ERR(root)) {
+-		done_lh(&uber_znode_lock);
+-		return PTR_ERR(root);
+-	}
+-
+-	ret =
+-	    longterm_lock_znode(lock, root, ZNODE_WRITE_LOCK, ZNODE_LOCK_HIPRI);
+-
+-	zput(root);
+-	done_lh(&uber_znode_lock);
+-
+-	if (ret == -E_DEADLOCK)
+-		goto again;
+-
+-	return ret;
+-}
+-
+-/* Update the handle->start_key by the first key of the node is being
+- * processed. */
+-static int update_start_key(struct tw_handle *h)
+-{
+-	int ret;
+-
+-	ret = tap_load(&h->tap);
+-	if (ret == 0) {
+-		unit_key_by_coord(h->tap.coord, &h->start_key);
+-		tap_relse(&h->tap);
+-	}
+-	return ret;
+-}
+-
+-/* Move tap to the next node, load it. */
+-static int go_next_node(struct tw_handle *h, lock_handle * lock,
+-			const coord_t * coord)
+-{
+-	int ret;
+-
+-	assert("zam-948", ergo(coord != NULL, lock->node == coord->node));
+-
+-	tap_relse(&h->tap);
+-
+-	ret = tap_move(&h->tap, lock);
+-	if (ret)
+-		return ret;
+-
+-	ret = tap_load(&h->tap);
+-	if (ret)
+-		goto error;
+-
+-	if (coord)
+-		coord_dup(h->tap.coord, coord);
+-	else {
+-		if (h->go_left)
+-			coord_init_last_unit(h->tap.coord, lock->node);
+-		else
+-			coord_init_first_unit(h->tap.coord, lock->node);
+-	}
+-
+-	if (h->actor->process_znode != NULL) {
+-		ret = (h->actor->process_znode) (&h->tap, h->opaque);
+-		if (ret)
+-			goto error;
+-	}
+-
+-	ret = update_start_key(h);
+-
+-      error:
+-	done_lh(lock);
+-	return ret;
+-}
+-
+-static void next_unit(struct tw_handle *h)
+-{
+-	if (h->go_left)
+-		h->node_completed = coord_prev_unit(h->tap.coord);
+-	else
+-		h->node_completed = coord_next_unit(h->tap.coord);
+-}
+-
+-/* Move tree traversal position (which is embedded into tree_walk_handle) to the
+- * parent of current node (h->lh.node). */
+-static int tw_up(struct tw_handle *h)
+-{
+-	coord_t coord;
+-	lock_handle lock;
+-	load_count load;
+-	int ret;
+-
+-	init_lh(&lock);
+-	init_load_count(&load);
+-
+-	do {
+-		ret =
+-		    reiser4_get_parent(&lock, h->tap.lh->node,
+-				       ZNODE_WRITE_LOCK);
+-		if (ret)
+-			break;
+-		if (znode_above_root(lock.node)) {
+-			h->done = 1;
+-			break;
+-		}
+-		ret = incr_load_count_znode(&load, lock.node);
+-		if (ret)
+-			break;
+-		ret = find_child_ptr(lock.node, h->tap.lh->node, &coord);
+-		if (ret)
+-			break;
+-		ret = go_next_node(h, &lock, &coord);
+-		if (ret)
+-			break;
+-		next_unit(h);
+-	} while (0);
+-
+-	done_load_count(&load);
+-	done_lh(&lock);
+-
+-	return ret;
+-}
+-
+-/* Move tree traversal position to the child of current node pointed by
+- * h->tap.coord.  */
+-static int tw_down(struct tw_handle *h)
+-{
+-	reiser4_block_nr block;
+-	lock_handle lock;
+-	znode *child;
+-	item_plugin *iplug;
+-	tree_level level = znode_get_level(h->tap.lh->node);
+-	int ret;
+-
+-	assert("zam-943", item_is_internal(h->tap.coord));
+-
+-	iplug = item_plugin_by_coord(h->tap.coord);
+-	iplug->s.internal.down_link(h->tap.coord, NULL, &block);
+-	init_lh(&lock);
+-
+-	do {
+-		child =
+-		    zget(current_tree, &block, h->tap.lh->node, level - 1,
+-			 GFP_KERNEL);
+-		if (IS_ERR(child))
+-			return PTR_ERR(child);
+-		ret = connect_znode(h->tap.coord, child);
+-		if (ret)
+-			break;
+-		ret = longterm_lock_znode(&lock, child, ZNODE_WRITE_LOCK, 0);
+-		if (ret)
+-			break;
+-		set_child_delimiting_keys(h->tap.coord->node, h->tap.coord,
+-					  child);
+-		ret = go_next_node(h, &lock, NULL);
+-	} while (0);
+-
+-	zput(child);
+-	done_lh(&lock);
+-	return ret;
+-}
+-
+-/* Traverse the reiser4 tree until either all tree traversing is done or an
+- * error encountered (including recoverable ones as -E_DEADLOCK or -E_REPEAT).  The
+- * @actor function is able to stop tree traversal by returning an appropriate
+- * error code. */
+-static int tw_by_handle(struct tw_handle *h)
+-{
+-	int ret;
+-	lock_handle next_lock;
+-
+-	ret = tap_load(&h->tap);
+-	if (ret)
+-		return ret;
+-
+-	init_lh(&next_lock);
+-
+-	while (!h->done) {
+-		tree_level level;
+-
+-		if (h->node_completed) {
+-			h->node_completed = 0;
+-			ret = tw_up(h);
+-			if (ret)
+-				break;
+-			continue;
+-		}
+-
+-		assert("zam-944", coord_is_existing_unit(h->tap.coord));
+-		level = znode_get_level(h->tap.lh->node);
+-
+-		if (level == LEAF_LEVEL) {
+-			h->node_completed = 1;
+-			continue;
+-		}
+-
+-		if (item_is_extent(h->tap.coord)) {
+-			if (h->actor->process_extent != NULL) {
+-				ret =
+-				    (h->actor->process_extent) (&h->tap,
+-								h->opaque);
+-				if (ret)
+-					break;
+-			}
+-			next_unit(h);
+-			continue;
+-		}
+-
+-		ret = tw_down(h);
+-		if (ret)
+-			break;
+-	}
+-
+-	done_lh(&next_lock);
+-	return ret;
+-}
+-
+-/* Walk the reiser4 tree in parent-first order */
+-int
+-tree_walk(const reiser4_key * start_key, int go_left,
+-	  struct tree_walk_actor *actor, void *opaque)
+-{
+-	coord_t coord;
+-	lock_handle lock;
+-	struct tw_handle handle;
+-
+-	int ret;
+-
+-	assert("zam-950", actor != NULL);
+-
+-	handle.actor = actor;
+-	handle.opaque = opaque;
+-	handle.go_left = !!go_left;
+-	handle.done = 0;
+-	handle.node_completed = 0;
+-
+-	init_lh(&lock);
+-
+-	if (start_key == NULL) {
+-		if (actor->before) {
+-			ret = actor->before(opaque);
+-			if (ret)
+-				return ret;
+-		}
+-
+-		ret = lock_tree_root(&lock, ZNODE_WRITE_LOCK);
+-		if (ret)
+-			return ret;
+-		ret = zload(lock.node);
+-		if (ret)
+-			goto done;
+-
+-		if (go_left)
+-			coord_init_last_unit(&coord, lock.node);
+-		else
+-			coord_init_first_unit_nocheck(&coord, lock.node);
+-
+-		zrelse(lock.node);
+-		goto no_start_key;
+-	} else
+-		handle.start_key = *start_key;
+-
+-	do {
+-		if (actor->before) {
+-			ret = actor->before(opaque);
+-			if (ret)
+-				return ret;
+-		}
+-
+-		ret =
+-		    coord_by_key(current_tree, &handle.start_key, &coord, &lock,
+-				 ZNODE_WRITE_LOCK, FIND_MAX_NOT_MORE_THAN,
+-				 TWIG_LEVEL, LEAF_LEVEL, 0, NULL);
+-		if (ret != CBK_COORD_FOUND)
+-			break;
+-	      no_start_key:
+-		tap_init(&handle.tap, &coord, &lock, ZNODE_WRITE_LOCK);
+-
+-		ret = update_start_key(&handle);
+-		if (ret) {
+-			tap_done(&handle.tap);
+-			break;
+-		}
+-		ret = tw_by_handle(&handle);
+-		tap_done(&handle.tap);
+-
+-	} while (!handle.done && (ret == -E_DEADLOCK || ret == -E_REPEAT));
+-
+-      done:
+-	done_lh(&lock);
+-	return ret;
+-}
+-
+-#endif  /*  0  */
+-
+ /*
+    Local variables:
+    c-indentation-style: "K&R"
+diff -puN fs/reiser4/txnmgr.c~reiser4-bugfix-patch fs/reiser4/txnmgr.c
+--- devel/fs/reiser4/txnmgr.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/txnmgr.c	2006-01-04 01:05:33.000000000 -0800
+@@ -471,15 +471,6 @@ int txn_end(reiser4_context * context)
+ 
+ 	txnh = context->trans;
+ 	if (txnh != NULL) {
+-		/* Fuse_not_fused_lock_owners in a parallel thread may set
+-		 * txnh->atom to the current thread's transaction handle.  At
+-		 * this moment current thread holds no long-term locks, but
+-		 * fuse_not_fused... releases znode->lock spin-lock right
+-		 * before assigning an atom to this transaction handle.  It
+-		 * still keeps txnh locked so the code below prevents the
+-		 * fuse_not_fused... thread from racing too far. */
+-		spin_lock_txnh(txnh);
+-		spin_unlock_txnh(txnh);
+ 		if (txnh->atom != NULL)
+ 			ret = commit_txnh(txnh);
+ 		assert("jmacd-633", txnh_isclean(txnh));
+@@ -1173,9 +1164,14 @@ static int commit_current_atom(long *nr_
+ 
+ /* TXN_TXNH */
+ 
+-/* commit current atom and wait commit completion; atom and txn_handle should be
+- * locked before call, this function unlocks them on exit. */
+-static int force_commit_atom_nolock(txn_handle * txnh)
++/**
++ * force_commit_atom - commit current atom and wait commit completion
++ * @txnh:
++ *
++ * Commits current atom and wait commit completion; current atom and @txnh have
++ * to be spinlocked before call, this function unlocks them on exit.
++ */
++int force_commit_atom(txn_handle *txnh)
+ {
+ 	txn_atom *atom;
+ 
+@@ -1188,14 +1184,17 @@ static int force_commit_atom_nolock(txn_
+ 	assert("zam-834", atom != NULL);
+ 	assert_spin_locked(&(atom->alock));
+ 
+-	/* Set flags for atom and txnh: forcing atom commit and waiting for
+-	 * commit completion */
++	/*
++	 * Set flags for atom and txnh: forcing atom commit and waiting for
++	 * commit completion
++	 */
+ 	txnh->flags |= TXNH_WAIT_COMMIT;
+ 	atom->flags |= ATOM_FORCE_COMMIT;
+ 
+ 	spin_unlock_txnh(txnh);
+ 	spin_unlock_atom(atom);
+ 
++	/* commit is here */
+ 	txn_restart_current();
+ 	return 0;
+ }
+@@ -1240,7 +1239,7 @@ int txnmgr_force_commit_all(struct super
+ 					spin_lock_txnh(txnh);
+ 					/* Add force-context txnh */
+ 					capture_assign_txnh_nolock(atom, txnh);
+-					ret = force_commit_atom_nolock(txnh);
++					ret = force_commit_atom(txnh);
+ 					if (ret)
+ 						return ret;
+ 				} else
+@@ -1879,20 +1878,26 @@ static int try_capture_block(
+ 	   let us touch the atoms themselves. */
+ 	spin_lock_txnh(txnh);
+ 	txnh_atom = txnh->atom;
+-
++	/* Process of capturing continues into one of four branches depends on
++	   which atoms from (block atom (node->atom), current atom (txnh->atom))
++	   exist. */
+ 	if (txnh_atom == NULL) {
+ 		if (block_atom == NULL) {
+ 			spin_unlock_txnh(txnh);
+ 			spin_unlock_jnode(node);
++			/* assign empty atom to the txnh and repeat */
+ 			return atom_begin_and_assign_to_txnh(atom_alloc, txnh);
+ 		} else {
+ 			atomic_inc(&block_atom->refcount);
++			/* node spin-lock isn't needed anymore */
+ 			spin_unlock_jnode(node);
+ 			if (!spin_trylock_atom(block_atom)) {
+ 				spin_unlock_txnh(txnh);
+ 				spin_lock_atom(block_atom);
+ 				spin_lock_txnh(txnh);
+ 			}
++			/* re-check state after getting txnh and the node
++			 * atom spin-locked */
+ 			if (node->atom != block_atom || txnh->atom != NULL) {
+ 				spin_unlock_txnh(txnh);
+ 				atom_dec_and_unlock(block_atom);
+@@ -1909,6 +1914,34 @@ static int try_capture_block(
+ 			return RETERR(-E_REPEAT);
+ 		}
+ 	} else {
++		/* It is time to perform deadlock prevention check over the
++                  node we want to capture.  It is possible this node was locked
++                  for read without capturing it. The optimization which allows
++                  to do it helps us in keeping atoms independent as long as
++                  possible but it may cause lock/fuse deadlock problems.
++
++                  A number of similar deadlock situations with locked but not
++                  captured nodes were found.  In each situation there are two
++                  or more threads: one of them does flushing while another one
++                  does routine balancing or tree lookup.  The flushing thread
++                  (F) sleeps in long term locking request for node (N), another
++                  thread (A) sleeps in trying to capture some node already
++                  belonging the atom F, F has a state which prevents
++                  immediately fusion .
++
++                  Deadlocks of this kind cannot happen if node N was properly
++                  captured by thread A. The F thread fuse atoms before locking
++                  therefore current atom of thread F and current atom of thread
++                  A became the same atom and thread A may proceed.  This does
++                  not work if node N was not captured because the fusion of
++                  atom does not happens.
++
++                  The following scheme solves the deadlock: If
++                  longterm_lock_znode locks and does not capture a znode, that
++                  znode is marked as MISSED_IN_CAPTURE.  A node marked this way
++                  is processed by the code below which restores the missed
++                  capture and fuses current atoms of all the node lock owners
++                  by calling the fuse_not_fused_lock_owners() function. */
+ 		if (JF_ISSET(node, JNODE_MISSED_IN_CAPTURE)) {
+ 			JF_CLR(node, JNODE_MISSED_IN_CAPTURE);
+ 			if (jnode_is_znode(node) && znode_is_locked(JZNODE(node))) {
+@@ -2142,7 +2175,7 @@ static void fuse_not_fused_lock_owners(t
+ 	spin_unlock_txnh(txnh);
+ 	assert("zam-692", atomh != NULL);
+ 
+-	read_lock_zlock(&node->lock);
++	spin_lock_zlock(&node->lock);
+ 	/* inspect list of lock owners */
+ 	list_for_each_entry(lh, &node->lock.owners, owners_link) {
+ 		ctx = get_context_by_lock_stack(lh->owner);
+@@ -2164,22 +2197,25 @@ static void fuse_not_fused_lock_owners(t
+ 		}
+ 	}
+ 	if (repeat) {
+-		int lock_ok;
+-
+-		lock_ok = spin_trylock_txnh(ctx->trans);
+-		read_unlock_zlock(&node->lock);
+-		if (!lock_ok) {
++		if (!spin_trylock_txnh(ctx->trans)) {
++			spin_unlock_zlock(&node->lock);
+ 			spin_unlock_atom(atomh);
+ 			goto repeat;
+ 		}
+ 		atomf = ctx->trans->atom;
+ 		if (atomf == NULL) {
+ 			capture_assign_txnh_nolock(atomh, ctx->trans);
++			/* release zlock lock _after_ assigning the atom to the
++			 * transaction handle, otherwise the lock owner thread
++			 * may unlock all znodes, exit kernel context and here
++			 * we would access an invalid transaction handle. */
++			spin_unlock_zlock(&node->lock);
+ 			spin_unlock_atom(atomh);
+ 			spin_unlock_txnh(ctx->trans);
+ 			goto repeat;
+ 		}
+ 		assert("zam-1059", atomf != atomh);
++		spin_unlock_zlock(&node->lock);
+ 		atomic_inc(&atomh->refcount);
+ 		atomic_inc(&atomf->refcount);
+ 		spin_unlock_txnh(ctx->trans);
+@@ -2199,7 +2235,7 @@ static void fuse_not_fused_lock_owners(t
+ 		capture_fuse_into(atomf, atomh);
+ 		goto repeat;
+ 	}
+-	read_unlock_zlock(&node->lock);
++	spin_unlock_zlock(&node->lock);
+ 	spin_unlock_atom(atomh);
+ }
+ 
+@@ -2541,7 +2577,7 @@ int sync_atom(txn_atom * atom)
+ 		if (atom->stage < ASTAGE_PRE_COMMIT) {
+ 			spin_lock_txnh(txnh);
+ 			capture_assign_txnh_nolock(atom, txnh);
+-			result = force_commit_atom_nolock(txnh);
++			result = force_commit_atom(txnh);
+ 		} else if (atom->stage < ASTAGE_POST_COMMIT) {
+ 			/* wait atom commit */
+ 			atom_wait_event(atom);
+@@ -3724,6 +3760,7 @@ void uncapture_block(jnode * node)
+ #else
+ 	assert("jmacd-1023", atom_is_protected(atom));
+ #endif
++	assert("", !JF_ISSET(node, JNODE_EFLUSH));
+ 
+ 	JF_CLR(node, JNODE_DIRTY);
+ 	JF_CLR(node, JNODE_RELOC);
+diff -puN fs/reiser4/txnmgr.h~reiser4-bugfix-patch fs/reiser4/txnmgr.h
+--- devel/fs/reiser4/txnmgr.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/txnmgr.h	2006-01-04 01:05:33.000000000 -0800
+@@ -416,6 +416,7 @@ extern int current_atom_should_commit(vo
+ extern jnode *find_first_dirty_jnode(txn_atom *, int);
+ 
+ extern int commit_some_atoms(txn_mgr *);
++extern int force_commit_atom(txn_handle *);
+ extern int flush_current_atom(int, long, long *, txn_atom **, jnode *);
+ 
+ extern int flush_some_atom(jnode *, long *, const struct writeback_control *, int);
+@@ -508,7 +509,7 @@ static inline void spin_lock_atom(txn_at
+ 	/* check that spinlocks of lower priorities are not held */
+ 	assert("", (LOCK_CNT_NIL(spin_locked_txnh) &&
+ 		    LOCK_CNT_NIL(spin_locked_jnode) &&
+-		    LOCK_CNT_NIL(rw_locked_zlock) &&
++		    LOCK_CNT_NIL(spin_locked_zlock) &&
+ 		    LOCK_CNT_NIL(rw_locked_dk) &&
+ 		    LOCK_CNT_NIL(rw_locked_tree)));
+ 
+@@ -544,7 +545,7 @@ static inline void spin_lock_txnh(txn_ha
+ {
+ 	/* check that spinlocks of lower priorities are not held */
+ 	assert("", (LOCK_CNT_NIL(rw_locked_dk) &&
+-		    LOCK_CNT_NIL(rw_locked_zlock) &&
++		    LOCK_CNT_NIL(spin_locked_zlock) &&
+ 		    LOCK_CNT_NIL(rw_locked_tree)));
+ 
+ 	spin_lock(&(txnh->hlock));
+@@ -589,7 +590,7 @@ static inline void spin_lock_txnmgr(txn_
+ 	assert("", (LOCK_CNT_NIL(spin_locked_atom) &&
+ 		    LOCK_CNT_NIL(spin_locked_txnh) &&
+ 		    LOCK_CNT_NIL(spin_locked_jnode) &&
+-		    LOCK_CNT_NIL(rw_locked_zlock) &&
++		    LOCK_CNT_NIL(spin_locked_zlock) &&
+ 		    LOCK_CNT_NIL(rw_locked_dk) &&
+ 		    LOCK_CNT_NIL(rw_locked_tree)));
+ 
+diff -puN fs/reiser4/vfs_ops.h~reiser4-bugfix-patch fs/reiser4/vfs_ops.h
+--- devel/fs/reiser4/vfs_ops.h~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/vfs_ops.h	2006-01-04 01:05:33.000000000 -0800
+@@ -25,7 +25,7 @@ int reiser4_set_page_dirty(struct page *
+ int reiser4_readpages(struct file *, struct address_space *,
+ 		      struct list_head *pages, unsigned nr_pages);
+ int reiser4_invalidatepage(struct page *, unsigned long offset);
+-int reiser4_releasepage(struct page *, gfp_t gfp);
++int reiser4_releasepage(struct page *, gfp_t);
+ 
+ extern int reiser4_update_sd(struct inode *);
+ extern int reiser4_add_nlink(struct inode *, struct inode *, int);
+diff -puN fs/reiser4/wander.c~reiser4-bugfix-patch fs/reiser4/wander.c
+--- devel/fs/reiser4/wander.c~reiser4-bugfix-patch	2006-01-04 01:05:33.000000000 -0800
++++ devel-akpm/fs/reiser4/wander.c	2006-01-04 01:05:33.000000000 -0800
+@@ -768,6 +768,7 @@ static int write_jnodes_to_disk_extent(
+ 			assert("nikita-3166",
+ 			       pg->mapping == jnode_get_mapping(cur));
+ 			assert("zam-912", !JF_ISSET(cur, JNODE_WRITEBACK));
++			assert("", !JF_ISSET(cur, JNODE_EFLUSH));
+ #if REISER4_DEBUG
+ 			spin_lock(&cur->load);
+ 			assert("nikita-3165", !jnode_is_releasable(cur));
+_

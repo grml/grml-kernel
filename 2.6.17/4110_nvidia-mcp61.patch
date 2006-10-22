@@ -1,0 +1,77 @@
+From: Andrew Chew <achew@nvidia.com>
+Date: Thu, 20 Apr 2006 22:54:26 +0000 (-0700)
+Subject: [PATCH] sata_nv: Add MCP61 support
+X-Git-Tag: v2.6.17-rc5
+X-Git-Url: http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=4c5c81613b0eb0dba97a8f312a2f1162f39fd47b
+
+[PATCH] sata_nv: Add MCP61 support
+
+Added MCP61 SATA support to sata_nv.
+
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+Index: linux-2.6.17-gentoo-r1/drivers/ide/pci/amd74xx.c
+===================================================================
+--- linux-2.6.17-gentoo-r1.orig/drivers/ide/pci/amd74xx.c
++++ linux-2.6.17-gentoo-r1/drivers/ide/pci/amd74xx.c
+@@ -74,6 +74,7 @@ static struct amd_ide_chip {
+ 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP04_IDE,	0x50, AMD_UDMA_133 },
+ 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP51_IDE,	0x50, AMD_UDMA_133 },
+ 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP55_IDE,	0x50, AMD_UDMA_133 },
++	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE,	0x50, AMD_UDMA_133 },
+ 	{ PCI_DEVICE_ID_AMD_CS5536_IDE,			0x40, AMD_UDMA_100 },
+ 	{ 0 }
+ };
+@@ -488,7 +489,8 @@ static ide_pci_device_t amd74xx_chipsets
+ 	/* 14 */ DECLARE_NV_DEV("NFORCE-MCP04"),
+ 	/* 15 */ DECLARE_NV_DEV("NFORCE-MCP51"),
+ 	/* 16 */ DECLARE_NV_DEV("NFORCE-MCP55"),
+-	/* 17 */ DECLARE_AMD_DEV("AMD5536"),
++	/* 17 */ DECLARE_NV_DEV("NFORCE-MCP61"),
++	/* 18 */ DECLARE_AMD_DEV("AMD5536"),
+ };
+ 
+ static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_id *id)
+@@ -525,7 +527,8 @@ static struct pci_device_id amd74xx_pci_
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP04_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 14 },
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP51_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 15 },
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP55_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 16 },
+-	{ PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_CS5536_IDE,		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 17 },
++	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 17 },
++	{ PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_CS5536_IDE,		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 18 },
+ 	{ 0, },
+ };
+ MODULE_DEVICE_TABLE(pci, amd74xx_pci_tbl);
+Index: linux-2.6.17-gentoo-r1/drivers/scsi/sata_nv.c
+===================================================================
+--- linux-2.6.17-gentoo-r1.orig/drivers/scsi/sata_nv.c
++++ linux-2.6.17-gentoo-r1/drivers/scsi/sata_nv.c
+@@ -140,6 +140,12 @@ static const struct pci_device_id nv_pci
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, GENERIC },
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP55_SATA2,
+ 		PCI_ANY_ID, PCI_ANY_ID, 0, 0, GENERIC },
++	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA,
++		PCI_ANY_ID, PCI_ANY_ID, 0, 0, GENERIC },
++	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA2,
++		PCI_ANY_ID, PCI_ANY_ID, 0, 0, GENERIC },
++	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA3,
++		PCI_ANY_ID, PCI_ANY_ID, 0, 0, GENERIC },
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_ANY_ID,
+ 		PCI_ANY_ID, PCI_ANY_ID,
+ 		PCI_CLASS_STORAGE_IDE<<8, 0xffff00, GENERIC },
+Index: linux-2.6.17-gentoo-r1/include/linux/pci_ids.h
+===================================================================
+--- linux-2.6.17-gentoo-r1.orig/include/linux/pci_ids.h
++++ linux-2.6.17-gentoo-r1/include/linux/pci_ids.h
+@@ -1190,6 +1190,10 @@
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_21              0x0451
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_22              0x0452
+ #define PCI_DEVICE_ID_NVIDIA_NVENET_23              0x0453
++#define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA      0x03E7
++#define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE       0x03EC
++#define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA2     0x03F6
++#define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA3     0x03F7
+ 
+ #define PCI_VENDOR_ID_IMS		0x10e0
+ #define PCI_DEVICE_ID_IMS_TT128		0x9128

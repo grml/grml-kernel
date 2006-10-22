@@ -1,0 +1,31 @@
+Index: linux-git/drivers/char/speakup/speakup.c
+===================================================================
+--- linux-git.orig/drivers/char/speakup/speakup.c
++++ linux-git/drivers/char/speakup/speakup.c
+@@ -2148,19 +2148,20 @@ reset_highlight_buffers( struct vc_data 
+ static int
+ count_highlight_color(struct vc_data *vc)
+ {
+-	int i,j,bg,ch;
++	int i,bg;
+ 	int cc;
+ 	int vc_num=vc->vc_num;
+-	unsigned int start,end;
++	u16 ch;
++	u16 *start = (u16 *) vc->vc_origin;
+ 
+ 	for ( i=0 ; i<8 ; i++ )
+ 		speakup_console[vc_num]->ht.bgcount[i]=0;
+ 
+-	start=vc->vc_origin;
+ 	for ( i=0 ; i<vc->vc_rows; i++ ){
+-		end = start + vc->vc_cols*2;
+-		for ( j=start ; j<end ; j+=2){
+-			ch = scr_readw( (ushort *) j );
++		u16 *end = start + vc->vc_cols*2;
++		u16 *ptr;
++		for ( ptr=start ; ptr<end ; ptr++){
++			ch = scr_readw( ptr );
+ 			bg = ( ch & 0x7000 ) >> 12;
+ 			speakup_console[vc_num]->ht.bgcount[bg]++;
+ 		}

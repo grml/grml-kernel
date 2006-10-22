@@ -1,0 +1,29 @@
+From: Jeff Garzik <jeff@garzik.org>
+Date: Fri, 23 Jun 2006 03:19:15 +0000 (-0400)
+Subject: [libata] ahci: add JMicron PCI IDs
+X-Git-Url: http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=8fa29b23d9e0ef976dc578aab98297d4f24f70da
+
+[libata] ahci: add JMicron PCI IDs
+
+Originally contributed by Justin @ JMicron.
+
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/scsi/ahci.c
++++ b/drivers/scsi/ahci.c
+@@ -320,8 +320,14 @@ static const struct pci_device_id ahci_p
+ 	/* JMicron */
+ 	{ 0x197b, 0x2360, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 	  board_ahci }, /* JMicron JMB360 */
++	{ 0x197b, 0x2361, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* JMicron JMB361 */
+ 	{ 0x197b, 0x2363, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 	  board_ahci }, /* JMicron JMB363 */
++	{ 0x197b, 0x2365, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* JMicron JMB365 */
++	{ 0x197b, 0x2366, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* JMicron JMB366 */
+ 
+ 	/* ATI */
+ 	{ PCI_VENDOR_ID_ATI, 0x4380, PCI_ANY_ID, PCI_ANY_ID, 0, 0,

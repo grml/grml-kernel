@@ -1,0 +1,11 @@
+--- linux-2.6.18.clean/Makefile	2006-09-20 05:42:06.000000000 +0200
++++ linux-2.6.18-grml/Makefile	2006-09-22 17:43:29.303035000 +0200
+@@ -1,7 +1,7 @@
+ VERSION = 2
+ PATCHLEVEL = 6
+ SUBLEVEL = 18
+-EXTRAVERSION = .1
++EXTRAVERSION = -grml
+ NAME=Avast! A bilge rat!
+ 
+ # *DOCUMENTATION*

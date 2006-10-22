@@ -1,0 +1,315 @@
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:48 +0000 (-0700)
+Subject: [PATCH] sky2: optimize receive restart
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=22e1170310ec6afa41e0dc7ac9dfac735d82dcab
+
+[PATCH] sky2: optimize receive restart
+
+When the driver handles multiple packets per NAPI poll, it is
+better to reload the receive ring, then tell the hardware. Otherwise,
+under packet storm with flow control, the driver/hardware will degrade
+down to one packet getting through per pause-exchange.
+
+Likewise on transmit, don't wakeup until a little more than minimum
+ring space is available.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -65,6 +65,7 @@
+ #define RX_MAX_PENDING		(RX_LE_SIZE/2 - 2)
+ #define RX_DEF_PENDING		RX_MAX_PENDING
+ #define RX_SKB_ALIGN		8
++#define RX_BUF_WRITE		16
+ 
+ #define TX_RING_SIZE		512
+ #define TX_DEF_PENDING		(TX_RING_SIZE - 1)
+@@ -1390,7 +1391,7 @@ static void sky2_tx_complete(struct sky2
+ 	}
+ 
+ 	sky2->tx_cons = put;
+-	if (tx_avail(sky2) > MAX_SKB_TX_LE)
++	if (tx_avail(sky2) > MAX_SKB_TX_LE + 4)
+ 		netif_wake_queue(dev);
+ }
+ 
+@@ -1889,9 +1890,6 @@ resubmit:
+ 	re->skb->ip_summed = CHECKSUM_NONE;
+ 	sky2_rx_add(sky2, re->mapaddr);
+ 
+-	/* Tell receiver about new buffers. */
+-	sky2_put_idx(sky2->hw, rxqaddr[sky2->port], sky2->rx_put);
+-
+ 	return skb;
+ 
+ oversize:
+@@ -1938,7 +1936,9 @@ static inline int sky2_more_work(const s
+ /* Process status response ring */
+ static int sky2_status_intr(struct sky2_hw *hw, int to_do)
+ {
++	struct sky2_port *sky2;
+ 	int work_done = 0;
++	unsigned buf_write[2] = { 0, 0 };
+ 	u16 hwidx = sky2_read16(hw, STAT_PUT_IDX);
+ 
+ 	rmb();
+@@ -1946,7 +1946,6 @@ static int sky2_status_intr(struct sky2_
+ 	while (hw->st_idx != hwidx) {
+ 		struct sky2_status_le *le  = hw->st_le + hw->st_idx;
+ 		struct net_device *dev;
+-		struct sky2_port *sky2;
+ 		struct sk_buff *skb;
+ 		u32 status;
+ 		u16 length;
+@@ -1979,6 +1978,14 @@ static int sky2_status_intr(struct sky2_
+ #endif
+ 				netif_receive_skb(skb);
+ 
++			/* Update receiver after 16 frames */
++			if (++buf_write[le->link] == RX_BUF_WRITE) {
++				sky2_put_idx(hw, rxqaddr[le->link],
++					     sky2->rx_put);
++				buf_write[le->link] = 0;
++			}
++
++			/* Stop after net poll weight */
+ 			if (++work_done >= to_do)
+ 				goto exit_loop;
+ 			break;
+@@ -2017,6 +2024,16 @@ static int sky2_status_intr(struct sky2_
+ 	}
+ 
+ exit_loop:
++	if (buf_write[0]) {
++		sky2 = netdev_priv(hw->dev[0]);
++		sky2_put_idx(hw, Q_R1, sky2->rx_put);
++	}
++
++	if (buf_write[1]) {
++		sky2 = netdev_priv(hw->dev[1]);
++		sky2_put_idx(hw, Q_R2, sky2->rx_put);
++	}
++
+ 	return work_done;
+ }
+ 
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:45 +0000 (-0700)
+Subject: [PATCH] sky2: sky2_reset section mismatch
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=59139528c8e7880eee437e81647ade1b36af0d41
+
+[PATCH] sky2: sky2_reset section mismatch
+
+Since sky2_reset gets call from sky2_resume it shouldn't be tagged
+with devinit.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -2286,7 +2286,7 @@ static inline u32 sky2_clk2us(const stru
+ }
+ 
+ 
+-static int __devinit sky2_reset(struct sky2_hw *hw)
++static int sky2_reset(struct sky2_hw *hw)
+ {
+ 	u16 status;
+ 	u8 t8, pmd_type;
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:46 +0000 (-0700)
+Subject: [PATCH] sky2: NAPI suspend/resume of dual port cards
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=6a5706b99c98e3c974cf5b55324e4eed7f82e55a
+
+[PATCH] sky2: NAPI suspend/resume of dual port cards
+
+The changes to handle suspend/resume didn't handle the case where
+a dual port card has the first port down, but the second is running.
+In this driver, all NAPI polling is done on the primary port.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -3437,17 +3437,14 @@ static int sky2_suspend(struct pci_dev *
+ 		return -EINVAL;
+ 
+ 	del_timer_sync(&hw->idle_timer);
++	netif_poll_disable(hw->dev[0]);
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+ 		struct net_device *dev = hw->dev[i];
+ 
+-		if (dev) {
+-			if (!netif_running(dev))
+-				continue;
+-
++		if (netif_running(dev)) {
+ 			sky2_down(dev);
+ 			netif_device_detach(dev);
+-			netif_poll_disable(dev);
+ 		}
+ 	}
+ 
+@@ -3474,9 +3471,8 @@ static int sky2_resume(struct pci_dev *p
+ 
+ 	for (i = 0; i < hw->ports; i++) {
+ 		struct net_device *dev = hw->dev[i];
+-		if (dev && netif_running(dev)) {
++		if (netif_running(dev)) {
+ 			netif_device_attach(dev);
+-			netif_poll_enable(dev);
+ 
+ 			err = sky2_up(dev);
+ 			if (err) {
+@@ -3488,6 +3484,7 @@ static int sky2_resume(struct pci_dev *p
+ 		}
+ 	}
+ 
++	netif_poll_enable(hw->dev[0]);
+ 	sky2_idle_start(hw);
+ out:
+ 	return err;
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:43 +0000 (-0700)
+Subject: [PATCH] skge: fix truncated collision threshold mask
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=83405f058eb78b515ccf5b9066fe0a51d55114a0
+
+[PATCH] skge: fix truncated collision threshold mask
+
+Patch to correct broken collision threshold mask in (same problem
+as sky2 driver).  Should be three bits wide, but the mask only allows
+for 1 bit to be set.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/skge.h
++++ b/drivers/net/skge.h
+@@ -1734,11 +1734,11 @@ enum {
+ 	GM_TXCR_FORCE_JAM	= 1<<15, /* Bit 15:	Force Jam / Flow-Control */
+ 	GM_TXCR_CRC_DIS		= 1<<14, /* Bit 14:	Disable insertion of CRC */
+ 	GM_TXCR_PAD_DIS		= 1<<13, /* Bit 13:	Disable padding of packets */
+-	GM_TXCR_COL_THR_MSK	= 1<<10, /* Bit 12..10:	Collision Threshold */
++	GM_TXCR_COL_THR_MSK	= 7<<10, /* Bit 12..10:	Collision Threshold */
+ };
+ 
+ #define TX_COL_THR(x)		(((x)<<10) & GM_TXCR_COL_THR_MSK)
+-#define TX_COL_DEF		0x04
++#define TX_COL_DEF		0x04	/* late collision after 64 byte */
+ 
+ /*	GM_RX_CTRL			16 bit r/w	Receive Control Register */
+ enum {
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:47 +0000 (-0700)
+Subject: [PATCH] sky2: PHY power on delays
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=afa195da458cb06f302c37f8d37b21b177060aed
+
+[PATCH] sky2: PHY power on delays
+
+The documentation says we need to wait after turning on the PHY.
+Also, don't enable WOL by default.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/sky2.c
++++ b/drivers/net/sky2.c
+@@ -234,7 +234,6 @@ static void sky2_set_power_state(struct 
+ 		}
+ 
+ 		if (hw->chip_id == CHIP_ID_YUKON_EC_U) {
+-			sky2_write16(hw, B0_CTST, Y2_HW_WOL_ON);
+ 			sky2_pci_write32(hw, PCI_DEV_REG3, 0);
+ 			reg1 = sky2_pci_read32(hw, PCI_DEV_REG4);
+ 			reg1 &= P_ASPM_CONTROL_MSK;
+@@ -243,6 +242,7 @@ static void sky2_set_power_state(struct 
+ 		}
+ 
+ 		sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
++		udelay(100);
+ 
+ 		break;
+ 
+@@ -255,6 +255,7 @@ static void sky2_set_power_state(struct 
+ 		else
+ 			reg1 |= (PCI_Y2_PHY1_POWD | PCI_Y2_PHY2_POWD);
+ 		sky2_pci_write32(hw, PCI_DEV_REG1, reg1);
++		udelay(100);
+ 
+ 		if (hw->chip_id == CHIP_ID_YUKON_XL && hw->chip_rev > 1)
+ 			sky2_write8(hw, B2_Y2_CLK_GATE, 0);
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:44 +0000 (-0700)
+Subject: [PATCH] sk98lin: fix truncated collision threshold mask
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=f326fe768b39fe4131b1e2ca266c9c385ca307f4
+
+[PATCH] sk98lin: fix truncated collision threshold mask
+
+Patch to correct broken collision threshold mask in (same problem
+as sky2 driver).  Should be three bits wide, but the mask only allows
+for 1 bit to be set.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/sk98lin/h/xmac_ii.h
++++ b/drivers/net/sk98lin/h/xmac_ii.h
+@@ -1473,7 +1473,7 @@ extern "C" {
+ #define GM_TXCR_FORCE_JAM	(1<<15)	/* Bit 15:	Force Jam / Flow-Control */
+ #define GM_TXCR_CRC_DIS		(1<<14)	/* Bit 14:	Disable insertion of CRC */
+ #define GM_TXCR_PAD_DIS		(1<<13)	/* Bit 13:	Disable padding of packets */
+-#define GM_TXCR_COL_THR_MSK	(1<<10)	/* Bit 12..10:	Collision Threshold */
++#define GM_TXCR_COL_THR_MSK	(7<<10)	/* Bit 12..10:	Collision Threshold */
+ 
+ #define TX_COL_THR(x)		(SHIFT10(x) & GM_TXCR_COL_THR_MSK)
+ 
+From: Stephen Hemminger <shemminger@osdl.org>
+Date: Wed, 12 Jul 2006 22:23:42 +0000 (-0700)
+Subject: [PATCH] sky2: fix truncated collision threshold mask
+X-Git-Tag: v2.6.18-rc2
+X-Git-Url: http://kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=fbb88b3e0b59fbc877c884f5fc978428b2fe7aea
+
+[PATCH] sky2: fix truncated collision threshold mask
+
+Patch to correct broken collision threshold mask in sky2 driver.  Should be
+three bits wide, but the mask only allows for 1 bit to be set.
+
+Thanks & Regards
+Neil
+
+Signed-off-by: Neil Horman <nhorman@tuxdriver.com>
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+
+ sky2.h |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/sky2.h
++++ b/drivers/net/sky2.h
+@@ -1480,7 +1480,7 @@ enum {
+ 	GM_TXCR_FORCE_JAM	= 1<<15, /* Bit 15:	Force Jam / Flow-Control */
+ 	GM_TXCR_CRC_DIS		= 1<<14, /* Bit 14:	Disable insertion of CRC */
+ 	GM_TXCR_PAD_DIS		= 1<<13, /* Bit 13:	Disable padding of packets */
+-	GM_TXCR_COL_THR_MSK	= 1<<10, /* Bit 12..10:	Collision Threshold */
++	GM_TXCR_COL_THR_MSK	= 7<<10, /* Bit 12..10:	Collision Threshold */
+ };
+ 
+ #define TX_COL_THR(x)		(((x)<<10) & GM_TXCR_COL_THR_MSK)

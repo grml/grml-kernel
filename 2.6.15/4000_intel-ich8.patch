@@ -1,0 +1,199 @@
+unchanged:
+--- linux-2.6.15/arch/i386/pci/irq.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/arch/i386/pci/irq.c	2006-01-09 08:18:08.007292384 -0800
+@@ -539,6 +539,11 @@
+ 		case PCI_DEVICE_ID_INTEL_ICH7_30:
+ 		case PCI_DEVICE_ID_INTEL_ICH7_31:
+ 		case PCI_DEVICE_ID_INTEL_ESB2_0:
++		case PCI_DEVICE_ID_INTEL_ICH8_0:
++		case PCI_DEVICE_ID_INTEL_ICH8_1:
++		case PCI_DEVICE_ID_INTEL_ICH8_2:
++		case PCI_DEVICE_ID_INTEL_ICH8_3:
++		case PCI_DEVICE_ID_INTEL_ICH8_4:
+ 			r->name = "PIIX/ICH";
+ 			r->get = pirq_piix_get;
+ 			r->set = pirq_piix_set;
+unchanged:
+--- linux-2.6.15/include/linux/pci_ids.h.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/include/linux/pci_ids.h	2006-01-09 08:18:08.015291168 -0800
+@@ -2055,6 +2055,13 @@
+ #define PCI_DEVICE_ID_INTEL_ICH7_19	0x27dd
+ #define PCI_DEVICE_ID_INTEL_ICH7_20	0x27de
+ #define PCI_DEVICE_ID_INTEL_ICH7_21	0x27df
++#define PCI_DEVICE_ID_INTEL_ICH8_0	0x2810
++#define PCI_DEVICE_ID_INTEL_ICH8_1	0x2811
++#define PCI_DEVICE_ID_INTEL_ICH8_2	0x2812
++#define PCI_DEVICE_ID_INTEL_ICH8_3	0x2814
++#define PCI_DEVICE_ID_INTEL_ICH8_4	0x2815
++#define PCI_DEVICE_ID_INTEL_ICH8_5	0x283e
++#define PCI_DEVICE_ID_INTEL_ICH8_6	0x2850
+ #define PCI_DEVICE_ID_INTEL_82855PM_HB	0x3340
+ #define PCI_DEVICE_ID_INTEL_82830_HB	0x3575
+ #define PCI_DEVICE_ID_INTEL_82830_CGC	0x3577
+unchanged:
+--- linux-2.6.15/drivers/pci/quirks.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/drivers/pci/quirks.c	2006-01-09 08:18:08.012291624 -0800
+@@ -1125,6 +1125,9 @@
+ 	case 0x27c4:
+ 		ich = 7;
+ 		break;
++	case 0x2828:	/* ICH8M */
++		ich = 8;
++		break;
+ 	default:
+ 		/* we do not handle this PCI device */
+ 		return;
+@@ -1144,7 +1147,7 @@
+ 		else
+ 			return;			/* not in combined mode */
+ 	} else {
+-		WARN_ON((ich != 6) && (ich != 7));
++		WARN_ON((ich != 6) && (ich != 7) && (ich != 8));
+ 		tmp &= 0x3;  /* interesting bits 1:0 */
+ 		if (tmp & (1 << 0))
+ 			comb = (1 << 2);	/* PATA port 0, SATA port 1 */
+unchanged:
+--- linux-2.6.15/drivers/scsi/ata_piix.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/drivers/scsi/ata_piix.c	2006-01-09 08:18:08.013291472 -0800
+@@ -81,6 +81,7 @@
+ 	ich6_sata_rm		= 4,
+ 	ich7_sata		= 5,
+ 	esb2_sata		= 6,
++	ich8_sata		= 7,
+ 
+ 	PIIX_AHCI_DEVICE	= 6,
+ };
+@@ -116,6 +117,9 @@
+ 	{ 0x8086, 0x27c0, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich7_sata },
+ 	{ 0x8086, 0x27c4, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich7_sata },
+ 	{ 0x8086, 0x2680, PCI_ANY_ID, PCI_ANY_ID, 0, 0, esb2_sata },
++	{ 0x8086, 0x2820, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich8_sata },
++	{ 0x8086, 0x2825, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich8_sata },
++	{ 0x8086, 0x2828, PCI_ANY_ID, PCI_ANY_ID, 0, 0, ich8_sata },
+ 
+ 	{ }	/* terminate list */
+ };
+@@ -293,6 +297,18 @@
+ 		.udma_mask	= 0x7f,	/* udma0-6 */
+ 		.port_ops	= &piix_sata_ops,
+ 	},
++
++	/* ich8_sata */
++	{
++		.sht		= &piix_sht,
++		.host_flags	= ATA_FLAG_SATA | ATA_FLAG_SRST |
++				  PIIX_FLAG_COMBINED | PIIX_FLAG_CHECKINTR |
++				  ATA_FLAG_SLAVE_POSS | PIIX_FLAG_AHCI,
++		.pio_mask	= 0x1f,	/* pio0-4 */
++		.mwdma_mask	= 0x07, /* mwdma0-2 */
++		.udma_mask	= 0x7f,	/* udma0-6 */
++		.port_ops	= &piix_sata_ops,
++	},
+ };
+ 
+ static struct pci_bits piix_enable_bits[] = {
+unchanged:
+--- linux-2.6.15/drivers/i2c/busses/i2c-i801.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/drivers/i2c/busses/i2c-i801.c	2006-01-09 08:18:08.008292232 -0800
+@@ -32,6 +32,7 @@
+     ICH6		266A
+     ICH7		27DA
+     ESB2		269B
++    ICH8		283E
+     This driver supports several versions of Intel's I/O Controller Hubs (ICH).
+     For SMBus support, they are similar to the PIIX4 and are part
+     of Intel's '810' and other chipsets.
+@@ -531,6 +532,7 @@
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH6_16) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH7_17) },
+ 	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ESB2_17) },
++	{ PCI_DEVICE(PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH8_5) },
+ 	{ 0, }
+ };
+ 
+unchanged:
+--- linux-2.6.15/drivers/i2c/busses/Kconfig.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/drivers/i2c/busses/Kconfig	2006-01-09 08:18:08.009292080 -0800
+@@ -124,6 +124,7 @@
+ 	    ICH6
+ 	    ICH7
+ 	    ESB2
++	    ICH8
+ 
+ 	  This driver can also be built as a module.  If so, the module
+ 	  will be called i2c-i801.
+unchanged:
+--- linux-2.6.15/drivers/scsi/ahci.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/drivers/scsi/ahci.c	2006-01-09 08:18:08.014291320 -0800
+@@ -277,6 +277,16 @@
+ 	  board_ahci }, /* ESB2 */
+ 	{ PCI_VENDOR_ID_INTEL, 0x27c6, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
+ 	  board_ahci }, /* ICH7-M DH */
++	{ PCI_VENDOR_ID_INTEL, 0x2821, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* ICH8 */
++	{ PCI_VENDOR_ID_INTEL, 0x2822, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* ICH8 */
++	{ PCI_VENDOR_ID_INTEL, 0x2824, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* ICH8 */
++	{ PCI_VENDOR_ID_INTEL, 0x2829, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* ICH8M */
++	{ PCI_VENDOR_ID_INTEL, 0x282a, PCI_ANY_ID, PCI_ANY_ID, 0, 0,
++	  board_ahci }, /* ICH8M */
+ 	{ }	/* terminate list */
+ };
+ 
+unchanged:
+--- linux-2.6.15/sound/pci/hda/hda_intel.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/sound/pci/hda/hda_intel.c	2006-01-09 08:18:08.017290864 -0800
+@@ -70,6 +70,7 @@
+ 			 "{Intel, ICH6M},"
+ 			 "{Intel, ICH7},"
+ 			 "{Intel, ESB2},"
++			 "{Intel, ICH8 },"
+ 			 "{ATI, SB450},"
+ 			 "{VIA, VT8251},"
+ 			 "{VIA, VT8237A},"
+@@ -1603,6 +1604,7 @@
+ 	{ 0x8086, 0x2668, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_ICH }, /* ICH6 */
+ 	{ 0x8086, 0x27d8, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_ICH }, /* ICH7 */
+ 	{ 0x8086, 0x269a, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_ICH }, /* ESB2 */
++	{ 0x8086, 0x284b, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_ICH }, /* ICH8 */
+ 	{ 0x1002, 0x437b, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_ATI }, /* ATI SB450 */
+ 	{ 0x1106, 0x3288, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_VIA }, /* VIA VT8251/VT8237A */
+ 	{ 0x1039, 0x7502, PCI_ANY_ID, PCI_ANY_ID, 0, 0, AZX_DRIVER_SIS }, /* SIS966 */
+only in patch2:
+unchanged:
+--- linux-2.6.15/drivers/ide/pci/piix.c.orig	2006-01-02 19:21:10.000000000 -0800
++++ linux-2.6.15/drivers/ide/pci/piix.c	2006-01-09 08:18:08.010291928 -0800
+@@ -135,6 +135,7 @@
+ 		case PCI_DEVICE_ID_INTEL_ICH6_19:
+ 		case PCI_DEVICE_ID_INTEL_ICH7_21:
+ 		case PCI_DEVICE_ID_INTEL_ESB2_18:
++		case PCI_DEVICE_ID_INTEL_ICH8_6:
+ 			mode = 3;
+ 			break;
+ 		/* UDMA 66 capable */
+@@ -449,6 +450,7 @@
+ 		case PCI_DEVICE_ID_INTEL_ICH6_19:
+ 		case PCI_DEVICE_ID_INTEL_ICH7_21:
+ 		case PCI_DEVICE_ID_INTEL_ESB2_18:
++		case PCI_DEVICE_ID_INTEL_ICH8_6:
+ 		{
+ 			unsigned int extra = 0;
+ 			pci_read_config_dword(dev, 0x54, &extra);
+@@ -575,6 +577,7 @@
+ 	/* 21 */ DECLARE_PIIX_DEV("ICH7"),
+ 	/* 22 */ DECLARE_PIIX_DEV("ICH4"),
+ 	/* 23 */ DECLARE_PIIX_DEV("ESB2"),
++	/* 24 */ DECLARE_PIIX_DEV("ICH8M"),
+ };
+ 
+ /**
+@@ -651,6 +654,7 @@
+ 	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH7_21, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 21},
+ 	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_82801DB_1, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 22},
+ 	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ESB2_18, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 23},
++	{ PCI_VENDOR_ID_INTEL, PCI_DEVICE_ID_INTEL_ICH8_6, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 24},
+ 	{ 0, },
+ };
+ MODULE_DEVICE_TABLE(pci, piix_pci_tbl);

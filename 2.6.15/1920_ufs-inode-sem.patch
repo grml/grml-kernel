@@ -1,0 +1,36 @@
+From stable-bounces@linux.kernel.org  Tue Jan  3 18:03:11 2006
+Message-Id: <200601040159.k041xUT1004672@shell0.pdx.osdl.net>
+To: johnpol@2ka.mipt.ru, stable@kernel.org, mm-commits@vger.kernel.org
+From: akpm@osdl.org
+Date: Tue, 03 Jan 2006 17:59:19 -0800
+Subject: UFS: inode->i_sem is not released in error path
+
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+
+Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Cc: <stable@kernel.org>
+akpm: obviously correct, OK for -stable immediately.
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Chris Wright <chrisw@sous-sol.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+---
+
+ fs/ufs/super.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletion(-)
+
+Index: linux-2.6.15.y/fs/ufs/super.c
+===================================================================
+--- linux-2.6.15.y.orig/fs/ufs/super.c
++++ linux-2.6.15.y/fs/ufs/super.c
+@@ -1296,8 +1296,10 @@ static ssize_t ufs_quota_write(struct su
+ 		blk++;
+ 	}
+ out:
+-	if (len == towrite)
++	if (len == towrite) {
++		up(&inode->i_sem);
+ 		return err;
++	}
+ 	if (inode->i_size < off+len-towrite)
+ 		i_size_write(inode, off+len-towrite);
+ 	inode->i_version++;

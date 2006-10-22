@@ -1,0 +1,124 @@
+Patchset Numbering Scheme
+=========================
+
+1xxx Bug fixes
+2xxx Security fixes
+3xxx Arch-specific compatibility
+4xxx Important features (for live-cd mode)
+5xxx Nice-to-have features / fixes / addons
+
+Individual Patch Descriptions
+=============================
+
+Patch: 4000_grml_logo.diff
+Descr: use grml.org-logo in framebuffer
+From:  http://dufo.tugraz.at/~prokop/grml-kernel/2.6.13-patches/grml_logo.diff
+
+Patch: 4001_squashfs2.2-patch 
+Descr: Driver to support squashfs filesystems.
+From:  http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.14/4705_squashfs-2.2.patch
+       http://mesh.dl.sourceforge.net/sourceforge/squashfs/squashfs2.2-r2.tar.gz
+
+Patch: 4002_vesafb-tng-1.0-rc1-r2-2.6.14.patch
+Descr: Updated vesafb driver for x86.
+From:  http://dev.gentoo.org/~spock/projects/vesafb-tng/archive/vesafb-tng-1.0-rc1-r2-2.6.14.patch
+Note:  probably will be dropped(!)
+
+Patch: 5000_linux-2.6.13-commandline.patch
+Descr: support up to 512 chars in COMMAND_LINE_SIZE (kernel arguments)
+From:  http://www.finnix.org/files/linux-2.6.13-commandline.patch.gz
+
+Patch: 5001_linux-2.6.13-mppe-mppc-1.3.patch
+Descr: MPPE/MPPC kernel module for Linux
+From:  http://mppe-mppc.alphacron.de/linux-2.6.13-mppe-mppc-1.3.patch.gz
+
+Patch: 5002_speakup-20051028.patch
+Descr: Provides console speech to visually-impaired users.
+From: http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.14/4900_speakup-20051028.patch
+
+Patch: 5003_via-vt6410.patch
+Descr: add VIA VT6410 support
+From:  http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.14/4300_via-vt6410.patch
+
+Patch: 5004_iteraid.patch
+Descr: Driver for IT82xx ATA133 RAID Controller
+From:  http://dufo.tugraz.at/~prokop/grml-kernel/2.6.13-patches/iteraid.patch
+
+Patch: 5005_reiser4-for-2.6.14-1.patch
+Descr: driver for the reiser4 filesystem
+From:  ftp://ftp.namesys.com/pub/reiser4-for-2.6/2.6.14/reiser4-for-2.6.14-1.patch.gz
+
+Don't apply clean - checkme
+===========================
+
+Patch: linux-2.6.14-rc4_pwc-10.0.9-rc1.patch
+Descr: updated version of the Linux Philips USB Webcam driver
+From:  http://www.saillard.org/linux/pwc/patches/linux-2.6.14-rc4_pwc-10.0.9-rc1.patch.bz2
+
+Patch: 2.6.13-rc7-libata1.patch
+Descr: Allow smartmontools to be used with the standard '-d ata' device type.
+From:  http://www.kernel.org/pub/linux/kernel/people/jgarzik/libata/2.6.13-rc7-libata1.patch.gz
+
+Modules
+=======
+
+No debian package available:
+
+* dazuko: 'Your Gateway to File Access Control'         - http://www.dazuko.org/
+* kqemu: QEMU Accelerator Module                        - http://fabrice.bellard.free.fr/qemu/qemu-accel.html
+* pcan: driver for low cost CAN-Hardware by Peak System - http://www.peak-system.com/linux/
+
+Debian packages available:
+
+acx100
+at76c503a
+bcm4400
+bcm5700
+drbd0.7
+eagle-usb
+fuse (check)
+hostap
+ieee80211
+ipw2100
+ipw2200
+ivtv0.4
+linux-wlan-ng
+loop-aes
+lufs
+madwifi
+ndiswrapper
+openafs
+pwc
+qc-usb-modules
+realtime-lsm
+rt2x00 (rt2400 and rt2500)
+shfs
+spca5xx
+thinkpad
+tidev
+unionfs
+vaiostat
+zd1211
+
+Notes
+=====
+
+* 2.6.14 will provide /dev/bus/usb/ devices which can be managed with udev. Get rid of usbfs
+  $ tree /sys/class/usb_device/
+  The presence of the "dev" file lets udev create real device nodes: tree /dev/bus/usb/
+  udev rule:
+    SUBSYSTEM="usb_device", PROGRAM="/sbin/usb_device %k", NAME="%c"
+    (echo $1 | /bin/sed 's/usb\([0-9]*\)\.\([0-9]*\)/bus\/usb\/\1\/\2/')
+  This makes libusb pick up the real nodes instead of the mounted usbfs:
+    export USB_DEVFS_PATH=/dev/bus/usb
+  -- ftp://ftp.tugraz.at/mirror/kernel/kernel/v2.6/ChangeLog-2.6.14
+* kernel versions 2.6.14 and later are providing *old* ieee80211
+  and ipw2200 1.0 drivers as part of the mainline tree. -> exclude/disable ieee80211 and ipw2200
+  -- http://ipw2200.sourceforge.net/INSTALL
+* I've already received three different serious bug reports about problems with netfilter/iptables in 2.6.14.
+  -- http://gnumonks.org/~laforge/weblog/2005/11/01#20051101-bugs
+
+Wishlist/Checkme
+================
+
+* nf-HiPAC - http://www.hipac.org/

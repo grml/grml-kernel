@@ -1,0 +1,2745 @@
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/01/15 14:00:12+01:00 spock@spock.one.pl 
+#   Made video option parsing more fool-proof, fixed delayed console switches for people using the 'redraw' option, fixed a MTRR problem.
+# 
+# drivers/video/vesafb-tng.c
+#   2005/01/15 14:00:02+01:00 spock@spock.one.pl +6 -7
+#   Made video option parsing more fool-proof, fixed delayed console switches for people using the 'redraw' option, fixed a MTRR problem.
+# 
+# ChangeSet
+#   2005/01/12 19:50:57+01:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2005/01/12 19:50:29+01:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2005/01/05 14:46:25+01:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2005/01/05 14:46:03+01:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/12/18 15:53:56+01:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2004/12/18 15:53:33+01:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/11/22 15:44:23+01:00 spock@spock.one.pl 
+#   Fixed compilation warnings (remap_page_range -> io_remap_page_range).
+# 
+# drivers/video/vesafb-thread.c
+#   2004/11/22 15:44:08+01:00 spock@spock.one.pl +2 -2
+#   Fixed compilation warnings (remap_page_range -> io_remap_page_range).
+# 
+# ChangeSet
+#   2004/11/21 14:18:54+01:00 spock@spock.one.pl 
+#   Only use fb_get_options() if vesafb-tng is compiled into the kernel.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/11/21 14:15:09+01:00 spock@spock.one.pl +4 -2
+#   Only use fb_get_options() if vesafb-tng is compiled into the kernel.
+# 
+# ChangeSet
+#   2004/11/21 10:52:50+01:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2004/11/21 10:52:33+01:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/11/01 19:28:20+01:00 spock@spock.one.pl 
+#   Fixed partially broken mode-matching code.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/11/01 19:10:52+01:00 spock@spock.one.pl +18 -7
+#   Fixed partially broken mode-matching code.
+# 
+# ChangeSet
+#   2004/11/01 19:06:12+01:00 spock@spock.one.pl 
+#   Merge
+# 
+# drivers/video/fbmem.c
+#   2004/11/01 19:06:10+01:00 spock@spock.one.pl +0 -0
+#   SCCS merged
+# 
+# drivers/video/Makefile
+#   2004/10/30 21:23:36+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# drivers/video/Kconfig
+#   2004/10/30 21:23:35+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/10/28 19:02:21+02:00 spock@spock.one.pl 
+#   Added a fix for yres_virtual.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/10/28 19:02:09+02:00 spock@spock.one.pl +6 -2
+#   Added a fix for yres_virtual.
+# 
+# ChangeSet
+#   2004/10/28 00:34:25+02:00 spock@spock.one.pl 
+#   Merged changes from vesafb (vram_remap, vram_total).
+# 
+# drivers/video/vesafb-tng.c
+#   2004/10/28 00:34:12+02:00 spock@spock.one.pl +66 -24
+#   Merged changes from vesafb (vram_remap, vram_total).
+# 
+# ChangeSet
+#   2004/10/28 00:25:27+02:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2004/10/28 00:25:12+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# drivers/video/Kconfig
+#   2004/10/28 00:25:12+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# arch/i386/boot/video.S
+#   2004/10/28 00:25:12+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# Documentation/fb/vesafb.txt
+#   2004/10/28 00:25:12+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/10/21 22:19:02+02:00 spock@spock.one.pl 
+#   Added automatic selection of FB_MODE_HELPERS.
+# 
+# drivers/video/Kconfig
+#   2004/10/21 22:18:49+02:00 spock@spock.one.pl +1 -0
+#   Added automatic selection of FB_MODE_HELPERS.
+# 
+# ChangeSet
+#   2004/10/18 16:24:05+02:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/Kconfig
+#   2004/10/18 16:23:59+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/09/30 16:33:03+02:00 spock@spock.one.pl 
+#   Changed the code to reflect changes in fb_get_options' behaviour.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/09/30 16:19:46+02:00 spock@spock.one.pl +3 -1
+#   Changed to reflect changes in fb_get_options' behaviour.
+# 
+# ChangeSet
+#   2004/09/30 16:14:04+02:00 spock@spock.one.pl 
+#   Resolved makefile conflicts.
+# 
+# drivers/video/Makefile
+#   2004/09/30 16:13:51+02:00 spock@spock.one.pl +17 -1
+#   Fixed makefile.
+# 
+# drivers/video/fbmem.c
+#   2004/09/30 16:07:32+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/09/15 16:47:57+02:00 spock@spock.one.pl 
+#   Moved module_init() call to make the driver work with the new fb init code.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/09/15 16:47:46+02:00 spock@spock.one.pl +2 -1
+#   Moved module_init() call to make the driver work with the new fb init code.
+# 
+# ChangeSet
+#   2004/09/14 19:46:14+02:00 spock@spock.one.pl 
+#   Merged minor changes.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/09/14 19:12:58+02:00 spock@spock.one.pl +1 -0
+#   Merged minor changes.
+# 
+# ChangeSet
+#   2004/09/14 19:03:28+02:00 spock@spock.one.pl 
+#   Resolved vesafb-tng conflicts.
+# 
+# drivers/video/fbmem.c
+#   2004/09/14 19:03:19+02:00 spock@spock.one.pl +6 -0
+#   Resolved vesafb-tng conflicts.
+# 
+# drivers/video/Makefile
+#   2004/09/14 19:03:19+02:00 spock@spock.one.pl +17 -1
+#   Resolved vesafb-tng conflicts.
+# 
+# ChangeSet
+#   2004/09/10 22:06:10+02:00 spock@spock.one.pl 
+#   Removed info about 'used hacks' from the docs.
+#   TAG: vesafb-tng-0.9-rc4-r3
+# 
+# Documentation/fb/vesafb.txt
+#   2004/09/10 22:05:53+02:00 spock@spock.one.pl +3 -11
+#   Removed info about 'used hacks' from the docs.
+# 
+# ChangeSet
+#   2004/09/10 21:17:52+02:00 spock@spock.one.pl 
+#   Removed the code for copying OEM data from RAM.
+# 
+# drivers/video/vesafb-thread.c
+#   2004/09/10 21:17:37+02:00 spock@spock.one.pl +5 -14
+#   Removed the code for copying OEM data from RAM.
+# 
+# ChangeSet
+#   2004/09/10 20:11:45+02:00 spock@spock.one.pl 
+#   Changed the VBE mode matching and mode setting logic. Cleaned up the code.
+# 
+# drivers/video/vesafb-tng.c
+#   2004/09/10 20:11:36+02:00 spock@spock.one.pl +252 -242
+#   Changed the VBE mode matching and mode setting logic. Cleaned up the code.
+# 
+# ChangeSet
+#   2004/09/09 16:48:42+02:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2004/09/09 16:48:36+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# drivers/video/Makefile
+#   2004/09/09 16:48:36+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/08/24 23:02:56+02:00 spock@spock.one.pl 
+#   Merge spock.one.pl:/devel/kernel/linux-2.5
+#   into spock.one.pl:/devel/kernel/linux-vesafb-tng
+# 
+# drivers/video/fbmem.c
+#   2004/08/24 23:02:46+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# drivers/video/Makefile
+#   2004/08/24 23:02:46+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# drivers/video/Kconfig
+#   2004/08/24 23:02:45+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# arch/i386/boot/video.S
+#   2004/08/24 23:02:45+02:00 spock@spock.one.pl +0 -0
+#   Auto merged
+# 
+# ChangeSet
+#   2004/08/24 11:18:50+02:00 spock@spock.one.pl 
+#   Updated the docs, fixed a minor bug with maxclk, add the code to switch the DAC palette format to 8 bit.
+#   TAG: vesafb-tng-0.9-rc4-r1
+# 
+# drivers/video/vesafb-tng.c
+#   2004/08/24 11:18:42+02:00 spock@spock.one.pl +48 -19
+#   Added the code to switch DAC palette format to 8bit in 256 color modes. Changes 'forward-ported' from vesafb.
+#   Fixed a type which caused maxpixclock to be set to 0 in some cases.
+# 
+# include/video/vesa.h
+#   2004/08/23 17:13:30+02:00 spock@spock.one.pl +1 -0
+#   Added the CAP_CAN_SWITCH_DAC constant.
+# 
+# Documentation/fb/vesafb.txt
+#   2004/08/23 16:42:35+02:00 spock@spock.one.pl +4 -0
+#   Added a hint about vbemode and nocrtc no the docs.
+# 
+# ChangeSet
+#   2004/08/23 16:16:51+02:00 spock@spock.one.pl 
+#   Fixed a stupid bit-logic problem ('do not clear the screen' bit set instead of 'use linear framebuffer'), fixed Makefile and Kconfig.
+# 
+# drivers/video/Kconfig
+#   2004/08/23 16:16:35+02:00 spock@spock.one.pl +1 -1
+#   Changed Kconfig to not allow to choose vesafb-tng on x86_64 systems.
+# 
+# drivers/video/Makefile
+#   2004/08/23 16:11:41+02:00 spock@spock.one.pl +14 -13
+#   Fixed a bug in the Makefile that caused vesafb to be built even if CONFIG_FB_VESA was set to 'n'.
+# 
+# BitKeeper/etc/config
+#   2004/08/19 00:20:28+02:00 spock@spock.one.pl +2 -3
+#   Changed configuration settings for vesafb-tng
+# 
+# BitKeeper/etc/logging_ok
+#   2004/08/19 00:10:17+02:00 spock@spock.one.pl +0 -6
+#   Removed all entries
+# 
+# drivers/video/vesafb-tng.c
+#   2004/08/18 23:35:52+02:00 spock@spock.one.pl +1 -5
+#   Fixed the LFB bit problem (D15 was set instead of D14).
+# 
+# ChangeSet
+#   2004/08/18 23:33:08+02:00 spock@spock.one.pl 
+#   Merged vesafb-tng-0.9-rc4
+# 
+# drivers/video/fbmem.c
+#   2004/08/18 23:32:56+02:00 spock@spock.one.pl +4 -1
+#   Merged vesafb-tng-0.9-rc4
+# 
+# drivers/video/Makefile
+#   2004/08/18 23:32:56+02:00 spock@spock.one.pl +18 -1
+#   Merged vesafb-tng-0.9-rc4
+# 
+# drivers/video/Kconfig
+#   2004/08/18 23:32:56+02:00 spock@spock.one.pl +42 -1
+#   Merged vesafb-tng-0.9-rc4
+# 
+# arch/i386/boot/video.S
+#   2004/08/18 23:32:56+02:00 spock@spock.one.pl +10 -2
+#   Merged vesafb-tng-0.9-rc4
+# 
+# Documentation/fb/vesafb.txt
+#   2004/08/18 23:30:19+02:00 spock@spock.one.pl +171 -62
+# 
+# include/video/vesa.h
+#   2004/08/18 23:29:33+02:00 spock@spock.one.pl +125 -0
+# 
+# include/video/vesa.h
+#   2004/08/18 23:29:33+02:00 spock@spock.one.pl +0 -0
+#   BitKeeper file /devel/kernel/linux-vesafb-tng/include/video/vesa.h
+# 
+# drivers/video/vesafb-tng.c
+#   2004/08/18 23:29:22+02:00 spock@spock.one.pl +1124 -0
+# 
+# drivers/video/vesafb-tng.c
+#   2004/08/18 23:29:22+02:00 spock@spock.one.pl +0 -0
+#   BitKeeper file /devel/kernel/linux-vesafb-tng/drivers/video/vesafb-tng.c
+# 
+# drivers/video/vesafb-thread.c
+#   2004/08/18 23:29:21+02:00 spock@spock.one.pl +578 -0
+# 
+# drivers/video/vesafb-thread.c
+#   2004/08/18 23:29:21+02:00 spock@spock.one.pl +0 -0
+#   BitKeeper file /devel/kernel/linux-vesafb-tng/drivers/video/vesafb-thread.c
+# 
+diff -Nru a/Documentation/fb/vesafb.txt b/Documentation/fb/vesafb.txt
+--- a/Documentation/fb/vesafb.txt	2005-01-15 14:00:49 +01:00
++++ b/Documentation/fb/vesafb.txt	2005-01-15 14:00:49 +01:00
+@@ -2,16 +2,18 @@
+ What is vesafb?
+ ===============
+ 
+-This is a generic driver for a graphic framebuffer on intel boxes.
++Vesafb is a generic framebuffer driver for x86 and x86_64 boxes.
+ 
+-The idea is simple:  Turn on graphics mode at boot time with the help
+-of the BIOS, and use this as framebuffer device /dev/fb0, like the m68k
+-(and other) ports do.
+-
+-This means we decide at boot time whenever we want to run in text or
+-graphics mode.  Switching mode later on (in protected mode) is
+-impossible; BIOS calls work in real mode only.  VESA BIOS Extensions
+-Version 2.0 are required, because we need a linear frame buffer.
++VESA BIOS Extensions Version 2.0 are required, because we need a linear
++frame buffer. VBE 3.0 is required if you want to use modes with a higher
++(than the standard 60Hz) refresh rate.
++
++The VESA framebuffer driver comes in two flavors - the standard vesafb 
++and vesafb-tng. Vesafb-tng is available only on 32-bit x86 due to the 
++technology it uses (vm86). Vesafb-tng has more features than vesafb
++(adjusting the refresh rate on VBE3.0-compliant boards, switching the 
++video mode without rebooting, selecting a mode by providing its 
++modedb name, and more) but might be unstable on some systems.
+ 
+ Advantages:
+ 
+@@ -29,16 +31,27 @@
+ How to use it?
+ ==============
+ 
+-Switching modes is done using the vga=... boot parameter.  Read
+-Documentation/svga.txt for details.
+-
+-You should compile in both vgacon (for text mode) and vesafb (for
+-graphics mode). Which of them takes over the console depends on
+-whenever the specified mode is text or graphics.
+-
+-The graphic modes are NOT in the list which you get if you boot with
+-vga=ask and hit return. The mode you wish to use is derived from the
+-VESA mode number. Here are those VESA mode numbers:
++If you are running your system on hardware platform where vm86 is supported
++(this is 32-bit x86 only as of the time of writing this document) and you
++decide to use vesafb-tng, you can either the driver into the kernel or use it 
++as a module. The graphic mode you want to use is in both cases specified using 
++the standard modedb format.
++
++If your system doesn't support vm86 calls yet (all 64-bit platforms), things
++get a little more tricky. Since on such systems you can't do BIOS calls from
++protected mode in which kernel runs, you have to decide at boot time whenever
++you want to run in text or in graphics mode. Switching mode later on is
++impossible. Switching modes is done using the vga=... boot parameter.  Read
++Documentation/svga.txt for details. Below is a more detailed description of 
++what to do on systems using the standard vesafb driver.
++
++You should compile in both vgacon (for text mode) and vesafb (for graphics mode). 
++Which of them takes over the console depends on whenever the specified mode is 
++text or graphics.
++
++The graphic modes are NOT in the list which you get if you boot with vga=ask 
++and hit return. The mode you wish to use is derived from the VESA mode number. 
++Here are those VESA mode numbers:
+ 
+     | 640x480  800x600  1024x768 1280x1024
+ ----+-------------------------------------
+@@ -47,8 +60,7 @@
+ 64k |  0x111    0x114    0x117    0x11A   
+ 16M |  0x112    0x115    0x118    0x11B   
+ 
+-The video mode number of the Linux kernel is the VESA mode number plus
+-0x200.
++The video mode number of the Linux kernel is the VESA mode number plus 0x200.
+  
+  Linux_kernel_mode_number = VESA_mode_number + 0x200
+ 
+@@ -61,10 +73,10 @@
+ 64k |  0x311    0x314    0x317    0x31A   
+ 16M |  0x312    0x315    0x318    0x31B   
+ 
+-To enable one of those modes you have to specify "vga=ask" in the
+-lilo.conf file and rerun LILO. Then you can type in the desired
+-mode at the "vga=ask" prompt. For example if you like to use 
+-1024x768x256 colors you have to say "305" at this prompt.
++To enable one of those modes you have to specify "vga=ask" in the lilo.conf 
++file and rerun LILO. Then you can type in the desired mode at the "vga=ask" 
++prompt. For example if you like to use 1024x768x256 colors you have to say 
++"305" at this prompt.
+ 
+ If this does not work, this might be because your BIOS does not support
+ linear framebuffers or because it does not support this mode at all.
+@@ -77,6 +89,7 @@
+ 2. Note: Some newer versions of LILO appear to work with those hex values,
+          if you set the 0x in front of the numbers.
+ 
++
+ X11
+ ===
+ 
+@@ -86,65 +99,73 @@
+ 
+ The X-Server must restore the video mode correctly, else you end up
+ with a broken console (and vesafb cannot do anything about this).
++With vesafb-tng chances are that the console will be restored properly
++even if the X server messed up the video mode.
+ 
+ 
+ Refresh rates
+ =============
+ 
+-There is no way to change the vesafb video mode and/or timings after
+-booting linux.  If you are not happy with the 60 Hz refresh rate, you
+-have these options:
++With VBE3.0 compatible BIOSes and vesafb-tng it is possible to change 
++the refresh rate either at boot time (by specifying the @<rr> part of 
++the mode name) or later, using the fbset utility. 
++
++With VBE2.0 there is no way to change the mode timings after booting
++Linux. If you are not happy with the 60 Hz refresh rate, you have
++these options:
+ 
+- * configure and load the DOS-Tools for your the graphics board (if
+-   available) and boot linux with loadlin.
++ * configure and load the DOS tools for your the graphics board (if
++   available) and boot Linux with loadlin.
+  * use a native driver (matroxfb/atyfb) instead if vesafb.  If none
+    is available, write a new one!
+- * VBE 3.0 might work too.  I have neither a gfx board with VBE 3.0
+-   support nor the specs, so I have not checked this yet.
++ * use a BIOS editor to change the default refresh rate (such an
++   editor does exist at least for ATI Radeon BIOSes). 
++ * if you're running a non-vm86 and VBE3.0-compatible system, you can 
++   use a kernel patch to hard-code some mode timings in the kernel and
++   use these while setting the graphic mode at boot time.
+ 
+ 
+ Configuration
+ =============
+ 
+-The VESA BIOS provides protected mode interface for changing
+-some parameters.  vesafb can use it for palette changes and
+-to pan the display.  It is turned off by default because it
+-seems not to work with some BIOS versions, but there are options
+-to turn it on.
+-
+-You can pass options to vesafb using "video=vesafb:option" on
+-the kernel command line.  Multiple options should be separated
+-by comma, like this: "video=vesafb:ypan,invers"
+-
+-Accepted options:
+-
+-invers	no comment...
+-
+-ypan	enable display panning using the VESA protected mode 
+-	interface.  The visible screen is just a window of the
++The VESA BIOS provides protected mode interface for changing some parameters. 
++vesafb can use it for palette changes and to pan the display.  It is turned 
++off by default because it seems not to work with some BIOS versions, but there 
++are options to turn it on.
++
++You can pass options to vesafb using "video=vesafb:option" on the kernel 
++command line. Multiple options should be separated by comma, like this: 
++"video=vesafb:ypan,1024x768-32@85"
++
++Accepted options (both vesafb and vesafb-tng):
++     
++ypan	Enable display panning using the VESA protected mode 
++	interface or vm86 calls. The visible screen is just a window of the
+ 	video memory, console scrolling is done by changing the
+ 	start of the window.
+ 	pro:	* scrolling (fullscreen) is fast, because there is
+ 		  no need to copy around data.
+-		* You'll get scrollback (the Shift-PgUp thing),
++		* you'll get scrollback (the Shift-PgUp thing),
+ 		  the video memory can be used as scrollback buffer
+-	kontra: * scrolling only parts of the screen causes some
++	con: 	* scrolling only parts of the screen causes some
+ 		  ugly flicker effects (boot logo flickers for
+ 		  example).
+ 
+-ywrap	Same as ypan, but assumes your gfx board can wrap-around 
+-	the video memory (i.e. starts reading from top if it
+-	reaches the end of video memory).  Faster than ypan.
+-
+-redraw	scroll by redrawing the affected part of the screen, this
+-	is the safe (and slow) default.
++ywrap	Same as ypan, but assumes your gfx board can wrap-around the video 
++	memory (i.e. starts reading from top if it reaches the end of video 
++	memory). Faster than ypan.
+ 
++redraw	Scroll by redrawing the affected part of the screen, this is the 
++	safe (and slow) default.
+ 
+-vgapal	Use the standard vga registers for palette changes.
++vgapal	Use the standard VGA registers for palette changes. 
+ 	This is the default.
++
+ pmipal	Use the protected mode interface for palette changes.
+ 
+-mtrr	setup memory type range registers for the vesafb framebuffer.
++mtrr	Setup memory type range registers for the vesafb framebuffer.
++
++nomtrr	Do not use memory type range registers for vesafb.
+ 
+ vremap:n
+         remap 'n' MiB of video RAM. If 0 or not specified, remap memory
+@@ -156,12 +177,96 @@
+         if the video BIOS of your card incorrectly determines the total
+         amount of video RAM, use this option to override the BIOS (in MiB).
+ 
+-Have fun!
++Options accepted only by vesafb-tng:
++
++<mode>	The mode you want to set, in the standard modedb format. Refer to
++	modedb.txt for detailed description. If you specify a mode that is
++	not supported by your board's BIOS, vesafb will attempt to set a
++	similar mode. The list of supported modes can be found in
++	/proc/fbx/modes, where x is the framebuffer number (usually 0).
++	When vesafb is compiled as a module, the mode string should be
++	provided as a value of the parameter 'mode'.
++
++vbemode:x
++	Force the use of VBE mode x. The mode will only be set if it's
++	found in VBE-provided list of supported modes.
++	NOTE: The mode number 'x' should be specified in VESA mode number
++	notation, not the Linux kernel one (ie. 257 instead of 769).
++	HINT: If you use this option because normal <mode> parameter does
++	not work for you and you use a X server, you'll probably want to 
++	set the 'nocrtc' option to ensure that the video mode is properly 
++	restored after console <-> X switches.
++
++nocrtc	Do not use CRTC timings while setting the graphic mode. This option 
++	makes sence only with VBE3.0 compliant systems. Use it if you have 
++	problems with the modes set in the standard way. Note that specifying
++	this option means the refresh rate will be ignored and will stay at 
++	your BIOS' default (60 Hz).
++
++noedid 	Do not try to fetch and use EDID-provided modes.
++
++gtf	Force the use of VESA's GTF (Generalized Timing Formula). Specifying
++	this will cause vesafb to skip it's internal modedb and EDID-modedb
++	and jump straight to the GTF part of the code (normally used only is
++	everything else failed). This can be useful if you want to get as much
++	as possible from you graphics board but your BIOS doesn't support
++	modes with refresh rates you require. Note that you may need to
++	specify the maxhf, maxvf and maxclk parameters if they are not
++	provided by EDID.
++
++Additionally, the following parameters may be provided. They all override the
++EDID-provided values and BIOS defaults. Refer to you monitor's specs to get
++the correct values for maxhf, maxvf and maxclk for your hardware.
++
++maxhf:n		Maximum horizontal frequency (in kHz). 
++maxvf:n		Maximum vertical frequency (in Hz).
++maxclk:n	Maximum pixel clock (in MHz).
++
++	
++Vesafb-tng Technical details
++============================
++
++1. The driver architecture.
++
++The driver's code is stored in 3 files:
++  /drivers/video/vesafb-tng.c
++  /drivers/video/vesafb-thread.c
++  /include/video/vesa.h
++  
++vesafb-tng.c contains the main code. vesafb-thread.c contains code for the 
++vesafb service thread. A separate thread is necessary because we need to remap 
++memory in order to be able to use the vm86 calls. The service thread is started
++regardless of whether vesafb is compiled into the kernel or compiled as a
++module. This is necessary because of the active_mm stuff, better described in
++the header of vesafb-thread.c.
++
++2. The driver initialization
++
++ o vesafb_vbe_init
++   - get basic info about the graphics BIOS
++   - fetch data about all modes supported by VBE
++   - get info about the protected mode interface 
++   - get EDID data and attempt to create an EDID modedb
++
++ o vesafb_probe
++   - get service thread's PID (started earlier from fbmem.c)
++   - call vesafb_vbe_init
++   - find a matching VBE mode
++   - try to find the specified mode in vesa_modes modedb
++   - try to find the specified mode in the EDID modedb
++   - try to calculate timings with the GTF
++   - low level setup - request_mem_region, ioremap, etc.
++   - setup /proc/fb<x>/modes and /proc/fb<x>/vbe_info
+ 
+-  Gerd
++Have fun!
+ 
+ --
++Original document for the vesafb driver by
+ Gerd Knorr <kraxel@goldbach.in-berlin.de>
+ 
+-Minor (mostly typo) changes 
+-by Nico Schmoigl <schmoigl@rumms.uni-mannheim.de>
++Minor (mostly typo) changes by 
++Nico Schmoigl <schmoigl@rumms.uni-mannheim.de>
++
++Extended documentation for vm86, VBE3.0 and vesafb-tng by
++Micha³ Januszewski <spock@gentoo.org>
++
+diff -Nru a/arch/i386/boot/video.S b/arch/i386/boot/video.S
+--- a/arch/i386/boot/video.S	2005-01-15 14:00:49 +01:00
++++ b/arch/i386/boot/video.S	2005-01-15 14:00:49 +01:00
+@@ -164,10 +164,12 @@
+ # parameters in the default 80x25 mode -- these are set directly,
+ # because some very obscure BIOSes supply insane values.
+ mode_params:
++#ifdef CONFIG_FB_VESA_STD
+ #ifdef CONFIG_VIDEO_SELECT
+ 	cmpb	$0, graphic_mode
+ 	jnz	mopar_gr
+ #endif
++#endif
+ 	movb	$0x03, %ah			# Read cursor position
+ 	xorb	%bh, %bh
+ 	int	$0x10
+@@ -200,6 +202,7 @@
+ 	ret
+ 
+ #ifdef CONFIG_VIDEO_SELECT
++#ifdef CONFIG_FB_VESA_STD
+ # Fetching of VESA frame buffer parameters
+ mopar_gr:
+ 	leaw	modelist+1024, %di
+@@ -278,6 +281,7 @@
+ 	movw	%es, %fs:(PARAM_VESAPM_SEG)
+ 	movw	%di, %fs:(PARAM_VESAPM_OFF)
+ no_pm:	ret
++#endif
+ 
+ # The video mode menu
+ mode_menu:
+@@ -492,10 +496,12 @@
+ 	
+ 	cmpb	$VIDEO_FIRST_V7>>8, %ah
+ 	jz	setv7
+-	
++
++#ifdef CONFIG_FB_VESA_STD
+ 	cmpb	$VIDEO_FIRST_VESA>>8, %ah
+ 	jnc	check_vesa
+-	
++#endif	
++
+ 	orb	%ah, %ah
+ 	jz	setmenu
+ 	
+@@ -567,6 +573,7 @@
+ 	movw	-4(%si), %ax			# Fetch mode ID
+ 	jmp	_m_s
+ 
++#ifdef CONFIG_FB_VESA_STD
+ check_vesa:
+ 	leaw	modelist+1024, %di
+ 	subb	$VIDEO_FIRST_VESA>>8, %bh
+@@ -600,6 +607,7 @@
+ 	ret
+ 
+ _setbad:	jmp	setbad          	# Ugly...
++#endif
+ 
+ # Recalculate vertical display end registers -- this fixes various
+ # inconsistencies of extended modes on many adapters. Called when
+diff -Nru a/drivers/video/Kconfig b/drivers/video/Kconfig
+--- a/drivers/video/Kconfig	2005-01-15 14:00:49 +01:00
++++ b/drivers/video/Kconfig	2005-01-15 14:00:49 +01:00
+@@ -329,13 +329,55 @@
+ 	  cards. Say Y if you have one of those.
+ 
+ config FB_VESA
+-	bool "VESA VGA graphics support"
++	tristate "VESA VGA graphics support"
+ 	depends on FB && (X86 || X86_64)
+ 	help
+ 	  This is the frame buffer device driver for generic VESA 2.0
+ 	  compliant graphic cards. The older VESA 1.2 cards are not supported.
+ 	  You will get a boot time penguin logo at no additional cost. Please
+ 	  read <file:Documentation/fb/vesafb.txt>. If unsure, say Y.
++
++choice 
++	prompt "VESA driver type"
++	depends on FB_VESA
++	default FB_VESA_STD if X86_64
++	default FB_VESA_TNG if X86
++
++config FB_VESA_STD
++	bool "vesafb"
++	help
++	  This is the frame buffer device driver for generic VESA 2.0
++	  compliant graphic cards. The older VESA 1.2 cards are not supported.
++	  You will get a boot time penguin logo at no additional cost. Please
++	  read <file:Documentation/fb/vesafb.txt>. Choose this driver if you
++	  are experiencing problems with vesafb-tng or if you own a 64-bit system.
++
++	  Note that this driver cannot be compiled as a module.
++
++config FB_VESA_TNG
++	bool "vesafb-tng"
++	depends on !X86_64
++	select FB_MODE_HELPERS
++	help
++	  This is the frame buffer device driver for generic VESA 2.0 
++	  compliant graphic cards. It is capable of taking advantage of 
++	  VBE 3.0 features. With this driver you will be able to adjust
++	  the refresh rate (VBE 3.0 compliant boards only) and change
++	  the graphic mode on-the-fly.
++	  
++	  You will also get a boot time penguin logo at no additional cost. Please
++	  read <file:Documentation/fb/vesafb.txt>.
++
++endchoice
++
++config FB_VESA_DEFAULT_MODE
++	string "VESA default mode"
++	depends on FB_VESA_TNG
++	default "640x480@60"
++	help 
++	  This option is used to determine the default mode vesafb is
++	  supposed to switch to in case no mode is provided as a kernel
++	  command line parameter.
+ 
+ config VIDEO_SELECT
+ 	bool
+diff -Nru a/drivers/video/Makefile b/drivers/video/Makefile
+--- a/drivers/video/Makefile	2005-01-15 14:00:49 +01:00
++++ b/drivers/video/Makefile	2005-01-15 14:00:49 +01:00
+@@ -96,7 +96,23 @@
+ obj-$(CONFIG_FB_PXA)		  += pxafb.o cfbimgblt.o cfbcopyarea.o cfbfillrect.o
+ 
+ # Platform or fallback drivers go here
+-obj-$(CONFIG_FB_VESA)             += vesafb.o cfbfillrect.o cfbcopyarea.o cfbimgblt.o
++ifeq ($(CONFIG_FB_VESA),m)
++  ifeq ($(CONFIG_FB_VESA_STD),y)
++    obj-y                         += vesafb.o cfbfillrect.o cfbcopyarea.o cfbimgblt.o
++  else
++    obj-m                         += vesafb-tng.o cfbfillrect.o cfbcopyarea.o cfbimgblt.o
++    obj-y                         += vesafb-thread.o
++   endif
++else
++  ifeq ($(CONFIG_FB_VESA),y)
++    ifeq ($(CONFIG_FB_VESA_STD),y)
++      obj-y                       += vesafb.o cfbfillrect.o cfbcopyarea.o cfbimgblt.o
++    else
++      obj-y                       += vesafb-tng.o vesafb-thread.o cfbfillrect.o \
++                                     cfbcopyarea.o cfbimgblt.o
++    endif
++  endif
++endif
+ obj-$(CONFIG_FB_VGA16)            += vga16fb.o cfbfillrect.o cfbcopyarea.o \
+ 	                             cfbimgblt.o vgastate.o
+ obj-$(CONFIG_FB_OF)               += offb.o cfbfillrect.o cfbimgblt.o cfbcopyarea.o
+diff -Nru a/drivers/video/fbmem.c b/drivers/video/fbmem.c
+--- a/drivers/video/fbmem.c	2005-01-15 14:00:49 +01:00
++++ b/drivers/video/fbmem.c	2005-01-15 14:00:49 +01:00
+@@ -51,6 +51,8 @@
+      *  Frame buffer device initialization and setup routines
+      */
+ 
++extern int vesafb_init_thread(void);
++
+ #define FBPIXMAPSIZE	(1024 * 8)
+ 
+ static struct notifier_block *fb_notifier_list;
+@@ -1177,6 +1179,10 @@
+ 		printk(KERN_WARNING "Unable to create fb class; errno = %ld\n", PTR_ERR(fb_class));
+ 		fb_class = NULL;
+ 	}
++
++#if defined(CONFIG_FB_VESA_TNG) || defined(CONFIG_FB_VESA_TNG_MODULE)
++	vesafb_init_thread();
++#endif
+ 	return 0;
+ }
+ subsys_initcall(fbmem_init);
+diff -Nru a/drivers/video/vesafb-thread.c b/drivers/video/vesafb-thread.c
+--- /dev/null	Wed Dec 31 16:00:00 196900
++++ b/drivers/video/vesafb-thread.c	2005-01-15 14:00:49 +01:00
+@@ -0,0 +1,569 @@
++/*
++ * Framebuffer driver for VBE 2.0+ compliant graphic boards - kernel thread 
++ * and vm86 routines.
++ *
++ * This code has to be compiled into the kernel even if vesafb is configured
++ * as a module. If vesafb_thread were to be started while the module is being 
++ * initialized, it would share its active_mm with modprobe. This mm would be 
++ * lost after modprobe finished its work, and we can't allow it, because we 
++ * need it for as long as the vesafb thread is active. 
++ *
++ * (c) 2004 Micha³ Januszewski <spock@gentoo.org>
++ * 
++ */
++
++#include <linux/workqueue.h>
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/mm.h>
++#include <linux/slab.h>
++#include <linux/delay.h>
++#include <linux/signal.h>
++#include <linux/suspend.h>
++#include <video/vesa.h>
++#include <video/edid.h>
++#include <asm/mman.h>
++#include <asm/page.h>
++#include <asm/vm86.h>
++#include <asm/unistd.h>
++#include <asm/thread_info.h>
++#include <asm/uaccess.h>
++#include "edid.h"
++
++#ifdef DEBUG
++#define DPRINTK(fmt, args...)	printk(KERN_DEBUG "%s: " fmt, __FUNCTION__ , ## args)
++#else
++#define DPRINTK(fmt, args...)
++#endif
++
++static int		errno = 0;
++int			vesafb_pid = 0;
++struct vm86_struct	vm86;
++
++static DECLARE_MUTEX(vesafb_sem);
++static LIST_HEAD(vesafb_task_list);
++static DECLARE_WAIT_QUEUE_HEAD(vesafb_wait);
++
++_syscall3(int,ioperm,unsigned long, a, unsigned long, b, unsigned long, c);
++_syscall1(int,vm86old,struct vm86_struct __user*, v86);
++
++#define DEFAULT_VM86_FLAGS (IF_MASK | IOPL_MASK) 
++#define VM86_PUSHW(x)	vm86.regs.esp -= 2; *(unsigned short*)(real_mem+vm86.regs.esp) = x;
++#define REAL_MEM_SIZE	0x20000
++#define REAL_MEM	0x10000
++#define RET_CODE_SIZE 	0x02
++#define STACK_SIZE	0x500
++#define BUFFER		(STACK_SIZE + RET_CODE_SIZE)
++#define FLAG_D 		(1 << 10)
++
++/* segment prefix opcodes */
++enum {	
++	P_CS = 0x2e, 
++	P_SS = 0x36, 
++	P_DS = 0x3e,
++	P_ES = 0x26, 
++	P_FS = 0x64, 
++	P_GS = 0x65
++};
++
++void vesafb_queue_task(struct vesafb_task *task)
++{
++	list_add_tail(&task->node, &vesafb_task_list);
++	wake_up(&vesafb_wait);
++}
++
++/* emulated vm86 ins instruction */
++static void vm86_ins(int size)
++{
++	u32 edx, edi;
++
++	edx = vm86.regs.edx & 0xffff;
++	edi = (vm86.regs.edi & 0xffff) + (u32)(vm86.regs.es << 4);
++
++	if (vm86.regs.eflags & FLAG_D)
++		asm volatile ("std\n");
++	else	
++		asm volatile ("cld\n");
++	
++	switch (size) {
++	case 4:	asm volatile ("insl\n" : "=D" (edi) : "d" (edx), "0" (edi)); break;
++	case 2:	asm volatile ("insw\n" : "=D" (edi) : "d" (edx), "0" (edi)); break;
++	case 1:	asm volatile ("insb\n" : "=D" (edi) : "d" (edx), "0" (edi));
++	}
++
++	if (vm86.regs.eflags & FLAG_D)
++		asm volatile ("cld\n");
++
++	edi -= (u32)(vm86.regs.es << 4);
++
++	vm86.regs.edi &= 0xffff0000;
++	vm86.regs.edi |= edi & 0xffff;
++}
++
++static void vm86_rep_ins(int size)
++{
++	u16 cx = vm86.regs.ecx; 
++	
++	while (cx--)
++		vm86_ins(size);
++
++	vm86.regs.ecx &= 0xffff0000;
++}
++
++/* emulated vm86 outs instruction */
++static void vm86_outs(int size, int segment)
++{
++	u32 edx, esi, base;
++
++	edx = vm86.regs.edx & 0xffff;
++	esi = vm86.regs.esi & 0xffff;
++
++	switch (segment) {
++	case P_CS: base = vm86.regs.cs; break;
++	case P_SS: base = vm86.regs.ss; break;
++	case P_ES: base = vm86.regs.es; break;
++	case P_FS: base = vm86.regs.fs; break;
++	case P_GS: base = vm86.regs.gs; break;
++	default:   base = vm86.regs.ds; break;
++	}
++
++	esi += base << 4;
++
++	if (vm86.regs.eflags & FLAG_D)
++		asm volatile ("std\n");
++	else
++		asm volatile ("cld\n");
++
++	switch (size) {
++	case 4: asm volatile ("outsl\n" : "=S" (esi) : "d" (edx), "0" (esi)); break;
++	case 2: asm volatile ("outsw\n" : "=S" (esi) : "d" (edx), "0" (esi)); break;
++	case 1: asm volatile ("outsb\n" : "=S" (esi) : "d" (edx), "0" (esi)); break;
++	}
++
++	if (vm86.regs.eflags & FLAG_D)
++		asm volatile ("cld");
++	
++	esi -= base << 4;
++	vm86.regs.esi &= 0xffff0000;
++	vm86.regs.esi |= (esi & 0xffff);
++}
++
++static void vm86_rep_outs(int size, int segment)
++{
++	u16 cx = vm86.regs.ecx;
++	
++	while (cx--)
++		vm86_outs(size, segment);
++
++	vm86.regs.ecx &= 0xffff0000;
++}
++
++void vesafb_do_vm86(struct vm86_regs *regs)
++{
++        unsigned char *real_mem = (void*)REAL_MEM;
++	unsigned int ret;
++	
++	memset(&vm86,0,sizeof(vm86));
++	memcpy(&vm86.regs, regs, sizeof(struct vm86_regs));
++
++	/* the return code */
++	real_mem[0] = 0xcd;  		/* int opcode */
++	real_mem[1] = 0xff;		/* int number (255) */
++
++        /* we use int 255 to get back to protected mode */
++	memset(&vm86.int_revectored, 0, sizeof(vm86.int_revectored));
++        ((unsigned char *) &vm86.int_revectored)[0xff / 8] |= (1 << (0xff % 8));	/* int 0xff */
++	
++	/* it's up to the caller to set the rest of the registers */
++	vm86.regs.eflags = DEFAULT_VM86_FLAGS;
++	vm86.regs.cs = *(unsigned short *)0x42;		/* 0x10 * 4 + 2 - the int map starts at 0x0	*/
++	vm86.regs.eip = *(unsigned short *)0x40;	/* 0x10 * 4					*/
++	
++	/* stack @ 0x10500, size: 0x500-4 - should be enough for our needs */
++	vm86.regs.ss = (REAL_MEM >> 4);
++	vm86.regs.esp = STACK_SIZE+RET_CODE_SIZE;
++
++	/* these will be fetched off the stack when we come to an iret in the int's 0x10 code */
++	VM86_PUSHW(DEFAULT_VM86_FLAGS);
++	VM86_PUSHW((REAL_MEM >> 4));		/* return code segment */
++	VM86_PUSHW(0x0000);			/* return code offset */
++
++	while(1) {
++		ret = vm86old(&vm86);
++
++		if (VM86_TYPE(ret) == VM86_INTx) {
++
++			int vint = VM86_ARG(ret);
++
++			/* if exit from vm86 was caused by int 0xff - we're done.. */
++			if (vint == 0xff)
++				goto vm86_done_call;
++			
++			/* .. otherwise, we have call the int handler manually */
++			VM86_PUSHW(vm86.regs.eflags);
++			VM86_PUSHW(vm86.regs.cs);
++			VM86_PUSHW(vm86.regs.eip);
++
++			vm86.regs.cs = *(unsigned short *)((vint << 2) + 2);
++			vm86.regs.eip = *(unsigned short *)(vint << 2);
++			vm86.regs.eflags &= ~(VIF_MASK | TF_MASK);
++
++		} else if (VM86_TYPE(ret) == VM86_UNKNOWN) {
++			
++			u8 *instr;
++			u8 data32 = 0, segment = P_DS, rep = 0;
++			int i = 0;
++					
++			instr = (u8*)((vm86.regs.cs << 4) + vm86.regs.eip);
++
++			while (1) {
++			
++				switch(instr[i]) {
++
++				case 0x66:	/* operand size prefix */
++					data32 = 1 - data32; 
++					i++;
++					break;
++				case 0xf2:	/* repnz */
++				case 0xf3:	/* rep */
++					rep = 1;
++					i++;
++					break;
++				case P_CS:	/* segment prefix */
++				case P_SS:
++				case P_DS:
++				case P_ES:
++				case P_FS:
++				case P_GS:
++					segment = instr[i];
++					i++;
++					break;
++				case 0xf0:	/* LOCK - ignored */
++				case 0x67:	/* address size prefix - ignored */
++					i++;
++					break;
++				case 0x6c:	/* insb */
++					if (rep)	vm86_rep_ins(1);
++					else		vm86_ins(1);
++					i++;
++					goto vm86_done_emu;
++				case 0x6d:	/* insw / insd */
++					if (rep)
++						if (data32)	vm86_rep_ins(4);
++						else		vm86_rep_ins(2);
++					else
++						if (data32)	vm86_ins(4);
++						else		vm86_ins(2);
++					i++;
++					goto vm86_done_emu;
++				case 0x6e:	/* outsb */
++					if (rep)	vm86_rep_outs(1, segment);
++					else		vm86_outs(1, segment);
++					i++;
++					goto vm86_done_emu;
++				case 0x6f:	/* outsw / outsd */
++					if (rep)
++						if (data32)	vm86_rep_outs(4, segment);
++						else		vm86_rep_outs(2, segment);
++					else
++						if (data32)	vm86_outs(4, segment);
++						else		vm86_outs(2, segment);
++					i++;
++					goto vm86_done_emu;
++				case 0xe4:	/* inb xx */
++					asm volatile (
++						"inb %w1, %b0" 
++						: "=a" (vm86.regs.eax)
++						: "d" (instr[i+1]), "0" (vm86.regs.eax));
++					i += 2;
++					goto vm86_done_emu;
++				case 0xe5:	/* inw xx / ind xx */
++					if (data32)
++						asm volatile (
++							"inl %w1, %0"
++							: "=a" (vm86.regs.eax)
++							: "d" (instr[i+1]), "0" (vm86.regs.eax));
++					else
++						asm volatile (
++							"inw %w1, %w0"
++							: "=a" (vm86.regs.eax)
++							: "d" (instr[i+1]), "0" (vm86.regs.eax));
++					i += 2;
++					goto vm86_done_emu;
++				case 0xec:	/* inb dx */
++					asm volatile (
++						"inb %w1, %b0"
++	 					: "=a" (vm86.regs.eax)
++						: "d" (vm86.regs.edx), "0" (vm86.regs.eax));
++					i++;
++					goto vm86_done_emu;
++				case 0xed:	/* inw dx / ind dx */
++					if (data32)
++						asm volatile (
++							"inl %w1, %0"
++							: "=a" (vm86.regs.eax)
++							: "d" (vm86.regs.edx));
++					else
++						asm volatile (
++							"inw %w1, %w0"
++							: "=a" (vm86.regs.eax)
++							: "d" (vm86.regs.edx));
++					i++;
++					goto vm86_done_emu;
++				case 0xe6:	/* outb xx */
++					asm volatile (
++						"outb %b0, %w1"
++						: : "a" (vm86.regs.eax), "d" (instr[i+1]));
++					i += 2;
++					goto vm86_done_emu;
++				case 0xe7:	/* outw xx / outd xx */
++					if (data32)
++						asm volatile (
++							"outl %0, %w1"
++							: : "a" (vm86.regs.eax), "d" (instr[i+1]));
++					else
++						asm volatile (
++							"outw %w0, %w1"
++							: : "a" (vm86.regs.eax), "d" (instr[i+1]));
++					i += 2;
++					goto vm86_done_emu;
++				case 0xee:	/* outb dx */
++					asm volatile (
++						"outb %b0, %w1"
++						: : "a" (vm86.regs.eax), "d" (vm86.regs.edx));
++					i++;
++					goto vm86_done_emu;
++				case 0xef:	/* outw dx / outd dx */
++					if (data32)
++						asm volatile (
++							"outl %0, %w1"
++							: : "a" (vm86.regs.eax), "d" (vm86.regs.edx));
++					else
++						asm volatile (
++							"outw %w0, %w1"
++							: : "a" (vm86.regs.eax), "d" (vm86.regs.edx));
++					i++;
++					goto vm86_done_emu;
++				default:
++					printk(KERN_ERR "vesafb: BUG, opcode %x emulation not supported\n", instr[i]);
++					goto vm86_done_call;
++				}
++			}
++vm86_done_emu:		vm86.regs.eip += i;
++		} else {
++			printk(KERN_ERR "vesafb: BUG, returned from vm86 with %x\n", ret);
++			goto vm86_done_call;
++		}	
++	}
++
++vm86_done_call:
++
++	/* copy the registers' state back to the caller's struct */
++	memcpy(regs, &vm86.regs, sizeof(struct vm86_regs));
++}
++
++#define vesafb_get_string(str) { \
++													\
++	/* the address is in the form ssssoooo, where oooo = offset, ssss = segment */			\
++	addr = ((vbe_pib(task->res)->str & 0xffff0000) >> 12) +						\
++		(vbe_pib(task->res)->str & 0x0000ffff);							\
++													\
++	/* the data is in ROM which is shared between processes, so we just translate the		\
++	   real mode address into one visible from the kernel space */					\
++	if (addr >= 0xa0000) {										\
++		vbe_pib(task->res)->str = (u32) __va(addr);						\
++													\
++	/* the data is in the buffer, we just have to convert the address so that it would		\
++	   point into the buffer user provided */							\
++	} else if (addr > REAL_MEM+BUFFER && addr < REAL_MEM+BUFFER + 					\
++		   sizeof(struct vesafb_vbe_info_block)) {						\
++		addr -= BUFFER+REAL_MEM;					 			\
++		vbe_pib(task->res)->str = (u32) (task->res + addr);					\
++													\
++	/* this should never happen: someone was insane enough to put the data somewhere in the RAM */	\
++	} else {											\
++		vbe_pib(task->res)->str = (u32) "";							\
++	}												\
++}
++
++void vesafb_handle_tasks(void)
++{
++	struct vesafb_task *task;
++	struct list_head *node, *next;
++	int addr, res;
++	
++	down(&vesafb_sem);
++	list_for_each_safe(node, next, &vesafb_task_list) {
++
++		task = container_of(node, struct vesafb_task, node);  
++		
++		switch (task->type) {
++
++			case VESAFB_TASK_DOVM86:
++				vesafb_do_vm86(&task->regs);
++				break;
++				
++			case VESAFB_TASK_GETVBE_IB:
++				task->regs.es	= (REAL_MEM >> 4);
++				task->regs.edi	= BUFFER;
++				strncpy(vbe_pib(REAL_MEM+BUFFER)->vbe_signature,"VBE2",4);
++				
++				vesafb_do_vm86(&task->regs);
++
++				memcpy(task->res, (void*)(REAL_MEM + BUFFER), sizeof(struct vesafb_vbe_info_block));
++			
++				/* the OEM fields were not defined prior to VBE 2.0 */
++				if (vbe_pib(task->res)->vbe_version >= 0x200) {
++					vesafb_get_string(oem_string_ptr);
++					vesafb_get_string(oem_vendor_name_ptr);
++					vesafb_get_string(oem_product_name_ptr);
++					vesafb_get_string(oem_product_rev_ptr);
++				}
++		
++				/* this is basically the same as vesafb_get_string */
++				addr = ((vbe_pib(task->res)->mode_list_ptr & 0xffff0000) >> 12) +
++					(vbe_pib(task->res)->mode_list_ptr & 0x0000ffff);
++			
++				if (addr >= 0xa0000) {
++					vbe_pib(task->res)->mode_list_ptr = (u32) __va(addr);
++				} else if (addr > REAL_MEM+BUFFER && addr < REAL_MEM+BUFFER +
++					   sizeof(struct vesafb_vbe_info_block))
++				{
++					addr -= BUFFER+REAL_MEM;
++					vbe_pib(task->res)->mode_list_ptr = (u32) (task->res + addr);
++				} else {
++					res = 0;
++					printk(KERN_WARNING "vesafb: warning, copying modelist from somewhere in RAM!\n");
++					while (*(u16*)(addr+res) != 0xffff && 
++					       res < (sizeof(vbe_pib(task->res)->reserved) - 2) )
++					{
++						*(u16*) ((u32)&(vbe_pib(task->res)->reserved) + res) =
++							*(u16*)(addr+res);
++						res += 2;
++					}
++					
++					*(u16*) ((u32)&(vbe_pib(task->res)->reserved) + res) = 0xffff;
++ 				}
++				break;
++
++			case VESAFB_TASK_GETVBE_MODEINFO:
++				task->regs.es	= (REAL_MEM >> 4);
++				task->regs.edi	= BUFFER;
++				vesafb_do_vm86(&task->regs);
++				memcpy(task->res, (void*)(REAL_MEM + BUFFER), sizeof(struct vesafb_mode_info_block));
++				break;
++
++			case VESAFB_TASK_SWITCHMODE:
++				if (task->res != NULL) {
++					task->regs.es	= (REAL_MEM >> 4);
++					task->regs.edi	= BUFFER;
++					memcpy((void*)(REAL_MEM + BUFFER), task->res, sizeof(struct vesafb_crtc_info_block));
++				}
++				
++				vesafb_do_vm86(&task->regs);
++				break;
++
++			case VESAFB_TASK_SETPAL:
++				task->regs.es	= (REAL_MEM >> 4);
++				task->regs.edi	= BUFFER;
++				memcpy((void*)(REAL_MEM + BUFFER), task->res, sizeof(struct vesafb_pal_entry));
++				vesafb_do_vm86(&task->regs);
++				break;
++				
++			case VESAFB_TASK_GETEDID:
++				task->regs.es	= (REAL_MEM >> 4);
++				task->regs.edi	= BUFFER;
++				vesafb_do_vm86(&task->regs);
++				memcpy(task->res, (void*)(REAL_MEM + BUFFER), EDID_LENGTH);
++			
++			default:
++				break;
++		}
++		
++		task->done = 1;
++		if (task->flags & VESAFB_FLAG_FREESTRUCT) {
++			kfree(task);
++		}
++	}
++
++	up(&vesafb_sem);
++	list_del_init(node);
++}
++
++int vesafb_thread(void *unused)
++{
++	struct vm_area_struct vma;
++	struct page *page;
++	
++	int ret, err = 0;
++	void *mem;	
++
++	set_fs(KERNEL_DS);
++	daemonize("vesafb");
++	DPRINTK("started vesafb thread\n");
++
++	current->mm = current->active_mm;
++	mem = kmalloc(REAL_MEM_SIZE,GFP_KERNEL);
++	
++	if (!mem)
++		return -ENOMEM;
++
++	for (page = virt_to_page(mem); page < virt_to_page(mem+REAL_MEM_SIZE); page++) {
++		SetPageReserved(page);
++        }
++
++#ifdef CONFIG_SMP
++	cpus_clear(current->active_mm->cpu_vm_mask);
++	cpu_set(smp_processor_id(), current->active_mm->cpu_vm_mask);
++#endif
++
++	vma.vm_mm = current->active_mm;
++	vma.vm_page_prot.pgprot = PROT_READ | PROT_EXEC | PROT_WRITE;
++	
++	ret = io_remap_page_range(&vma, 0x000000, __pa(mem), REAL_MEM_SIZE, vma.vm_page_prot);
++	ret += io_remap_page_range(&vma, 0x0a0000, 0x0a0000, 0x100000 - 0x0a0000, vma.vm_page_prot);
++
++	if (ret) {
++		printk(KERN_ERR "vesafb thread: memory remapping failed\n");
++		err = -EINVAL;
++		goto thr_end;
++	}
++
++	/* copy the first 0x20000 bytes from low mem to our private memory, which is 
++	 * then used for the vm86 calls */
++	memcpy((void*)0x0, __va(0x0), REAL_MEM_SIZE);
++
++	ioperm(0,1024,1);	/* we can live if it fails, so don't bother checking for errors */
++	set_user_nice(current, -10);
++	
++	while (1) {
++		vesafb_handle_tasks();
++		wait_event_interruptible(vesafb_wait, !list_empty(&vesafb_task_list));
++		if (current->flags & PF_FREEZE)
++			refrigerator(PF_FREEZE);
++
++		if (signal_pending(current))
++			break;
++	}
++
++thr_end:
++	DPRINTK("exiting the vesafb thread\n");
++	vesafb_pid = 0;
++	
++	for (page = virt_to_page(mem); page < virt_to_page(mem+REAL_MEM_SIZE); page++) {
++		ClearPageReserved(page);
++        }
++	
++	kfree(mem);
++	return err;
++}
++
++int vesafb_init_thread(void)
++{
++	vesafb_pid = kernel_thread(vesafb_thread,NULL,0);
++	return 0;
++}
++
++EXPORT_SYMBOL(vesafb_pid);
++EXPORT_SYMBOL(vesafb_queue_task);
+diff -Nru a/drivers/video/vesafb-tng.c b/drivers/video/vesafb-tng.c
+--- /dev/null	Wed Dec 31 16:00:00 196900
++++ b/drivers/video/vesafb-tng.c	2005-01-15 14:00:49 +01:00
+@@ -0,0 +1,1221 @@
++/*
++ * Framebuffer driver for VBE 2.0+ compliant graphic boards
++ *
++ * (c) 2004 Micha³ Januszewski <spock@gentoo.org>
++ *     Based upon vesafb code by Gerd Knorr <kraxel@goldbach.in-berlin.de>
++ * 
++ */
++
++#ifdef DEBUG
++#define DPRINTK(fmt, args...)	printk(KERN_DEBUG "%s: " fmt, __FUNCTION__ , ## args)
++#else
++#define DPRINTK(fmt, args...)
++#endif
++
++#include <linux/module.h>
++#include <linux/kernel.h>
++#include <linux/errno.h>
++#include <linux/string.h>
++#include <linux/mm.h>
++#include <linux/tty.h>
++#include <linux/delay.h>
++#include <linux/fb.h>
++#include <linux/ioport.h>
++#include <linux/init.h>
++#include <linux/proc_fs.h>
++#include <video/edid.h>
++#include <video/vesa.h>
++
++#include <asm/io.h>
++#include <asm/mtrr.h>
++#include "edid.h"
++
++#define dac_reg	(0x3c8)
++#define dac_val	(0x3c9)
++
++#define VESAFB_NEED_EXACT_RES 1
++#define VESAFB_NEED_EXACT_DEPTH 2
++
++/* --------------------------------------------------------------------- */
++
++static struct fb_var_screeninfo vesafb_defined __initdata = {
++	.activate	= FB_ACTIVATE_NOW,
++	.height		= -1,
++	.width		= -1,
++	.right_margin	= 32,
++	.upper_margin	= 16,
++	.lower_margin	= 4,
++	.vsync_len	= 4,
++	.vmode		= FB_VMODE_NONINTERLACED,
++};
++
++static struct fb_fix_screeninfo vesafb_fix __initdata = {
++	.id	= "VESA VGA",
++	.type	= FB_TYPE_PACKED_PIXELS,
++	.accel	= FB_ACCEL_NONE,
++};
++
++static int				mtrr       = 1;	/* use MTRR */
++static int				ypan       = 0;	/* 0 - nothing, 1 - ypan, 2 -ywrap */
++static int				pmi_setpal = 0;	/* pmi for palette changes */
++static unsigned short			*pmi_base  = NULL; /* protected mode interface location in memory */
++static void				(*pmi_start)(void) = NULL;	
++static void				(*pmi_pal)(void) = NULL;
++static struct task_struct		*vesafb_serv_thread = NULL;
++static struct vesafb_vbe_info_block	vbe_ib;
++static struct vesafb_mode_info_block	*vbe_modes;
++static int				vbe_modes_cnt = 0;
++static u8				mon_limits = 0;	/* 0 - no monitor limits, 1 - full monitor limits, 
++							   2 - monitor limits with default pixel clock */
++static int				nocrtc = 0;	/* ignore CRTC settings */
++static struct fb_info			*vesafb_info = NULL;
++static struct fb_videomode		*edid_modes    __initdata = NULL;
++static int				edid_modes_cnt __initdata = 0; 
++static int				noedid         __initdata = 0; /* don't try the DDC transfers */
++static int				vram_remap     __initdata = 0; /* set amount of memory to be used */
++static int				vram_total     __initdata = 0; /* set total amount of memory */
++static unsigned short			maxclk         __initdata = 0; /* maximum pixel clock */
++static unsigned short			maxvf          __initdata = 0; /* maximum vertical frequency */
++static unsigned short			maxhf          __initdata = 0; /* maximum horizontal frequency */
++static int 				gtf            __initdata = 0; /* forces use of the GTF */
++static char				*mode_option   __initdata = NULL;
++static unsigned short			vbemode	                  = 0;
++
++extern int vesafb_pid;			/* PID of the vesafb service thread */
++
++/* --------------------------------------------------------------------- */
++
++#define vesafb_create_task(task)	{	task = kmalloc(sizeof(struct vesafb_task), GFP_ATOMIC); \
++						if (task) memset(task,0,sizeof(struct vesafb_task));	}
++
++#define vesafb_wait_for_task(task)	{ while (task->done == 0) { schedule(); } }
++
++extern void vesafb_queue_task(struct vesafb_task *task);
++static int vesafb_find_vbe_mode(int xres, int yres, int bpp, unsigned char flags);
++
++/* --------------------------------------------------------------------- */
++
++static int vesafb_pan_display(struct fb_var_screeninfo *var,
++                              struct fb_info *info)
++{
++#ifdef __i386__
++	int offset;
++	
++	if (!ypan)
++		return -EINVAL;
++	if (var->xoffset)
++		return -EINVAL;
++	if (var->yoffset > var->yres_virtual)
++		return -EINVAL;
++	if ((ypan==1) && var->yoffset+var->yres > var->yres_virtual)
++		return -EINVAL;
++
++	offset = (var->yoffset * info->fix.line_length + var->xoffset) / 4;
++
++	/* It turns out it's not the best idea to do panning via vm86,
++	 * so we only allow it if we have a PMI */
++	if (pmi_start) {
++		__asm__ __volatile__(
++			"call *(%%edi)"
++			: /* no return value */
++			: "a" (0x4f07),         /* EAX */
++			  "b" (0),              /* EBX */
++			  "c" (offset),         /* ECX */
++			  "d" (offset >> 16),   /* EDX */
++			  "D" (&pmi_start));    /* EDI */
++	}
++#endif
++	return 0;
++}
++
++static void vesa_setpalette(int regno, unsigned red, unsigned green, unsigned blue, int shift)
++{
++	struct vesafb_pal_entry entry;
++	struct vesafb_task *mytask;
++
++#ifdef __i386__
++	entry.red   = red   >> shift;
++	entry.green = green >> shift;
++	entry.blue  = blue  >> shift;
++	entry.pad   = 0;
++
++	if (pmi_setpal) {
++	        __asm__ __volatile__(
++                "call *(%%esi)"
++                : /* no return value */
++                : "a" (0x4f09),         /* EAX */
++                  "b" (0),              /* EBX */
++                  "c" (1),              /* ECX */
++                  "d" (regno),          /* EDX */
++                  "D" (&entry),         /* EDI */
++                  "S" (&pmi_pal));      /* ESI */
++	} else {
++		vesafb_create_task (mytask);
++
++		mytask->regs.eax = 0x4f09;
++		mytask->regs.ebx = 0x0;
++		mytask->regs.ecx = 1;
++		mytask->regs.edx = regno;
++		mytask->res = &entry;
++		mytask->type = VESAFB_TASK_SETPAL;
++			
++		vesafb_queue_task (mytask);
++		vesafb_wait_for_task(mytask);
++		kfree(mytask);
++	}
++#endif
++}
++
++static int vesafb_setcolreg(unsigned regno, unsigned red, unsigned green,
++			    unsigned blue, unsigned transp,
++			    struct fb_info *info)
++{
++	/*
++	 *  Set a single color register. The values supplied are
++	 *  already rounded down to the hardware's capabilities
++	 *  (according to the entries in the `var' structure). Return
++	 *  != 0 for invalid regno.
++	 */
++
++	if (regno >= info->cmap.len)
++		return 1;
++
++	switch (info->var.bits_per_pixel) {
++	case 8:
++		vesa_setpalette(regno,red,green,blue,16 - info->var.green.length);
++		break;
++	case 16:
++		if (info->var.red.offset == 10) {
++			/* 1:5:5:5 */
++			((u32*) (info->pseudo_palette))[regno] =	
++					((red   & 0xf800) >>  1) |
++					((green & 0xf800) >>  6) |
++					((blue  & 0xf800) >> 11);
++		} else {
++			/* 0:5:6:5 */
++			((u32*) (info->pseudo_palette))[regno] =	
++					((red   & 0xf800)      ) |
++					((green & 0xfc00) >>  5) |
++					((blue  & 0xf800) >> 11);
++		}
++		break;
++	case 24:
++		red   >>= 8;
++		green >>= 8;
++		blue  >>= 8;
++		((u32 *)(info->pseudo_palette))[regno] =
++			(red   << info->var.red.offset)   |
++			(green << info->var.green.offset) |
++			(blue  << info->var.blue.offset);
++		break;
++	case 32:
++		red   >>= 8;
++		green >>= 8;
++		blue  >>= 8;
++		((u32 *)(info->pseudo_palette))[regno] =
++			(red   << info->var.red.offset)   |
++			(green << info->var.green.offset) |
++			(blue  << info->var.blue.offset);
++		break;
++    }
++    return 0;
++}
++
++static int vesafb_set_par(struct fb_info *info)
++{
++	struct vesafb_par *par = (struct vesafb_par *) info->par;
++	struct vesafb_task *mytask;
++	struct vesafb_crtc_info_block *crtc = NULL;	
++	struct vesafb_mode_info_block *mode = NULL;
++	int err = 0, i;
++
++	/* has the VBE mode number been specified? */
++	if (vbemode > 0) {
++		for (i = 0; i < vbe_modes_cnt; i++) {
++			if (vbe_modes[i].mode_id == vbemode) {
++				mode = &vbe_modes[i];
++				break;
++			}
++		}
++	} else {
++		i = vesafb_find_vbe_mode(info->var.xres, info->var.yres, 
++					 info->var.bits_per_pixel, VESAFB_NEED_EXACT_RES | VESAFB_NEED_EXACT_DEPTH);
++		if (i > 0)
++			mode = &vbe_modes[i];
++	}
++
++	if (mode == NULL)
++		return -EINVAL;
++	
++	vesafb_create_task (mytask);
++
++	mytask->regs.eax = 0x4f02;
++	mytask->regs.ebx = mode->mode_id | 0x4000;	/* use LFB */
++
++	if (vbe_ib.vbe_version >= 0x0300 && !nocrtc && !vbemode) {
++
++		mytask->regs.ebx |= 0x0800; /* use CRTC data */
++		crtc = kmalloc(sizeof(struct vesafb_crtc_info_block), GFP_KERNEL);
++	
++		if (!crtc) {
++			err = -ENOMEM;
++			goto out;
++		}
++		crtc->horiz_start = info->var.xres + info->var.right_margin;
++		crtc->horiz_end	  = crtc->horiz_start + info->var.hsync_len;
++		crtc->horiz_total = crtc->horiz_end + info->var.left_margin;
++		
++		crtc->vert_start  = info->var.yres + info->var.lower_margin;
++		crtc->vert_end    = crtc->vert_start + info->var.vsync_len;
++		crtc->vert_total  = crtc->vert_end + info->var.upper_margin;
++	
++		crtc->pixel_clock = PICOS2KHZ(info->var.pixclock) * 1000;
++		crtc->refresh_rate = (u16)(100 * (crtc->pixel_clock / (crtc->vert_total * crtc->horiz_total)));
++		crtc->flags = 0;
++
++		if (info->var.vmode & FB_VMODE_DOUBLE)
++			crtc->flags |= 0x1;
++
++		if (info->var.vmode & FB_VMODE_INTERLACED)
++			crtc->flags |= 0x2;
++	
++		if (!(info->var.sync & FB_SYNC_HOR_HIGH_ACT))
++			crtc->flags |= 0x4;
++
++		if (!(info->var.sync & FB_SYNC_VERT_HIGH_ACT))
++			crtc->flags |= 0x8;
++		
++		memcpy(&par->crtc, crtc, sizeof(struct vesafb_crtc_info_block));
++	} else
++		memset(&par->crtc, 0, sizeof(struct vesafb_crtc_info_block));
++
++	mytask->res = (void*)crtc;
++	mytask->type = VESAFB_TASK_SWITCHMODE; 
++
++	vesafb_queue_task (mytask);
++	vesafb_wait_for_task(mytask);
++
++	if ((mytask->regs.eax & 0xffff) != 0x004f) {
++		printk(KERN_ERR "vesafb: mode switch failed (eax: 0x%lx)\n", mytask->regs.eax);
++		err = -EINVAL;
++		goto out;
++	}
++
++	/* the VBE mode number is valid only the first time the mode is set */
++	if (vbemode)
++		vbemode = 0;
++	
++	if (vbe_ib.capabilities & VESAFB_CAP_CAN_SWITCH_DAC && mode->bits_per_pixel <= 8) {
++		mytask->done = 0;
++		mytask->type = VESAFB_TASK_DOVM86;
++		mytask->regs.eax = 0x4f08;
++		mytask->regs.ebx = 0x0800;
++	
++		vesafb_queue_task (mytask);
++		vesafb_wait_for_task(mytask);
++
++		if ((mytask->regs.eax & 0xffff) != 0x004f ||
++		    ((mytask->regs.ebx & 0xff00) >> 8) != 8) {
++
++			/* we've failed to set the DAC palette format - time to correct var */
++			info->var.red.length    = 6;
++			info->var.green.length  = 6;
++			info->var.blue.length   = 6;
++		}
++	}
++		
++	info->fix.visual = (info->var.bits_per_pixel == 8) ? FB_VISUAL_PSEUDOCOLOR : FB_VISUAL_TRUECOLOR;
++	info->fix.line_length = mode->bytes_per_scan_line;
++	par->vbe_mode = mode->mode_id;
++
++	DPRINTK("set new mode %dx%d-%d (0x%x)\n", info->var.xres, info->var.yres, info->var.bits_per_pixel, mode->mode_id);
++
++out:	if (crtc != NULL)
++		kfree(crtc);
++	kfree(mytask);
++
++	return err;
++}
++
++static void vesafb_setup_var(struct fb_var_screeninfo *var, struct fb_info *info, 
++			     struct vesafb_mode_info_block *mode)
++{
++	var->xres = mode->x_res;
++	var->yres = mode->y_res;
++	var->xres_virtual = mode->x_res;
++	var->yres_virtual = (ypan) ? info->fix.smem_len / mode->bytes_per_scan_line : mode->y_res;
++	var->xoffset = 0;
++	var->yoffset = 0;
++	var->bits_per_pixel = mode->bits_per_pixel;
++
++	if (var->bits_per_pixel == 15)
++		var->bits_per_pixel = 16;
++
++	if (var->bits_per_pixel > 8) {
++		var->red.offset    = mode->red_off;
++		var->red.length    = mode->red_len;
++		var->green.offset  = mode->green_off;
++		var->green.length  = mode->green_len;
++		var->blue.offset   = mode->blue_off;
++		var->blue.length   = mode->blue_len;
++		var->transp.offset = mode->rsvd_off;
++		var->transp.length = mode->rsvd_len;
++
++		DPRINTK("directcolor: size=%d:%d:%d:%d, shift=%d:%d:%d:%d\n",
++	       		mode->rsvd_len,
++			mode->red_len,
++			mode->green_len,
++			mode->blue_len,
++			mode->rsvd_off,
++			mode->red_off,
++			mode->green_off,
++			mode->blue_off);
++	} else {
++		var->red.offset    = 0;
++		var->green.offset  = 0;
++		var->blue.offset   = 0;
++		var->transp.offset = 0;
++		
++		/* We're assuming that we can switch the DAC to 8 bits. If this proves
++		 * to be incorrect, we'll update the fields later in set_par. */
++		if (vbe_ib.capabilities & VESAFB_CAP_CAN_SWITCH_DAC) {
++			var->red.length    = 8;
++			var->green.length  = 8;
++			var->blue.length   = 8;
++			var->transp.length = 0;
++		} else {
++			var->red.length    = 6;
++			var->green.length  = 6;
++			var->blue.length   = 6;
++			var->transp.length = 0;
++		}
++	}
++}
++
++static int inline vesafb_check_limits(struct fb_var_screeninfo *var, struct fb_info *info)
++{	
++	if (mon_limits)
++		return fb_validate_mode(var, info);
++	else
++		return 0;
++}
++
++static int vesafb_find_vbe_mode(int xres, int yres, int bpp, unsigned char flags)
++{
++	int i, match = -1, h = 0, d = 0x7fffffff;
++	
++	for (i = 0; i < vbe_modes_cnt; i++) {
++
++		h = abs(vbe_modes[i].x_res - xres) + abs(vbe_modes[i].y_res - yres) + 
++		    abs(bpp - vbe_modes[i].bits_per_pixel);
++
++		if (h == 0)
++			return i;
++
++		if (h < d || (h == d && vbe_modes[i].bits_per_pixel > bpp)) {
++			d = h;
++			match = i;
++		}
++	}
++
++	i = 1;
++
++	if (flags & VESAFB_NEED_EXACT_RES && d > 24)
++		i = 0;
++	
++	if (flags & VESAFB_NEED_EXACT_DEPTH && d > 1)
++		i = 0;
++	
++	if (i != 0)
++		return match;
++	else
++		return -1;
++}
++
++static int vesafb_check_var(struct fb_var_screeninfo *var, struct fb_info *info)
++{
++	int match = -1;
++	
++	if (vesafb_check_limits(var, info))
++		return -EINVAL;
++	
++	/* FIXME: we should allow interlaced/double modes if an appropriate mode is supported by the VBE */
++	if (var->vmode & (FB_VMODE_INTERLACED | FB_VMODE_DOUBLE))
++		return -EINVAL;
++	
++	match = vesafb_find_vbe_mode(var->xres, var->yres, var->bits_per_pixel, VESAFB_NEED_EXACT_RES);
++
++	if (match == -1) {
++		printk(KERN_ERR "vesafb: mode %dx%d-%d not found\n", var->xres, var->yres, var->bits_per_pixel);
++		return -EINVAL;
++	} else {
++		var->bits_per_pixel = vbe_modes[match].bits_per_pixel;
++		vesafb_setup_var(var, info, &vbe_modes[match]);
++	
++		DPRINTK("found mode 0x%x (%dx%d-%dbpp)\n",
++			vbe_modes[match].mode_id, vbe_modes[match].x_res, vbe_modes[match].y_res, 
++			vbe_modes[match].bits_per_pixel);
++	}
++		
++	return 0;
++}
++
++static void vesafb_platform_release(struct device *device)
++{
++	return;
++}
++
++static int __init vesafb_probe(struct device *device);
++
++static struct fb_ops vesafb_ops = {
++	.owner		= THIS_MODULE,
++	.fb_setcolreg	= vesafb_setcolreg,
++	.fb_pan_display	= vesafb_pan_display,
++	.fb_fillrect	= cfb_fillrect,
++	.fb_copyarea	= cfb_copyarea,
++	.fb_imageblit	= cfb_imageblit,
++	.fb_cursor	= soft_cursor,
++	.fb_check_var	= vesafb_check_var,
++	.fb_set_par	= vesafb_set_par
++};
++
++static struct device_driver vesafb_driver = {
++	.name	= "vesafb",
++	.bus	= &platform_bus_type,
++	.probe	= vesafb_probe,
++};
++
++static struct platform_device vesafb_device = {
++	.name	= "vesafb",
++        .dev    = {
++                .release = vesafb_platform_release,
++        }
++};
++
++#ifndef MODULE
++int __init vesafb_setup(char *options)
++{
++	char *this_opt;
++	
++	if (!options || !*options)
++		return 0;
++	
++	DPRINTK("options %s\n",options);
++	
++	while ((this_opt = strsep(&options, ",")) != NULL) {
++		if (!*this_opt) continue;
++		
++		DPRINTK("this_opt: %s\n",this_opt);
++		
++		if (! strcmp(this_opt, "redraw"))
++			ypan=0;
++		else if (! strcmp(this_opt, "ypan"))
++			ypan=1;
++		else if (! strcmp(this_opt, "ywrap"))
++			ypan=2;
++		else if (! strcmp(this_opt, "vgapal"))
++			pmi_setpal=0;
++		else if (! strcmp(this_opt, "pmipal"))
++			pmi_setpal=1;
++		else if (! strcmp(this_opt, "mtrr"))
++			mtrr=1;
++		else if (! strcmp(this_opt, "nomtrr"))
++			mtrr=0;
++		else if (! strcmp(this_opt, "nocrtc"))
++			nocrtc=1;
++		else if (! strcmp(this_opt, "noedid")) 
++			noedid=1;
++		else if (! strcmp(this_opt, "gtf"))
++			gtf=1;
++		else if (! strncmp(this_opt, "vtotal:", 7))
++			vram_total = simple_strtoul(this_opt+7, NULL, 0);
++		else if (! strncmp(this_opt, "vremap:", 7))
++			vram_remap = simple_strtoul(this_opt+7, NULL, 0);
++		else if (! strncmp(this_opt, "maxhf:", 6))
++			maxhf = simple_strtoul(this_opt + 6, NULL, 0);
++		else if (! strncmp(this_opt, "maxvf:", 6))
++			maxvf = simple_strtoul(this_opt + 6, NULL, 0);
++		else if (! strncmp(this_opt, "maxclk:", 7))
++			maxclk = simple_strtoul(this_opt + 7, NULL, 0);
++		else if (! strncmp(this_opt, "vbemode:", 8))
++			vbemode = simple_strtoul(this_opt + 8, NULL,0);
++		else if (this_opt[0] >= '0' && this_opt[0] <= '9') {
++			DPRINTK("mode_option: %s\n",this_opt);
++			mode_option = this_opt;
++		} else {
++			printk(KERN_WARNING "vesafb: unrecognized option %s\n", this_opt);
++		}
++	}
++
++	return 0;
++}
++
++#endif /* !MODULE */
++
++static int vesafb_read_proc_modes(char *buf, char **start, off_t offset,
++			    	  int len, int *eof, void *private)
++{
++	int clen = 0, i;
++	
++	for (i = 0; i < vbe_modes_cnt; i++)
++		clen += sprintf(buf + clen, "%dx%d-%d\n", vbe_modes[i].x_res, 
++				vbe_modes[i].y_res, vbe_modes[i].bits_per_pixel);
++	
++	*start = buf + offset;
++
++	if (clen > offset)
++		clen -= offset;
++	else
++		clen = 0;
++
++	return clen;
++}
++
++static int vesafb_read_proc_vbe_info(char *buf, char **start, off_t offset,
++			    	     int len, int *eof, void *private)
++{
++	int clen = 0;
++
++	clen += sprintf(buf + clen, "Version:    %d.%d\n", ((vbe_ib.vbe_version & 0xff00) >> 8), vbe_ib.vbe_version & 0xff);
++	clen += sprintf(buf + clen, "Vendor:     %s\n", (char*)vbe_ib.oem_vendor_name_ptr);
++	clen += sprintf(buf + clen, "Product:    %s\n", (char*)vbe_ib.oem_product_name_ptr);
++	clen += sprintf(buf + clen, "OEM rev:    %s\n", (char*)vbe_ib.oem_product_rev_ptr);
++	clen += sprintf(buf + clen, "OEM string: %s\n", (char*)vbe_ib.oem_string_ptr);
++
++	*start = buf + offset;
++
++	if (clen > offset)
++		clen -= offset;
++	else
++		clen = 0;
++
++	return clen;
++}
++
++static int __init vesafb_vbe_init(struct fb_info *info)
++{
++	struct vesafb_task *mytask;
++	u16 *mode = 0;
++	int i, off = 0;
++
++	vesafb_create_task (mytask);
++	mytask->regs.eax = 0x4f00;
++	mytask->type = VESAFB_TASK_GETVBE_IB;
++	mytask->res = &vbe_ib; 
++	vesafb_queue_task (mytask);
++	vesafb_wait_for_task(mytask);
++
++	if (vbe_ib.vbe_version < 0x0200) {
++		printk(KERN_ERR "vesafb: Sorry, pre-VBE 2.0 cards are not supported.\n");
++		kfree(mytask);
++		return 1;
++	}
++	
++	if ((mytask->regs.eax & 0xffff) != 0x004f) {
++		printk(KERN_ERR "vesafb: Getting mode info block failed (eax=0x%x)\n",(u32)mytask->regs.eax);
++		kfree(mytask);
++		return 1;	
++	}
++		
++	printk(KERN_INFO "vesafb: %s, %s, %s (OEM: %s)\n", (char*)vbe_ib.oem_vendor_name_ptr,
++		(char*)vbe_ib.oem_product_name_ptr, (char*)vbe_ib.oem_product_rev_ptr,
++		(char*)vbe_ib.oem_string_ptr);
++
++	printk(KERN_INFO "vesafb: VBE version: %d.%d\n",((vbe_ib.vbe_version & 0xff00) >> 8), vbe_ib.vbe_version & 0xff);
++
++	/* count the available modes */
++	mode = (u16*)vbe_ib.mode_list_ptr;
++	while (*mode != 0xffff) {
++		vbe_modes_cnt++;
++		mode++;
++	}
++
++	vbe_modes = kmalloc(sizeof(struct vesafb_mode_info_block)*vbe_modes_cnt,GFP_KERNEL);
++
++	/* get mode info for all available modes */
++	mode = (u16*)vbe_ib.mode_list_ptr;
++	
++	while (*mode != 0xffff) {
++		mytask->regs.eax = 0x4f01;
++		mytask->regs.ecx = (u32) *mode;
++		mytask->type = VESAFB_TASK_GETVBE_MODEINFO;
++		mytask->res = vbe_modes+off; 
++		mytask->done = 0;
++		
++		vesafb_queue_task (mytask);
++		vesafb_wait_for_task(mytask);
++	
++		vesafb_pmib(mytask->res)->mode_id = *mode;
++		
++		/* forget text modes */
++		if ((vesafb_pmib(mytask->res)->mode_attr & 0x10) != 0 && 
++		    vesafb_pmib(mytask->res)->bits_per_pixel >= 8)
++			off++;
++		else
++			vbe_modes_cnt--;
++		
++		mode++;
++	}
++
++	mytask->regs.eax = 0x4f0a;
++	mytask->regs.ebx = 0x0;
++	mytask->type = VESAFB_TASK_DOVM86;
++	mytask->res = NULL;
++	mytask->done = 0;
++
++	vesafb_queue_task(mytask);
++	vesafb_wait_for_task(mytask);
++
++	if ((mytask->regs.eax & 0xffff) != 0x004f || mytask->regs.es < 0xc000) {
++		pmi_setpal = ypan = 0;
++	} else {
++		printk(KERN_INFO "vesafb: protected mode interface info at %04x:%04x\n", (u16)mytask->regs.es, (u16)mytask->regs.edi);
++		pmi_base  = (unsigned short*)phys_to_virt(((unsigned long)mytask->regs.es << 4) + mytask->regs.edi);
++		pmi_start = (void*)((char*)pmi_base + pmi_base[1]);
++		pmi_pal   = (void*)((char*)pmi_base + pmi_base[2]);
++		printk(KERN_INFO "vesafb: pmi: set display start = %p, set palette = %p\n",pmi_start,pmi_pal);
++
++		if (pmi_base[3]) {
++			printk(KERN_INFO "vesafb: pmi: ports = ");
++			for (i = pmi_base[3]/2; pmi_base[i] != 0xffff; i++)
++				printk("%x ",pmi_base[i]);
++			printk("\n");
++
++			if (pmi_base[i] != 0xffff) {
++				/*
++				 * memory areas not supported (yet?)
++				 *
++				 * Rules are: we have to set up a descriptor for the requested
++				 * memory area and pass it in the ES register to the BIOS function.
++				 */				 
++				printk(KERN_INFO "vesafb: can't handle memory requests, pmi disabled\n");
++				ypan = pmi_setpal = 0;
++			}
++		}
++	}
++
++	if (noedid || vbe_ib.vbe_version < 0x0300)
++		goto set_monspecs;
++	
++	mytask->regs.eax = 0x4f15;
++	mytask->regs.ebx = 0;
++	mytask->regs.ecx = 0;
++	mytask->done = 0; 
++
++	vesafb_queue_task(mytask);
++	vesafb_wait_for_task(mytask);
++
++	if ((mytask->regs.eax & 0xffff) != 0x004f)
++		goto set_monspecs;
++
++	if ((mytask->regs.ebx & 0x3) == 3) {
++		printk(KERN_INFO "vesafb: hardware supports both DCC1 and DCC2 transfers\n");
++	} else if ((mytask->regs.ebx & 0x3) == 2) {
++		printk(KERN_INFO "vesafb: hardware supports DCC2 transfers\n");
++	} else if ((mytask->regs.ebx & 0x3) == 1) {
++		printk(KERN_INFO "vesafb: hardware supports DCC1 transfers\n");
++	} else {
++		printk(KERN_INFO "vesafb: hardware doesn't support DCC transfers\n");
++		goto set_monspecs;
++	}
++	
++	mytask->regs.eax = 0x4f15;
++	mytask->regs.ebx = 1;
++	mytask->regs.ecx = mytask->regs.edx = mytask->done = 0;
++	mytask->type = VESAFB_TASK_GETEDID;
++	mytask->res = kmalloc(EDID_LENGTH, GFP_KERNEL);
++
++	vesafb_queue_task(mytask);
++	vesafb_wait_for_task(mytask);
++
++	if ((mytask->regs.eax & 0xffff) == 0x004f) {
++
++		mon_limits = !fb_get_monitor_limits(mytask->res, &info->monspecs);
++
++		/* if no maximum clock is specified, set to 300 MHz */
++		if (mon_limits && info->monspecs.dclkmax == 0) {
++			info->monspecs.dclkmax = 300 * 1000000;
++		}
++
++		edid_modes = fb_create_modedb(mytask->res, &edid_modes_cnt);
++	}
++	kfree(mytask->res);
++	
++set_monspecs:
++	if (maxclk)
++		info->monspecs.dclkmax = maxclk * 1000000;
++
++	if (maxvf)
++		info->monspecs.vfmax = maxvf;
++
++	if (maxhf)
++		info->monspecs.hfmax = maxhf * 1000;
++
++	/* in case DCC transfers are not supported the user can provide monitor limits 
++	   manually, lower limits are set to "safe" values */
++	if (!mon_limits && maxclk && maxvf && maxhf) {
++		info->monspecs.dclkmin = 0;	
++		info->monspecs.vfmin = 60;
++		info->monspecs.hfmin = 29000;
++	}
++
++	printk(KERN_INFO "vesafb: monitor limits: vf = %d Hz, hf = %d kHz, clk = %d MHz\n", 
++		info->monspecs.vfmax, (int)(info->monspecs.hfmax / 1000), 
++		(int)(info->monspecs.dclkmax / 1000000));
++
++	kfree(mytask);
++	return 0;
++}
++
++static int __init decode_mode(u32 *xres, u32 *yres, u32 *bpp, u32 *refresh)
++{
++	int len = strlen(mode_option), i, err = 0;
++	u8 res_specified = 0, bpp_specified = 0, refresh_specified = 0, 
++	   yres_specified = 0;
++
++	for (i = len-1; i >= 0; i--) {
++ 		switch (mode_option[i]) {
++		case '@':
++    			len = i;
++    			if (!refresh_specified && !bpp_specified &&
++			    !yres_specified) {
++				*refresh = simple_strtoul(&mode_option[i+1], NULL, 0);
++				refresh_specified = 1;
++			} else
++				goto out;
++		    	break;
++		case '-':
++			len = i;
++		    	if (!bpp_specified && !yres_specified) {
++			    	*bpp = simple_strtoul(&mode_option[i+1], NULL, 0);
++				bpp_specified = 1;
++		    	} else
++				goto out;
++		    	break;
++		case 'x':
++			if (!yres_specified) {
++				*yres = simple_strtoul(&mode_option[i+1], NULL, 0);
++				yres_specified = 1;
++		    	} else
++				goto out;
++		    	break;
++		case '0'...'9':
++			break;
++		default:
++			goto out;
++	    	}
++	}
++
++	if (i < 0 && yres_specified) {
++		*xres = simple_strtoul(mode_option, NULL, 0);
++	   	res_specified = 1;
++	}
++
++out:	if (!res_specified || !yres_specified) {
++		printk(KERN_ERR "vesafb: invalid resolution, %s not specified\n",
++				(!res_specified) ? "width" : "height");
++		err = -EINVAL;
++	}
++
++	return err;
++}
++
++static int __init vesafb_init_set_mode(struct fb_info *info)
++{
++	char buf[32];
++	int i, modeid, refresh = 0;
++	u8 refresh_specified = 0;
++
++	if (!mode_option)
++		mode_option = CONFIG_FB_VESA_DEFAULT_MODE;
++
++	if (vbemode > 0) {
++		for (i = 0; i < vbe_modes_cnt; i++) {
++			if (vbe_modes[i].mode_id == vbemode) {
++				info->var.vmode = FB_VMODE_NONINTERLACED;
++				info->var.sync = FB_SYNC_VERT_HIGH_ACT;
++				vesafb_setup_var(&info->var, info, &vbe_modes[i]);
++				fb_get_mode(FB_VSYNCTIMINGS | FB_IGNOREMON, 60, &info->var, info);
++				return i;
++			}
++		}
++
++		printk(KERN_INFO "specified VBE mode %d not found\n",vbemode);
++	}
++
++	if (decode_mode(&info->var.xres, &info->var.yres, 
++			&info->var.bits_per_pixel, &refresh))
++		return -EINVAL;
++
++	if (refresh)
++		refresh_specified = 1;
++	else	
++		refresh = 60;
++	
++	modeid = vesafb_find_vbe_mode(info->var.xres, info->var.yres, info->var.bits_per_pixel, 0);
++
++	if (modeid == -1) {
++		return -EINVAL;	
++	} else {
++		info->var.vmode = FB_VMODE_NONINTERLACED;
++		info->var.sync = FB_SYNC_VERT_HIGH_ACT;
++		vesafb_setup_var(&info->var, info, &vbe_modes[modeid]);
++	}
++
++	if (gtf)
++		goto timings_gtf;
++
++	sprintf(buf, "%dx%d-%d@%d", info->var.xres, info->var.yres, info->var.bits_per_pixel, refresh);
++	i = fb_find_mode(&info->var, info, buf, vesa_modes, VESA_MODEDB_SIZE, NULL, 0);
++	DPRINTK("fb_find_mode returned %d\n", i);
++
++	if (i == 1 || (i == 2 && vbe_ib.vbe_version < 0x0300))
++		return modeid;
++
++	/* The call to fb_find_mode could have changed our var struct, so we need
++	 * to restore it. */
++	info->var.vmode = FB_VMODE_NONINTERLACED;
++	info->var.sync = FB_SYNC_VERT_HIGH_ACT;
++	vesafb_setup_var(&info->var, info, &vbe_modes[modeid]);
++
++	if (edid_modes != NULL && !gtf) {
++		DPRINTK("looking for EDID modes\n");
++		
++		for (i = 0; i < edid_modes_cnt; i++) {
++
++			if (edid_modes[i].xres == info->var.xres && 
++			    edid_modes[i].yres == info->var.yres && 
++			    abs(edid_modes[i].refresh - refresh) < 5) {
++
++				info->var.pixclock = edid_modes[i].pixclock;
++			    	info->var.left_margin = edid_modes[i].left_margin;
++				info->var.right_margin = edid_modes[i].right_margin;
++				info->var.upper_margin = edid_modes[i].upper_margin;
++				info->var.lower_margin = edid_modes[i].lower_margin;
++				info->var.hsync_len = edid_modes[i].hsync_len;
++				info->var.vsync_len = edid_modes[i].vsync_len;
++				info->var.sync = edid_modes[i].sync;
++				info->var.vmode = edid_modes[i].vmode;
++				DPRINTK("using EDID-provided mode\n");
++				return modeid;
++			}
++		}
++	}
++
++timings_gtf:
++	if (refresh_specified)
++		i = FB_VSYNCTIMINGS;
++	else
++		i = FB_MAXTIMINGS;
++		
++	if (vbe_ib.vbe_version < 0x0300) { 
++		i = FB_VSYNCTIMINGS | FB_IGNOREMON;
++		refresh = 60;
++	} 
++	
++	if (!mon_limits)
++		i |= FB_IGNOREMON;
++	
++	if (!fb_get_mode(i, refresh, &info->var, info))
++		return modeid;
++
++	printk(KERN_WARNING "vesafb: trying maximum allowed refresh rate\n");
++
++	if (i & FB_VSYNCTIMINGS && refresh > 60 && mon_limits) {
++		if (!fb_get_mode(FB_MAXTIMINGS, refresh, &info->var, info))
++			return modeid;
++	}
++
++	printk(KERN_WARNING "vesafb: using default BIOS refresh rate\n");
++	vbemode = vbe_modes[modeid].mode_id;
++
++	return modeid;
++}
++
++static int __init vesafb_probe(struct device *device)
++{
++	char entry[16];
++	struct platform_device *dev = to_platform_device(device);
++	struct fb_info *info;
++	struct vesafb_mode_info_block *mode = NULL;
++	int err = 0, i;
++	unsigned int size_vmode;
++	unsigned int size_remap;
++	unsigned int size_total;
++
++	vesafb_info = info = framebuffer_alloc(sizeof(struct vesafb_par) + sizeof(u32) * 256, &dev->dev);
++	
++	if (!info)
++	 	return -ENOMEM;
++
++	if (vesafb_pid)
++		vesafb_serv_thread = find_task_by_pid(vesafb_pid);
++	else {
++		printk(KERN_ERR "vesafb: vesafb thread not running\n");
++		framebuffer_release(info);
++		return -EINVAL;
++	}
++
++	if (vesafb_vbe_init(info)) {
++		printk(KERN_ERR "vesafb: vbe_init failed\n");
++		err = -EINVAL;
++		goto out;
++	}
++
++	vesafb_fix.ypanstep  = ypan     ? 1 : 0;
++	vesafb_fix.ywrapstep = (ypan>1) ? 1 : 0;
++
++	info->pseudo_palette = ((u8*)info->par + sizeof(struct vesafb_par));
++	info->fbops = &vesafb_ops;
++	info->var = vesafb_defined;
++	info->fix = vesafb_fix;
++
++	if (fb_alloc_cmap(&info->cmap, 256, 0) < 0) {
++		err = -ENXIO;
++		goto out;
++	}	
++
++	i = vesafb_init_set_mode(info);
++	if (i < 0)
++		goto out_cmap;
++
++	/* Has the VBE mode number been specified? */
++	if (vbemode > 0) {
++		for (i = 0; i < vbe_modes_cnt; i++) {
++			if (vbe_modes[i].mode_id == vbemode) {
++				mode = &vbe_modes[i];
++				break;
++			}
++		}
++	} else {
++		i = vesafb_find_vbe_mode(info->var.xres, info->var.yres, 
++					 info->var.bits_per_pixel, VESAFB_NEED_EXACT_RES | VESAFB_NEED_EXACT_DEPTH);
++		if (i > 0)
++			mode = &vbe_modes[i];
++	}
++
++	/*   size_vmode -- that is the amount of memory needed for the
++	 *                 used video mode, i.e. the minimum amount of
++	 *                 memory we need. */
++	if (mode != NULL) { 
++		size_vmode = info->var.yres * mode->bytes_per_scan_line;
++	} else {
++		size_vmode = info->var.yres * info->var.xres * 
++			     ((info->var.bits_per_pixel + 7) >> 3);
++	}
++
++	/*   size_total -- all video memory we have. Used for mtrr
++	 *                 entries, ressource allocation and bounds
++	 *                 checking. */
++	size_total = vbe_ib.total_memory * 65536;
++	if (vram_total)
++		size_total = vram_total * 1024 * 1024;
++	if (size_total < size_vmode)
++		size_total = size_vmode;
++
++	/*   size_remap -- the amount of video memory we are going to
++	 *                 use for vesafb.  With modern cards it is no
++	 *                 option to simply use size_total as that
++	 *                 wastes plenty of kernel address space. */
++	size_remap  = size_vmode * 2;
++	if (vram_remap)
++		size_remap = vram_remap * 1024 * 1024;
++	if (size_remap < size_vmode)
++		size_remap = size_vmode;
++	if (size_remap > size_total)
++		size_remap = size_total;
++
++	info->fix.smem_len = size_remap;
++	info->fix.smem_start = mode->phys_base_ptr;
++
++	/* We have to set it here, because when setup_var() was called, smem_len
++	   wasn't defined yet. */
++	info->var.yres_virtual = info->fix.smem_len / mode->bytes_per_scan_line;
++
++	if (ypan && info->var.yres_virtual > info->var.yres) {
++		printk(KERN_INFO "vesafb: scrolling: %s using protected mode interface, yres_virtual=%d\n",
++		       (ypan > 1) ? "ywrap" : "ypan",info->var.yres_virtual);
++	} else {
++		printk(KERN_INFO "vesafb: scrolling: redraw\n");
++		info->var.yres_virtual = info->var.yres;
++		ypan = 0;
++	}
++
++	info->flags = FBINFO_FLAG_DEFAULT | 
++		(ypan) ? FBINFO_HWACCEL_YPAN : 0;
++	
++	if (!request_mem_region(info->fix.smem_start, size_total, "vesafb")) {
++		printk(KERN_WARNING "vesafb: cannot reserve video memory at 0x%lx\n", info->fix.smem_start);
++		/* We cannot make this fatal. Sometimes this comes from magic
++		   spaces our resource handlers simply don't know about */
++	}
++		
++	info->screen_base = ioremap(info->fix.smem_start, info->fix.smem_len); 
++	
++	if (!info->screen_base) {
++		printk(KERN_ERR
++		       "vesafb: abort, cannot ioremap video memory 0x%x @ 0x%lx\n",
++			info->fix.smem_len, info->fix.smem_start);
++		err = -EIO;
++		goto out_mem;
++ 	}
++
++	/* request failure does not faze us, as vgacon probably has this
++	   region already (FIXME) */
++	request_region(0x3c0, 32, "vesafb");
++
++	if (mtrr) {
++		int temp_size = size_total;
++
++		/* Find the largest power-of-two */
++		while (temp_size & (temp_size - 1))
++                	temp_size &= (temp_size - 1);
++                        
++                /* Try and find a power of two to add */
++		while (temp_size && mtrr_add(info->fix.smem_start, temp_size, MTRR_TYPE_WRCOMB, 1) == -EINVAL) {
++			temp_size >>= 1;
++		}
++	}
++
++	if (register_framebuffer(info) < 0) {
++		printk(KERN_ERR "vesafb: failed to register framebuffer device\n");
++		err = -EINVAL;
++		goto out_mem;
++	}
++
++  	printk(KERN_INFO "vesafb: framebuffer at 0x%lx, mapped to 0x%p, using %dk, total %dk\n",
++	       info->fix.smem_start, info->screen_base, size_remap/1024, size_total/1024);
++	printk(KERN_INFO "fb%d: %s frame buffer device\n", info->node, info->fix.id);
++
++	sprintf(entry, "fb%d", info->node);
++	proc_mkdir(entry, 0);
++
++	sprintf(entry, "fb%d/modes", info->node);
++	create_proc_read_entry(entry, 0, 0, vesafb_read_proc_modes, NULL);
++	
++	sprintf(entry, "fb%d/vbe_info", info->node);
++	create_proc_read_entry(entry, 0, 0, vesafb_read_proc_vbe_info, NULL);
++
++	fb_destroy_modedb(edid_modes);
++	return 0;
++
++out_mem:
++	release_mem_region(info->fix.smem_start, size_total);
++out_cmap:
++	fb_dealloc_cmap(&info->cmap);
++out:	
++	framebuffer_release(info);
++	vesafb_info = NULL;
++
++	fb_destroy_modedb(edid_modes);
++	kfree(vbe_modes);
++	vbe_modes = NULL;
++	return err;
++}
++
++int __init vesafb_init(void)
++{
++	int ret;
++#ifndef MODULE
++	char *option = NULL;
++
++	if (fb_get_options("vesafb", &option))
++		return -ENODEV;
++	vesafb_setup(option);
++#endif
++	ret = driver_register(&vesafb_driver);
++
++	if (!ret) {
++		ret = platform_device_register(&vesafb_device);
++		if (ret)
++			driver_unregister(&vesafb_driver);
++	}
++
++	return ret;
++}
++
++module_init(vesafb_init);
++
++#ifdef MODULE
++void vesafb_exit(void)
++{
++	char entry[16];
++
++	if (vesafb_info)
++		unregister_framebuffer(vesafb_info);
++
++	platform_device_unregister(&vesafb_device);
++	driver_unregister(&vesafb_driver);
++
++	if (vesafb_info) {
++		sprintf(entry, "fb%d/modes", vesafb_info->node);
++		remove_proc_entry(entry, NULL);
++	
++		sprintf(entry, "fb%d/vbe_info", vesafb_info->node);
++		remove_proc_entry(entry, NULL);
++
++		sprintf(entry, "fb%d", vesafb_info->node);
++		remove_proc_entry(entry, NULL);
++
++		release_mem_region(vesafb_info->fix.smem_start, vesafb_info->fix.smem_len);
++		fb_dealloc_cmap(&vesafb_info->cmap);
++		framebuffer_release(vesafb_info);
++	}
++	
++	if (vbe_modes != NULL)
++		kfree(vbe_modes);	
++}
++
++module_exit(vesafb_exit);
++
++static inline int param_get_scroll(char *buffer, struct kernel_param *kp) { return 0; }
++static inline int param_set_scroll(const char *val, struct kernel_param *kp) 
++{
++	ypan = 0;
++	
++	if (! strcmp(val, "redraw"))
++		ypan=0;
++	else if (! strcmp(val, "ypan"))
++		ypan=1;
++	else if (! strcmp(val, "ywrap"))
++		ypan=2;
++
++	return 0;
++}
++
++#define param_check_scroll(name, p) __param_check(name, p, void);
++
++module_param_named(scroll, ypan, scroll, 0);
++MODULE_PARM_DESC(scroll,"Scrolling mode, set to 'redraw', 'ypan' or 'ywrap'");
++module_param_named(vgapal, pmi_setpal, invbool, 0);
++MODULE_PARM_DESC(vgapal,"bool: set palette using VGA registers");
++module_param_named(pmipal, pmi_setpal, bool, 0);
++MODULE_PARM_DESC(pmipal,"bool: set palette using PMI calls");
++module_param_named(nomtrr, mtrr, invbool, 0);
++MODULE_PARM_DESC(nomtrr,"bool: disable use of MTRR registers");
++module_param(nocrtc, bool, 0);
++MODULE_PARM_DESC(nocrtc,"bool: ignore CRTC timings when setting modes");
++module_param(noedid, bool, 0);
++MODULE_PARM_DESC(noedid,"bool: ignore EDID-provided monitor limits when setting modes");
++module_param(gtf, bool, 0);
++MODULE_PARM_DESC(gtf,"bool: force use of VESA GTF to calculate mode timings");
++module_param(vram_remap, uint, 0);
++MODULE_PARM_DESC(vram_remap,"Set amount of video memory to be used [MiB]");
++module_param(vram_total, uint, 0);
++MODULE_PARM_DESC(vram_total,"Set total amount of video memoery [MiB]"); 
++module_param(maxclk, ushort, 0);
++MODULE_PARM_DESC(maxclk,"Maximum pixelclock [MHz], overrides EDID data");
++module_param(maxhf, ushort, 0);
++MODULE_PARM_DESC(maxhf,"Maximum horizontal frequency [kHz], overrides EDID data");
++module_param(maxvf, ushort, 0);
++MODULE_PARM_DESC(maxvf,"Maximum vertical frequency [Hz], overrides EDID data");
++module_param_named(mode, mode_option, charp, 0);
++MODULE_PARM_DESC(mode,"Specify resolution as \"<xres>x<yres>[-<bpp>][@<refresh>]\"");
++module_param(vbemode, ushort, 0);
++MODULE_PARM_DESC(vbemode,"VBE mode number to set, overrides 'mode' setting");
++
++#endif /* MODULE */
++
++MODULE_LICENSE("GPL");
++MODULE_AUTHOR("Michal Januszewski");
++MODULE_DESCRIPTION("Framebuffer driver for VBE2.0+ compliant graphic boards");
+diff -Nru a/include/video/vesa.h b/include/video/vesa.h
+--- /dev/null	Wed Dec 31 16:00:00 196900
++++ b/include/video/vesa.h	2005-01-15 14:00:49 +01:00
+@@ -0,0 +1,126 @@
++#define crtc_pib(arg) ((struct vesafb_crtc_info_block*)(arg))
++#define vbe_pib(arg) ((struct vesafb_vbe_info_block*)(arg))
++#define vesafb_pmib(arg) ((struct vesafb_mode_info_block*)(arg))
++
++struct vesafb_task {
++	enum { 
++		VESAFB_TASK_DOVM86, 
++		VESAFB_TASK_GETVBE_IB, 
++		VESAFB_TASK_GETVBE_MODEINFO,
++		VESAFB_TASK_SWITCHMODE,
++		VESAFB_TASK_GETEDID,
++		VESAFB_TASK_SETPAL
++	} type;
++
++	unsigned short		flags;
++	struct vm86_regs 	regs;
++
++	unsigned char		done;
++	void 			*res;
++		
++	struct list_head 	node;
++};
++
++#define VESAFB_FLAG_FREESTRUCT		0x0001
++#define VESAFB_CAP_CAN_SWITCH_DAC	0x01
++
++/* this struct is 512 bytes long */
++struct vesafb_vbe_info_block {
++	char	vbe_signature[4];
++	u16	vbe_version;
++	u32	oem_string_ptr;
++	u32	capabilities;
++	u32 	mode_list_ptr;
++	u16 	total_memory;
++	u16	oem_software_rev;
++	u32	oem_vendor_name_ptr;
++	u32 	oem_product_name_ptr;
++	u32 	oem_product_rev_ptr;
++	u8	reserved[222];
++	char	oem_data[256];
++} __attribute__ ((packed));
++
++struct vesafb_crtc_info_block {
++
++	u16	horiz_total;
++	u16	horiz_start;
++	u16	horiz_end;
++	u16	vert_total;
++	u16	vert_start;
++	u16	vert_end;
++	u8	flags;
++	u32	pixel_clock;
++	u16	refresh_rate;
++	u8	reserved[40];
++
++} __attribute__ ((packed));
++
++/* this struct is 256 bytes long */
++struct vesafb_mode_info_block {
++
++	/* for all VBE revisions */
++	u16	mode_attr;
++	u8	winA_attr;
++	u8	winB_attr;
++	u16	win_granularity;
++	u16	win_size;
++	u16	winA_seg;
++	u16	winB_seg;
++	u32	win_func_ptr;
++	u16	bytes_per_scan_line;
++	
++	/* for VBE 1.2+ */
++	u16	x_res;
++	u16	y_res;
++	u8	x_char_size;
++	u8	y_char_size;
++	u8	planes;
++	u8	bits_per_pixel;
++	u8	banks;
++	u8	memory_model;
++	u8	bank_size;
++	u8	image_pages;
++	u8	reserved1;
++	
++	/* direct color fields for direct/6 and YUV/7 memory models */
++	u8	red_len;
++	u8	red_off;		/* offsets are bit positions of lsb in the mask */
++	u8	green_len;
++	u8	green_off;
++	u8	blue_len;
++	u8	blue_off;
++	u8	rsvd_len;
++	u8	rsvd_off;
++	u8	direct_color_info;	/* direct color mode attributes */
++
++	/* for VBE 2.0+ */
++	u32	phys_base_ptr;
++	u8	reserved2[6];
++
++	/* for VBE 3.0+ */
++	u16	lin_bytes_per_scan_line;
++	u8	bnk_image_pages;
++	u8	lin_image_pages;
++	u8	lin_red_len;
++	u8	lin_red_off;
++	u8	lin_green_len;
++	u8	lin_green_off;
++	u8	lin_blue_len;
++	u8	lin_blue_off;
++	u8	lin_rsvd_len;
++	u8	lin_rsvd_off;
++	u32	max_pixel_clock;
++	
++	u16	mode_id;
++
++} __attribute__ ((packed));
++
++struct vesafb_par {
++	u16 				vbe_mode;
++	struct vesafb_crtc_info_block 	crtc;	
++};
++
++
++struct vesafb_pal_entry {
++	u_char blue, green, red, pad; 
++} __attribute__ ((packed));

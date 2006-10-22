@@ -1,0 +1,67 @@
+Author: Narendra Sankar <nsankar@broadcom.com>
+Date: Wed, 25 May 2005 23:51:00 +0000 (-0700)
+Source: http://www.kernel.org/git/gitweb.cgi?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=60bf09a366c873aab36e3b3110ee9f5bd89a1a6d
+
+  [PATCH] sata_svw: Add support for new device IDs
+  
+  BCM5785 (HT1000) is a new southbridge from Serverworks/Broadcom that
+  incorporates 4 SATA ports in a single PCIX function. Functionally these
+  ports are similar to that in older devices like the Apple K2 and the
+  Frodo4/8. This patch adds support for the new PCI device ID along with a
+  blurb on what the various device IDs mean. Additionally in all devices
+  based on this SATA controller, the SATA ports appear as a single PCI
+  function. This is true for older Frodo8 devices as well. Hence the init
+  function should init all the ports present in the detected controller
+  (which could be 4 or 8).
+  
+  Signed-off-by: Narendra Sankar <nsankar@broadcom.com>
+
+--- a/drivers/scsi/sata_svw.c
++++ b/drivers/scsi/sata_svw.c
+@@ -343,6 +343,7 @@ static int k2_sata_init_one (struct pci_
+ 	void *mmio_base;
+ 	int pci_dev_busy = 0;
+ 	int rc;
++	int i;
+ 
+ 	if (!printed_version++)
+ 		printk(KERN_DEBUG DRV_NAME " version " DRV_VERSION "\n");
+@@ -420,11 +421,11 @@ static int k2_sata_init_one (struct pci_
+ 	probe_ent->mwdma_mask = 0x7;
+ 	probe_ent->udma_mask = 0x7f;
+ 
+-	/* We have 4 ports per PCI function */
+-	k2_sata_setup_port(&probe_ent->port[0], base + 0 * K2_SATA_PORT_OFFSET);
+-	k2_sata_setup_port(&probe_ent->port[1], base + 1 * K2_SATA_PORT_OFFSET);
+-	k2_sata_setup_port(&probe_ent->port[2], base + 2 * K2_SATA_PORT_OFFSET);
+-	k2_sata_setup_port(&probe_ent->port[3], base + 3 * K2_SATA_PORT_OFFSET);
++	/* different controllers have different number of ports - currently 4 or 8 */
++	/* All ports are on the same function. Multi-function device is no
++	 * longer available. This should not be seen in any system. */
++	for (i = 0; i < ent->driver_data; i++)
++		k2_sata_setup_port(&probe_ent->port[i], base + i * K2_SATA_PORT_OFFSET);
+ 
+ 	pci_set_master(pdev);
+ 
+@@ -444,11 +445,17 @@ err_out:
+ 	return rc;
+ }
+ 
+-
++/* 0x240 is device ID for Apple K2 device
++ * 0x241 is device ID for Serverworks Frodo4
++ * 0x242 is device ID for Serverworks Frodo8
++ * 0x24a is device ID for BCM5785 (aka HT1000) HT southbridge integrated SATA
++ * controller
++ * */
+ static struct pci_device_id k2_sata_pci_tbl[] = {
+-	{ 0x1166, 0x0240, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+-	{ 0x1166, 0x0241, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+-	{ 0x1166, 0x0242, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
++	{ 0x1166, 0x0240, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4 },
++	{ 0x1166, 0x0241, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4 },
++	{ 0x1166, 0x0242, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 8 },
++	{ 0x1166, 0x024a, PCI_ANY_ID, PCI_ANY_ID, 0, 0, 4 },
+ 	{ }
+ };
+ 

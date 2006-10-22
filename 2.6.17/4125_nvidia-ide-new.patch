@@ -1,0 +1,66 @@
+From: Randy Dunlap <randy.dunlap@oracle.com>
+Date: Sun, 25 Jun 2006 08:36:55 +0000 (-0700)
+Subject: [PATCH] ata: add some NVIDIA chipset IDs
+X-Git-Url: http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=353dcf7c89519a2cb9b7699f3bcf70bb685f22e1
+
+[PATCH] ata: add some NVIDIA chipset IDs
+
+From: Randy Dunlap <randy.dunlap@oracle.com>
+
+Add some nVidia chipset ID's support.
+
+http://www.kernel.org/git/?p=linux/kernel/git/bcollins/ubuntu-dapper.git;a=commitdiff;h=b407680553280f9999a20706d5ab2a3be65312c1;hp=ce4cb48010ab2cca537432b5ccb47d4b1fb489e5
+
+Snagged from lkml.
+
+Cc: Jeff Garzik <jeff@garzik.org>
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Cc: Tejun Heo <htejun@gmail.com>
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+Index: linux-2.6.17-gentoo-r1/drivers/ide/pci/amd74xx.c
+===================================================================
+--- linux-2.6.17-gentoo-r1.orig/drivers/ide/pci/amd74xx.c
++++ linux-2.6.17-gentoo-r1/drivers/ide/pci/amd74xx.c
+@@ -75,6 +75,7 @@ static struct amd_ide_chip {
+ 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP51_IDE,	0x50, AMD_UDMA_133 },
+ 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP55_IDE,	0x50, AMD_UDMA_133 },
+ 	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE,	0x50, AMD_UDMA_133 },
++	{ PCI_DEVICE_ID_NVIDIA_NFORCE_MCP65_IDE,	0x50, AMD_UDMA_133 },
+ 	{ PCI_DEVICE_ID_AMD_CS5536_IDE,			0x40, AMD_UDMA_100 },
+ 	{ 0 }
+ };
+@@ -490,7 +491,8 @@ static ide_pci_device_t amd74xx_chipsets
+ 	/* 15 */ DECLARE_NV_DEV("NFORCE-MCP51"),
+ 	/* 16 */ DECLARE_NV_DEV("NFORCE-MCP55"),
+ 	/* 17 */ DECLARE_NV_DEV("NFORCE-MCP61"),
+-	/* 18 */ DECLARE_AMD_DEV("AMD5536"),
++	/* 18 */ DECLARE_NV_DEV("NFORCE-MCP65"),
++	/* 19 */ DECLARE_AMD_DEV("AMD5536"),
+ };
+ 
+ static int __devinit amd74xx_probe(struct pci_dev *dev, const struct pci_device_id *id)
+@@ -528,7 +530,8 @@ static struct pci_device_id amd74xx_pci_
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP51_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 15 },
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP55_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 16 },
+ 	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE,	PCI_ANY_ID, PCI_ANY_ID, 0, 0, 17 },
+-	{ PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_CS5536_IDE,		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 18 },
++	{ PCI_VENDOR_ID_NVIDIA, PCI_DEVICE_ID_NVIDIA_NFORCE_MCP65_IDE,  PCI_ANY_ID, PCI_ANY_ID, 0, 0, 18 },
++	{ PCI_VENDOR_ID_AMD,	PCI_DEVICE_ID_AMD_CS5536_IDE,		PCI_ANY_ID, PCI_ANY_ID, 0, 0, 19 },
+ 	{ 0, },
+ };
+ MODULE_DEVICE_TABLE(pci, amd74xx_pci_tbl);
+Index: linux-2.6.17-gentoo-r1/include/linux/pci_ids.h
+===================================================================
+--- linux-2.6.17-gentoo-r1.orig/include/linux/pci_ids.h
++++ linux-2.6.17-gentoo-r1/include/linux/pci_ids.h
+@@ -1194,6 +1194,7 @@
+ #define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_IDE       0x03EC
+ #define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA2     0x03F6
+ #define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP61_SATA3     0x03F7
++#define PCI_DEVICE_ID_NVIDIA_NFORCE_MCP65_IDE	    0x0448
+ 
+ #define PCI_VENDOR_ID_IMS		0x10e0
+ #define PCI_DEVICE_ID_IMS_TT128		0x9128

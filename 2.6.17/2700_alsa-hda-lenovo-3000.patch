@@ -1,0 +1,33 @@
+From: Daniel T Chen <crimsun@ubuntu.com>
+Date: Wed, 21 Jun 2006 06:51:07 +0000 (+0200)
+Subject: [ALSA] HDA - Lenovo 3000 N100-07684JU - enable laptop-eapd by default
+X-Git-Url: http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=6dac9a65f05600bc29316e3cf3365236efe69041
+
+[ALSA] HDA - Lenovo 3000 N100-07684JU - enable laptop-eapd by default
+
+Justin Sunseri reports that sound is audible on his Lenovo 3000
+N100-07684JU by passing 'model=laptop-eapd' to modprobe, so this
+patch adds the pci ids for his sound device to patch_analog.c .
+This commit closes LP#39517. Alexey Parshin also confirmed the fix at
+http://bugs.gentoo.org/137245
+TODO: Mute onboard speakers when device is plugged into the headphone
+jack. Muting the 'External Amplifier' mixer element while a device is
+plugged into the headphone jack allows sound to be played only from the
+headphone jack.
+From: Daniel T Chen <crimsun@ubuntu.com>
+Signed-off-by: Daniel T Chen <crimsun at ubuntu.com>
+Signed-off-by: Daniel Drake <dsd@gentoo.org>
+Signed-off-by: Jaroslav Kysela <perex@suse.cz>
+---
+
+--- a/sound/pci/hda/patch_analog.c
++++ b/sound/pci/hda/patch_analog.c
+@@ -809,6 +809,8 @@ static struct hda_board_config ad1986a_c
+ 	  .config = AD1986A_LAPTOP_EAPD }, /* ASUS Z62F */
+ 	{ .pci_subvendor = 0x103c, .pci_subdevice = 0x30af,
+ 	  .config = AD1986A_LAPTOP_EAPD }, /* HP Compaq Presario B2800 */
++	{ .pci_subvendor = 0x17aa, .pci_subdevice = 0x2066,
++	  .config = AD1986A_LAPTOP_EAPD }, /* Lenovo 3000 N100-07684JU */
+ 	{}
+ };
+ 

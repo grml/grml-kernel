@@ -1,0 +1,28 @@
+From stable-bounces@linux.kernel.org  Wed Jun 22 06:01:48 2005
+Date: Wed, 22 Jun 2005 14:02:41 +0100 (BST)
+From: Hugh Dickins <hugh@veritas.com>
+To: Andrew Morton <akpm@osdl.org>
+Cc: "Richard B. Johnson" <linux-os@analogic.com>, stable@kernel.org,
+        linux-kernel@vger.kernel.org
+Subject: [PATCH] fix remap_pte_range BUG
+
+Out-of-tree user of remap_pfn_range hit kernel BUG at mm/memory.c:1112!
+It passes an unrounded size to remap_pfn_range, which was okay before
+2.6.12, but misses remap_pte_range's new end condition.  An audit of
+all the other ptwalks confirms that this is the only one so exposed.
+
+Signed-off-by: Hugh Dickins <hugh@veritas.com>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+
+--- 2.6.12/mm/memory.c	2005-06-17 20:48:29.000000000 +0100
++++ linux/mm/memory.c	2005-06-21 20:31:42.000000000 +0100
+@@ -1164,7 +1164,7 @@ int remap_pfn_range(struct vm_area_struc
+ {
+ 	pgd_t *pgd;
+ 	unsigned long next;
+-	unsigned long end = addr + size;
++	unsigned long end = addr + PAGE_ALIGN(size);
+ 	struct mm_struct *mm = vma->vm_mm;
+ 	int err;
+ 
+

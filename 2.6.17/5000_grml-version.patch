@@ -1,0 +1,11 @@
+--- linux-2.6.17.clean/Makefile	2006-06-18 03:49:35.000000000 +0200
++++ linux-2.6.17/Makefile	2006-06-20 16:02:45.851529750 +0200
+@@ -1,7 +1,7 @@
+ VERSION = 2
+ PATCHLEVEL = 6
+ SUBLEVEL = 17
+-EXTRAVERSION = .7
++EXTRAVERSION = -grml
+ NAME=Crazed Snow-Weasel
+ 
+ # *DOCUMENTATION*

@@ -1,0 +1,31 @@
+From: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+Date: Tue, 23 May 2006 09:15:57 +0000 (+0200)
+Subject: [PATCH] pcnet_cs: Add TRENDnet TE-CF100 ethernet adapter ID
+X-Git-Tag: v2.6.17-rc5
+X-Git-Url: http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=cf393ebed0abb1186c34b21f3d1d939ac2b5568a
+
+[PATCH] pcnet_cs: Add TRENDnet TE-CF100 ethernet adapter ID
+
+Add TRENDnet TE-CF100 ethernet adapter to pcnet_cs list.
+
+product info: "Fast Ethernet", "CF Size PC Card", "1.0", ""
+ manfid: 0x0149, 0xc1ab
+
+Signed-off-by: Marcin Juszkiewicz <openembedded@hrw.one.pl>
+
+ drivers/net/pcmcia/pcnet_cs.c |    2 ++
+ 1 file changed, 2 insertions(+)
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+--- a/drivers/net/pcmcia/pcnet_cs.c
++++ b/drivers/net/pcmcia/pcnet_cs.c
+@@ -1768,6 +1768,8 @@ static struct pcmcia_device_id pcnet_ids
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("NDC", "Ethernet", 0x01c43ae1, 0x00b2e941, "NE2K.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("PMX   ", "PE-200", 0x34f3f1c8, 0x10b59f8c, "PE-200.cis"),
+ 	PCMCIA_DEVICE_CIS_PROD_ID12("TAMARACK", "Ethernet", 0xcf434fba, 0x00b2e941, "tamarack.cis"),
++	PCMCIA_DEVICE_PROD_ID123("Fast Ethernet", "CF Size PC Card", "1.0", 
++		0xb4be14e3, 0x43ac239b, 0x0877b627),
+ 	PCMCIA_DEVICE_NULL
+ };
+ MODULE_DEVICE_TABLE(pcmcia, pcnet_ids);

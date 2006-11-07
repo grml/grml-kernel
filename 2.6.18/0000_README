@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
-Latest change: Son Okt 22 16:49:26 CEST 2006 [mika]
+Latest change: Die Nov 07 18:13:05 CET 2006 [mika]
 --------------------------------------------------------------------------
 
 README
@@ -43,21 +43,45 @@ GRML
 Individual Patch Descriptions:
 --------------------------------------------------------------------------
 
-Patch:  1000_2.6.18.1.patch
-From:   http://kernel.org/pub/linux/kernel/v2.6/patch-2.6.18.1.bz2
+Patch:  1000_2.6.18.2.patch
+From:   http://kernel.org/pub/linux/kernel/v2.6/patch-2.6.18.2.bz2
 Desc:   The latest stable version of the Linux kernel
+
+Patch:  2400_net-netpoll.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   If netpoll uses up it's retries, it should drop the skb not leak memory.
 
 Patch:  2500_via-irq-quirk-revert.patch
 From:   http://bugs.gentoo.org/138036
 Desc:   Revert recent VIA IRQ quirk change
 
+Patch:  2510_sym2-dont-claim-raid-devs.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   Prevent cpqarray/sym2 conflict
+
+Patch:  4000_net-r8169-1.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   Improved support for r8169 driver
+
+Patch:  4001_net-r8169-hotplug_loop.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   r8169: fix infinite loop during hotplug
+
+Patch:  4002_net-r8169-no_mac_adress_change.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   Revert "r8169: mac address change support"
+
+Patch:  4003_net-r8169-pci_id-corega.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   r8169: PCI ID for Corega Gigabit network card
+
 Patch:	4005_sky2-v1.9.patch
 From:	netdev-2.6 tree
 Desc:	sky2 updates and fixes
 
-Patch:	4010_r8169-8168.patch
-From:	http://www.kernel.org/git/?p=linux/kernel/git/torvalds/linux-2.6.git;a=commitdiff;h=bcf0bf90cd9e9242b66e0563b6a8c8db2e4c262c
-Desc:	r8169: sync with vendor's driver
+Patch:  4010_net-forcedeth-swsusp.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   forcedeth: restore network after swsup/resume or ACPI S3
 
 Patch:	4105_dm-bbr.patch
 From:	EVMS 2.5.2
@@ -71,23 +95,87 @@ Patch:  4150_iteraid.patch
 From:   http://dufo.tugraz.at/~prokop/grml-kernel/2.6.16-patches/5004_iteraid.patch
 Desc:   support for the ITE IT8212 RAID controller device
 
+Patch:  4100_cciss-support-for-gt-2TB-volumes.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   cciss: support for >2TB logical volumes
+
+Patch:  4115_advansys-pci-id-table.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   advansys pci tweaks.
+
+Patch:  4120_buslogic-pci-id-table.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   scsi/BusLogic: Add MODULE_DEVICE_TABLE
+
+Patch:  4200_drm-i965.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   Add drm support for Intel i965G chipsets.
+
 Patch:	4300_squashfs-3.0.patch
 From:	http://squashfs.sourceforge.net/
 Desc:	driver to support squashfs filesystems.
 
+Patch:  4310_fs-asfs.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   support for the Amiga SmartFileSystem
+
 Patch:	4400_speakup-20060814.patch
 From:	dsd@gentoo.org from speakup cvs
 Desc:	Provides console speech to visually-impaired users
+
+Patch:  4410_scsi-ahci-cleanup-1.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   ahci: redefinition of ahci_start_engine() and ahci_stop_engine()
+
+Patch:  4411_scsi-ahci-cleanup-2.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   ahci: relocate several internal functions
+
+Patch:  4412_scsi-ahci-cleanup-3.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   ahci: cosmetic changes to ahci_start/stop_engine()
+
+Patch:  4413_scsi-ahci-cleanup-4.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   ahci: simplify ahci_start_engine()
+
+Patch:  4420_scsi-ahci-suspend-1.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   libata: improve driver initialization and deinitialization
+
+Patch:  4421_scsi-ahci-suspend-2.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   ahci: separate out ahci_reset_controller() and ahci_init_controller()
+
+Patch:  4422_scsi-ahci-suspend-3.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   ahci: implement Power Management support
+
+Patch:  4430_scsi-arcmsr-1.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   arcmsr: initial driver, version 1.20.00.13
+
+Patch:  4431_scsi-arcmsr-2.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   [SCSI] areca sysfs fix
+
+Patch:  4432_scsi-arcmsr-3.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   arcmsr: fix up sysfs values
+
+Patch:  4440_fintek-f75375.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   f75375.c - driver for the Fintek F75375/SP and F75373 hardware monitoring features
 
 Patch:  5000_grml-version.patch
 From:   http://dufo.tugraz.at/~prokop/grml-kernel/
 Desc:   adjust kernel version for the grml-system (add -grml)
 
 Patch:  5001_grml_logo.patch
-From:   http://dufo.tugraz.at/~prokop/grml-kernel/2.6.16-patches/4000_grml_logo.diff
+From:   http://dufo.tugraz.at/~prokop/grml-kernel/
 Desc:   grml-logo in framebuffer
 
-Patch:  5002_linux-2.6.17-commandline.patch
+Patch:  5002_commandlinesize.patch
 From:   http://dufo.tugraz.at/~prokop/grml-kernel/
 Desc:   increase COMMAND_LINE_SIZE to 512
 

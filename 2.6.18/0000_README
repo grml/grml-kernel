@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
-Latest change: Die Nov 07 18:13:05 CET 2006 [mika]
+Latest change: Mit Nov 08 10:33:52 CET 2006 [mika]
 --------------------------------------------------------------------------
 
 README
@@ -12,29 +12,29 @@ Patchset Numbering Scheme
 --------------------------------------------------------------------------
 
 FIXES
-1000-1400	linux-stable
-1400-1500	linux-stable queue
-1500-1700	security
-1700-1800	architecture-related
-1800-1900	mm/scheduling/misc
-1900-2000	filesystems
-2000-2100	networking core
-2100-2200	storage core
-2200-2300	power management (ACPI, APM)
-2300-2400	bus (USB, IEEE1394, PCI, PCMCIA, ...)
-2400-2500	network drivers
-2500-2600	storage drivers
-2600-2700	input
-2700-2900	media (graphics, sound, tv)
-2900-3000	other
-3000-4000	reserved
+1000-1400       linux-stable
+1400-1500       linux-stable queue
+1500-1700       security
+1700-1800       architecture-related
+1800-1900       mm/scheduling/misc
+1900-2000       filesystems
+2000-2100       networking core
+2100-2200       storage core
+2200-2300       power management (ACPI, APM)
+2300-2400       bus (USB, IEEE1394, PCI, PCMCIA, ...)
+2400-2500       network drivers
+2500-2600       storage drivers
+2600-2700       input
+2700-2900       media (graphics, sound, tv)
+2900-3000       other
+3000-4000       reserved
 
 FEATURES
-4000-4100	network
-4100-4200	storage
-4200-4300	graphics
-4300-4400	filesystem
-4400-4500	other
+4000-4100       network
+4100-4200       storage
+4200-4300       graphics
+4300-4400       filesystem
+4400-4500       other
 
 GRML
 5000-5100       grml-specific
@@ -75,21 +75,21 @@ Patch:  4003_net-r8169-pci_id-corega.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   r8169: PCI ID for Corega Gigabit network card
 
-Patch:	4005_sky2-v1.9.patch
-From:	netdev-2.6 tree
-Desc:	sky2 updates and fixes
+Patch:  4005_sky2-v1.9.patch
+From:   netdev-2.6 tree
+Desc:   sky2 updates and fixes
 
 Patch:  4010_net-forcedeth-swsusp.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   forcedeth: restore network after swsup/resume or ACPI S3
 
-Patch:	4105_dm-bbr.patch
-From:	EVMS 2.5.2
-Desc:	Bad block relocation support for LiveCD users
+Patch:  4105_dm-bbr.patch
+From:   EVMS 2.5.2
+Desc:   Bad block relocation support for LiveCD users
 
-Patch:	4110_promise-pdc2037x.patch
-From:	Jeff Garzik's libata-dev-2.6 tree
-Desc:	Adds support for Promise 2037x SATA controllers which have PATA ports
+Patch:  4110_promise-pdc2037x.patch
+From:   Jeff Garzik's libata-dev-2.6 tree
+Desc:   Adds support for Promise 2037x SATA controllers which have PATA ports
 
 Patch:  4150_iteraid.patch
 From:   http://dufo.tugraz.at/~prokop/grml-kernel/2.6.16-patches/5004_iteraid.patch
@@ -111,17 +111,17 @@ Patch:  4200_drm-i965.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   Add drm support for Intel i965G chipsets.
 
-Patch:	4300_squashfs-3.0.patch
-From:	http://squashfs.sourceforge.net/
-Desc:	driver to support squashfs filesystems.
+Patch:  4300_squashfs-3.0.patch
+From:   http://squashfs.sourceforge.net/
+Desc:   driver to support squashfs filesystems.
 
 Patch:  4310_fs-asfs.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   support for the Amiga SmartFileSystem
 
-Patch:	4400_speakup-20060814.patch
-From:	dsd@gentoo.org from speakup cvs
-Desc:	Provides console speech to visually-impaired users
+Patch:  4400_speakup-20060814.patch
+From:   dsd@gentoo.org from speakup cvs
+Desc:   Provides console speech to visually-impaired users
 
 Patch:  4410_scsi-ahci-cleanup-1.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/

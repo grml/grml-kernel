@@ -43,13 +43,25 @@ GRML
 Individual Patch Descriptions:
 --------------------------------------------------------------------------
 
-Patch:  1000_2.6.18.2.patch
-From:   http://kernel.org/pub/linux/kernel/v2.6/patch-2.6.18.2.bz2
+Patch:  1000_2.6.18.3.patch
+From:   http://kernel.org/pub/linux/kernel/v2.6/patch-2.6.18.3.bz2
 Desc:   The latest stable version of the Linux kernel
+
+Patch:  2300_UCR-61S2B-unusual_dev-update.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   USB: Fix UCR-61S2B unusual_dev entry
 
 Patch:  2400_net-netpoll.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   If netpoll uses up it's retries, it should drop the skb not leak memory.
+
+Patch:  2410_bcm43xx-drain-tx-status-before-starting-irqs.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   bcm43xx stable fix
+
+Patch:  2420_sctp-backports-[1-7].patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   Backport various SCTP changesets from 2.6.19, recommended by Vlad Yasevich (closes: #397946)
 
 Patch:  2500_via-irq-quirk-revert.patch
 From:   http://bugs.gentoo.org/138036
@@ -107,11 +119,15 @@ Patch:  4120_buslogic-pci-id-table.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   scsi/BusLogic: Add MODULE_DEVICE_TABLE
 
+Patch:  4130_linux-2.6-aic9400-adp94xx-updates.patch
+From:   http://developer.momonga-linux.org/viewcvs/trunk/pkgs/kernel/
+Desc:   support for the Adaptec aic94xx SAS/SATA driver
+
 Patch:  4200_drm-i965.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   Add drm support for Intel i965G chipsets.
 
-Patch:  4300_squashfs-3.0.patch
+Patch:  4300_squashfs-3.1.patch
 From:   http://squashfs.sourceforge.net/
 Desc:   driver to support squashfs filesystems.
 
@@ -166,6 +182,10 @@ Desc:   arcmsr: fix up sysfs values
 Patch:  4440_fintek-f75375.patch
 From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
 Desc:   f75375.c - driver for the Fintek F75375/SP and F75373 hardware monitoring features
+
+Patch:  4445_ti.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   support for TI ez430 development tool ID in ti_usb
 
 Patch:  5000_grml-version.patch
 From:   http://dufo.tugraz.at/~prokop/grml-kernel/

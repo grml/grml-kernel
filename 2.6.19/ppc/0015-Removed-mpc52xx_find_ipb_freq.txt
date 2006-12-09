@@ -1,0 +1,52 @@
+From f8dc83c83d60b2679fd4d30db7f18569157882d2 Mon Sep 17 00:00:00 2001
+From: Nicolas DET <nd@bplan-gmbh.de>
+Date: Mon, 27 Nov 2006 17:31:41 +0100
+Subject: [PATCH] Removed mpc52xx_find_ipb_freq()
+
+Signed-off-by: Nicolas DET <nd@bplan-gmbh.de>
+---
+ drivers/ata/pata_mpc52xx.c |   28 ----------------------------
+ 1 files changed, 0 insertions(+), 28 deletions(-)
+
+diff --git a/drivers/ata/pata_mpc52xx.c b/drivers/ata/pata_mpc52xx.c
+index c75d4c9..17b3d28 100644
+--- a/drivers/ata/pata_mpc52xx.c
++++ b/drivers/ata/pata_mpc52xx.c
+@@ -59,34 +59,6 @@ #define CALC_CLKCYC(c,v) ((((v)+(c)-1)/(
+ /* Aux fns                                                                  */
+ /* ======================================================================== */
+ 
+-
+-/* OF device tree */
+-
+-static unsigned int
+-mpc52xx_find_ipb_freq(struct device_node *on)
+-{
+-	struct device_node *onp;
+-	const unsigned int *p_ipb_freq = NULL;
+-
+-	of_node_get(on);
+-	while (on) {
+-		p_ipb_freq = get_property(on, "bus-frequency", NULL);
+-
+-		if (p_ipb_freq)
+-			break;
+-
+-		onp = of_get_parent(on);
+-		of_node_put(on);
+-		on = onp;
+-	}
+-
+-	if (on)
+-		of_node_put(on);
+-
+-	return p_ipb_freq ? *p_ipb_freq : 0;
+-}
+-
+-
+ /* MPC52xx low level hw control */
+ 
+ static int
+-- 
+1.4.3.2
+

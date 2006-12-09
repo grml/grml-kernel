@@ -1,0 +1,3 @@
+- 0009 (RTAS auf 32Bit) könnte auf 64 Bit PPC Ärger machen
+- 0012 hmm den muss ich mir mal genauer ansehen
+- 0018 könnte auch seiteneffekte haben 

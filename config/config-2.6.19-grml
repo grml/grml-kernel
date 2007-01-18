@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.19-grml
-# Fri Dec  8 14:17:31 2006
+# Thu Jan 18 22:33:54 2007
 #
 CONFIG_X86_32=y
 CONFIG_GENERIC_TIME=y
@@ -202,7 +202,7 @@ CONFIG_EFI=y
 CONFIG_IRQBALANCE=y
 CONFIG_BOOT_IOREMAP=y
 CONFIG_REGPARM=y
-CONFIG_SECCOMP=y
+# CONFIG_SECCOMP is not set
 # CONFIG_HZ_100 is not set
 CONFIG_HZ_250=y
 # CONFIG_HZ_1000 is not set

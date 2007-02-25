@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.20
-# Wed Feb  7 23:56:20 2007
+# Linux kernel version: 2.6.20-grml
+# Sun Feb 25 12:45:29 2007
 #
 CONFIG_X86_32=y
 CONFIG_GENERIC_TIME=y
@@ -1285,6 +1285,7 @@ CONFIG_BLK_DEV_3W_XXXX_RAID=m
 CONFIG_SCSI_3W_9XXX=m
 CONFIG_SCSI_7000FASST=m
 CONFIG_SCSI_ACARD=m
+CONFIG_SCSI_ITERAID=m
 CONFIG_SCSI_AHA152X=m
 CONFIG_SCSI_AHA1542=m
 CONFIG_SCSI_AHA1740=m
@@ -3638,6 +3639,8 @@ CONFIG_SYSV_FS=m
 CONFIG_UFS_FS=m
 # CONFIG_UFS_FS_WRITE is not set
 # CONFIG_UFS_DEBUG is not set
+CONFIG_UNION_FS=m
+# CONFIG_UNION_FS_XATTR is not set
 
 #
 # Network File Systems

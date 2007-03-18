@@ -1,0 +1,31 @@
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Thu, 8 Mar 2007 22:59:54 +0000 (+0100)
+Subject: r8169: revert bogus BMCR reset
+X-Git-Url: http://git.kernel.org/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=9e0db8ef4a8c8fd6f3a506259975d7f8db962421
+
+r8169: revert bogus BMCR reset
+
+Added during bf793295e1090af84972750898bf8470df5e5419
+
+The current code requests a reset but prohibits autoneg, 1000 Mb/s,
+100 Mb/s and full duplex. The 8168 does not like it at all.
+
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+diff --git a/drivers/net/r8169.c b/drivers/net/r8169.c
+index 15d954e..6693a30 100644
+--- a/drivers/net/r8169.c
++++ b/drivers/net/r8169.c
+@@ -572,8 +572,8 @@ static void rtl8169_xmii_reset_enable(void __iomem *ioaddr)
+ {
+ 	unsigned int val;
+ 
+-	mdio_write(ioaddr, MII_BMCR, BMCR_RESET);
+-	val = mdio_read(ioaddr, MII_BMCR);
++	val = mdio_read(ioaddr, MII_BMCR) | BMCR_RESET;
++	mdio_write(ioaddr, MII_BMCR, val & 0xffff);
+ }
+ 
+ static void rtl8169_check_link_status(struct net_device *dev,

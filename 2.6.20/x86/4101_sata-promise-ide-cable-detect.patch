@@ -1,0 +1,42 @@
+From: Mikael Pettersson <mikpe@it.uu.se>
+Date: Wed, 7 Feb 2007 21:29:56 +0000 (+0100)
+Subject: sata_promise: fix missing PATA cable detection
+X-Git-Tag: v2.6.21-rc1^0~178
+X-Git-Url: http://www2.kernel.org/git/?p=linux%2Fkernel%2Fgit%2Ftorvalds%2Flinux-2.6.git;a=commitdiff_plain;h=2fb8b49fb2eac583f0e8dd0ece06f9ad6d8fd792
+
+sata_promise: fix missing PATA cable detection
+
+This patch fixes an oversight which caused sata_promise to
+not perform cable detection on the TX2plus chips' PATA ports.
+
+Signed-off-by: Mikael Pettersson <mikpe@it.uu.se>
+Signed-off-by: Jeff Garzik <jeff@garzik.org>
+---
+
+diff --git a/drivers/ata/sata_promise.c b/drivers/ata/sata_promise.c
+index b2e2e69..da8c362 100644
+--- a/drivers/ata/sata_promise.c
++++ b/drivers/ata/sata_promise.c
+@@ -564,6 +564,13 @@ static void pdc_thaw(struct ata_port *ap)
+ 	readl(mmio + PDC_CTLSTAT); /* flush */
+ }
+ 
++static int pdc_pre_reset(struct ata_port *ap)
++{
++	if (!sata_scr_valid(ap))
++		pdc_pata_cbl_detect(ap);
++	return ata_std_prereset(ap);
++}
++
+ static void pdc_error_handler(struct ata_port *ap)
+ {
+ 	ata_reset_fn_t hardreset;
+@@ -576,7 +583,7 @@ static void pdc_error_handler(struct ata_port *ap)
+ 		hardreset = sata_std_hardreset;
+ 
+ 	/* perform recovery */
+-	ata_do_eh(ap, ata_std_prereset, ata_std_softreset, hardreset,
++	ata_do_eh(ap, pdc_pre_reset, ata_std_softreset, hardreset,
+ 		  ata_std_postreset);
+ }
+ 

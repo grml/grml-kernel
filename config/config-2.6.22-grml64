@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.22-grml
-# Tue Jul 31 14:47:21 2007
+# Sat Sep  8 19:02:45 2007
 #
 CONFIG_X86_64=y
 CONFIG_64BIT=y
@@ -3450,7 +3450,7 @@ CONFIG_DEBUG_KERNEL=y
 # CONFIG_DEBUG_SHIRQ is not set
 CONFIG_DETECT_SOFTLOCKUP=y
 # CONFIG_SCHEDSTATS is not set
-# CONFIG_TIMER_STATS is not set
+CONFIG_TIMER_STATS=y
 # CONFIG_DEBUG_PREEMPT is not set
 # CONFIG_DEBUG_RT_MUTEXES is not set
 # CONFIG_RT_MUTEX_TESTER is not set

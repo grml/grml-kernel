@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.23-grml
-# Sun Sep 23 13:39:45 2007
+# Linux kernel version: 2.6.23-grml64
+# Mon Sep 24 00:43:19 2007
 #
 CONFIG_X86_64=y
 CONFIG_64BIT=y
@@ -1453,7 +1453,7 @@ CONFIG_SUNDANCE=m
 CONFIG_VIA_RHINE=m
 CONFIG_VIA_RHINE_MMIO=y
 CONFIG_VIA_RHINE_NAPI=y
-# CONFIG_SC92031 is not set
+CONFIG_SC92031=m
 CONFIG_NET_POCKET=y
 CONFIG_ATP=m
 CONFIG_DE600=m

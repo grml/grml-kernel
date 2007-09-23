@@ -1,5 +1,5 @@
---- fs/squashfs/inode.c.orig	2007-09-23 09:31:03.567520222 +0200
-+++ fs/squashfs/inode.c	2007-09-23 09:32:27.061781932 +0200
+--- a/fs/squashfs/inode.c.orig	2007-09-23 09:31:03.567520222 +0200
++++ b/fs/squashfs/inode.c	2007-09-23 09:32:27.061781932 +0200
 @@ -32,6 +32,7 @@
  #include <linux/vmalloc.h>
  #include <linux/smp_lock.h>

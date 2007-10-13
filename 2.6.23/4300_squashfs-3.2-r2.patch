@@ -13,7 +13,7 @@
 
 --- a/fs/Kconfig
 +++ b/fs/Kconfig
-@@ -1367,6 +1367,71 @@ config CRAMFS
+@@ -1364,6 +1364,71 @@ config CRAMFS
  
  	  If unsure, say N.
  
@@ -107,7 +107,7 @@
 +squashfs-y += squashfs2_0.o
 --- /dev/null
 +++ b/fs/squashfs/inode.c
-@@ -0,0 +1,2327 @@
+@@ -0,0 +1,2329 @@
 +/*
 + * Squashfs - a compressed read only filesystem for Linux
 + *
@@ -134,6 +134,7 @@
 +#include <linux/squashfs_fs.h>
 +#include <linux/module.h>
 +#include <linux/zlib.h>
++#include <linux/exportfs.h>
 +#include <linux/fs.h>
 +#include <linux/squashfs_fs_sb.h>
 +#include <linux/squashfs_fs_i.h>
@@ -141,6 +142,7 @@
 +#include <linux/vfs.h>
 +#include <linux/vmalloc.h>
 +#include <linux/smp_lock.h>
++#include <linux/sched.h>
 +
 +#include "squashfs.h"
 +
@@ -2417,7 +2419,7 @@
 +	squashfs_inode_cachep = kmem_cache_create("squashfs_inode_cache",
 +	     sizeof(struct squashfs_inode_info),
 +	     0, SLAB_HWCACHE_ALIGN|SLAB_RECLAIM_ACCOUNT,
-+	     init_once, NULL);
++	     init_once);
 +	if (squashfs_inode_cachep == NULL)
 +		return -ENOMEM;
 +	return 0;

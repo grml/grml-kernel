@@ -1,0 +1,36 @@
+From phil@ipom.com Sat Sep 22 20:58:28 2007
+From: Phil Dibowitz <phil@ipom.com>
+Date: Sat, 22 Sep 2007 20:58:12 -0700
+Subject: USB: unusual_devs modification for Nikon D200
+To: Mike <mpagano-kernel@mpagano.com>
+Cc: stern@rowland.harvard.edu,  linux-usb-devel@lists.sourceforge.net,  Greg KH <greg@kroah.com>
+Message-ID: <46F5E454.40903@ipom.com>
+
+
+Upgrade the unusual_devs.h file to support the Nikon D200
+
+Signed-off-by: Mike Pagano <mpagano-kernel@mpagano.com>
+Signed-off-by: Phil Dibowitz <phil@ipom.com>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
+
+
+---
+ drivers/usb/storage/unusual_devs.h |    7 +++++++
+ 1 file changed, 7 insertions(+)
+
+--- a/drivers/usb/storage/unusual_devs.h
++++ b/drivers/usb/storage/unusual_devs.h
+@@ -341,6 +341,13 @@ UNUSUAL_DEV(  0x04b0, 0x040d, 0x0100, 0x
+ 		US_SC_DEVICE, US_PR_DEVICE, NULL,
+ 		US_FL_FIX_CAPACITY),
+ 
++/* Reported by Graber and Mike Pagano <mpagano-kernel@mpagano.com> */
++UNUSUAL_DEV(  0x04b0, 0x040f, 0x0200, 0x0200,
++       "NIKON",
++       "NIKON DSC D200",
++       US_SC_DEVICE, US_PR_DEVICE, NULL,
++       US_FL_FIX_CAPACITY),
++
+ /* Reported by Emil Larsson <emil@swip.net> */
+ UNUSUAL_DEV(  0x04b0, 0x0411, 0x0100, 0x0101,
+ 		"NIKON",

@@ -1,0 +1,106 @@
+--------------------------------------------------------------------------
+Latest change: Sam Okt 13 11:56:39 CEST 2007 [mika]
+--------------------------------------------------------------------------
+
+README
+--------------------------------------------------------------------------
+This patchset is for the latest linux kernel provided by grml.org.
+It is based on genpatches, ubuntu-2.6.git, debian patches and work by the
+grml-team.
+
+Patchset Numbering Scheme
+--------------------------------------------------------------------------
+
+FIXES
+1000-1400       linux-stable
+1400-1500       linux-stable queue
+1500-1700       security
+1700-1800       architecture-related
+1800-1900       mm/scheduling/misc
+1900-2000       filesystems
+2000-2100       networking core
+2100-2200       storage core
+2200-2300       power management (ACPI, APM)
+2300-2400       bus (USB, IEEE1394, PCI, PCMCIA, ...)
+2400-2500       network drivers
+2500-2600       storage drivers
+2600-2700       input
+2700-2900       media (graphics, sound, tv)
+2900-3000       other
+3000-4000       reserved
+
+FEATURES
+4000-4100       network
+4100-4200       storage
+4200-4300       graphics
+4300-4400       filesystem
+4400-4500       other
+
+GRML
+5000-5100       grml-specific
+
+
+Individual Patch Descriptions:
+--------------------------------------------------------------------------
+
+Patch:  2405_hostap-netdev-type.patch
+From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
+Desc:   Fix hostap AP interface type to prevent udev confusion
+
+Patch:  2525_usb-storage-nikon-d200-quirk.patch
+From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
+Desc:   usb-storage capacity quirk for Nikon D200 camera
+
+Patch:  4000_ipw2200-1.1.4-inject.patch
+From:   /usr/share/doc/aircrack-ng/injection-patches/ipw2200-1.1.4-inject.patch
+Desc:   injection patch for ipw2200 driver
+
+Patch:  4010_e1000e-20070806.patch
+From:   svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches/features/all
+Desc:   Support for new ICH9 intel boards (E1000E)
+
+Patch:  4011_e1000e-fixes.patch
+From:   svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches/features/all
+Desc:   e1000e: Remove unused or empty labels
+
+Patch:  4020_v7-iwlwifi-add-iwlwifi-wireless-drivers.patch
+From:   svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches/features/all
+Desc:   Support for iwlwifi
+
+Patch:  4030_sierra_umts_MC8775.diff
+From:   http://kernel.ubuntu.com/git?p=ubuntu/ubuntu-gutsy.git;a=commit;h=6a7024949b3c26ce3027995218159d49b151ff67
+Desc:   Enable Sierra Wireless MC8775 0x6813
+
+Patch:  4105_dm-bbr.patch
+From:   EVMS 2.5.2
+Desc:   Bad block relocation support for LiveCD users
+
+Patch:  4200_fbcondecor-0.9.4-2.6.23-rc7.patch
+From:   http://dev.gentoo.org/~spock
+Desc:   Bootsplash successor by Michal Januszewski
+
+Patch:  4205_uvesafb-0.1-rc3-2.6.23-rc3.patch
+From:   http://dev.gentoo.org/~spock/projects/uvesafb/
+Desc:   Successor of vesafb-tng
+
+Patch:  4210_cx88-cinergy-1400-support.patch
+From:   http://www2.kernel.org/git/?p=linux%2Fkernel%2Fgit%2Fmchehab%2Fv4l-dvb.git;a=commitdiff_plain;h=6c12898641b46dc3f84ecc61eb1e532f12bff018
+Desc:   Cx88: Add support for svideo/composite input of the Terratec Cinergy 1400 DVB-T
+
+Patch:  4300_squashfs-3.2-r2.patch
+From:   http://squashfs.sourceforge.net/
+Desc:   driver to support squashfs filesystems.
+
+Patch:  4310_fs-asfs.patch
+From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
+Desc:   support for the Amiga SmartFileSystem
+
+Patch:  5000_grml-version.patch
+From:   http://hg.grml.org/grml-kernel/
+Desc:   adjust kernel version for the grml-system (add -grml)
+
+Patch:  5001_grml_logo.patch
+From:   http://dufo.tugraz.at/~prokop/grml-kernel/
+Desc:   grml-logo in framebuffer
+
+##############################################################################################

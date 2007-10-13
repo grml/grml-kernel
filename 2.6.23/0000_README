@@ -51,6 +51,10 @@ Patch:  2525_usb-storage-nikon-d200-quirk.patch
 From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
 Desc:   usb-storage capacity quirk for Nikon D200 camera
 
+Patch:  2300_git-ieee1394.patch
+From:   svn co svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches
+Desc:   several bugfixes from ieee1394 git tree
+
 Patch:  4000_ipw2200-1.1.4-inject.patch
 From:   /usr/share/doc/aircrack-ng/injection-patches/ipw2200-1.1.4-inject.patch
 Desc:   injection patch for ipw2200 driver

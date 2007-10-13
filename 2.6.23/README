@@ -95,10 +95,6 @@ Patch:  4300_squashfs-3.2-r2.patch
 From:   http://squashfs.sourceforge.net/
 Desc:   driver to support squashfs filesystems.
 
-Patch:  4310_fs-asfs.patch
-From:   http://svn.debian.org/wsvn/kernel/dists/trunk/linux-2.6/debian/patches/
-Desc:   support for the Amiga SmartFileSystem
-
 Patch:  5000_grml-version.patch
 From:   http://hg.grml.org/grml-kernel/
 Desc:   adjust kernel version for the grml-system (add -grml)

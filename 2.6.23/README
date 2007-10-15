@@ -65,7 +65,7 @@ Desc:   Support for new ICH9 intel boards (E1000E)
 
 Patch:  4011_e1000e-fixes.patch
 From:   svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches/features/all
-Desc:   e1000e: Remove unused or empty labels
+Desc:   several bugfixes for e1000e
 
 Patch:  4020_v7-iwlwifi-add-iwlwifi-wireless-drivers.patch
 From:   svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches/features/all

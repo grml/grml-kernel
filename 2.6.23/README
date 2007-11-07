@@ -79,19 +79,11 @@ Patch:  4105_dm-bbr.patch
 From:   EVMS 2.5.2
 Desc:   Bad block relocation support for LiveCD users
 
-Patch:  4200_fbcondecor-0.9.4-2.6.23-rc7.patch
-From:   http://dev.gentoo.org/~spock
-Desc:   Bootsplash successor by Michal Januszewski
-
-Patch:  4205_uvesafb-0.1-rc3-2.6.23-rc3.patch
-From:   http://dev.gentoo.org/~spock/projects/uvesafb/
-Desc:   Successor of vesafb-tng
-
 Patch:  4210_cx88-cinergy-1400-support.patch
 From:   http://www2.kernel.org/git/?p=linux%2Fkernel%2Fgit%2Fmchehab%2Fv4l-dvb.git;a=commitdiff_plain;h=6c12898641b46dc3f84ecc61eb1e532f12bff018
 Desc:   Cx88: Add support for svideo/composite input of the Terratec Cinergy 1400 DVB-T
 
-Patch:  4300_squashfs-3.2-r2.patch
+Patch:  4300_squashfs-3.3.patch
 From:   http://squashfs.sourceforge.net/
 Desc:   driver to support squashfs filesystems.
 

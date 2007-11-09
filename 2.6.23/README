@@ -87,6 +87,10 @@ Patch:  4300_squashfs-3.3.patch
 From:   http://squashfs.sourceforge.net/
 Desc:   driver to support squashfs filesystems.
 
+Patch:  4400_disk-protect.patch
+From:   http://article.gmane.org/gmane.linux.drivers.hdaps.devel/1077
+Desc:   disc protection
+
 Patch:  5000_grml-version.patch
 From:   http://hg.grml.org/grml-kernel/
 Desc:   adjust kernel version for the grml-system (add -grml)

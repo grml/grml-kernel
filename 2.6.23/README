@@ -91,6 +91,10 @@ Patch:  4400_disk-protect.patch
 From:   http://article.gmane.org/gmane.linux.drivers.hdaps.devel/1077
 Desc:   disc protection
 
+Patch:  4410_speakup.patch
+From:   ftp://ftp.speakupmodified.org/speakupmodified/speakup/linux-2.6.23-speakup.patch
+Desc:   Provides console speech to visually-impaired users
+
 Patch:  5000_grml-version.patch
 From:   http://hg.grml.org/grml-kernel/
 Desc:   adjust kernel version for the grml-system (add -grml)

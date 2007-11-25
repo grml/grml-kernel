@@ -43,6 +43,14 @@ GRML
 Individual Patch Descriptions:
 --------------------------------------------------------------------------
 
+Patch:  1000_2.6.23.8
+From:   http://kernel.org/
+Desc:   stable series patch
+
+Patch:  1001_2.6.23.9-rc1
+From:   http://kernel.org/
+Desc:   stable series patch (release candidate)
+
 Patch:  2405_hostap-netdev-type.patch
 From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
 Desc:   Fix hostap AP interface type to prevent udev confusion
@@ -86,6 +94,10 @@ Desc:   Cx88: Add support for svideo/composite input of the Terratec Cinergy 140
 Patch:  4300_squashfs-3.3.patch
 From:   http://squashfs.sourceforge.net/
 Desc:   driver to support squashfs filesystems.
+
+Patch:  4310_squashfs_lzma.patch
+From:   http://www.squashfs-lzma.org/dl/sqlzma3.3-fixed.tar.bz2
+Desc:   support LZMA compression in squashfs
 
 Patch:  4400_disk-protect.patch
 From:   http://article.gmane.org/gmane.linux.drivers.hdaps.devel/1077

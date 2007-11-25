@@ -55,10 +55,6 @@ Patch:  2405_hostap-netdev-type.patch
 From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
 Desc:   Fix hostap AP interface type to prevent udev confusion
 
-Patch:  2525_usb-storage-nikon-d200-quirk.patch
-From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
-Desc:   usb-storage capacity quirk for Nikon D200 camera
-
 Patch:  2300_git-ieee1394.patch
 From:   svn co svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches
 Desc:   several bugfixes from ieee1394 git tree

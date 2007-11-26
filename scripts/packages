@@ -12,6 +12,7 @@ kqemu
 kvm
 linux-wlan-ng
 loop-aes
+lzma
 madwifi
 ndiswrapper
 nozomi

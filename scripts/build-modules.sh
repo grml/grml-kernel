@@ -72,4 +72,21 @@ echo "Source packages for grml-kerneladdons and truecrypt are not available yet.
 echo "So do not forget to build them manually. :)"
 echo "--------------------------------------------------------------------------"
 
+## Instructions for grml-kerneladdons:
+# download tar.gz of grml-kerneladdons via:
+# http://deb.grml.org/pool/main/g/grml-kerneladdons-2.6.23/
+# make sure /usr/src/linux is the according symlink to /usr/src/linux-headers-2.6.23-grml
+# touch /usr/src/linux-headers-2.6.23-grml/include/linux/config.h (fix acerhk)
+# and finally build it using 'dpkg-buildpackage -rfakeroot'
+
+## Instructions for truecrypt:
+# dget http://deb.grml.org/pool/main/t/truecrypt-2.6.23-grml/truecrypt-2.6.23-grml_4.3a-3.dsc
+# unp truecrypt-2.6.23-grml_4.3a.orig.tar.gz
+# unp truecrypt-2.6.23-grml_4.3a-3.diff.gz
+# mv truecrypt-4.3a-source-code truecrypt-2.6.23-grml-4.3a
+# cd truecrypt-2.6.23-grml-4.3a
+# patch -p1 < ../truecrypt-2.6.23-grml_4.3a-3.diff
+# chmod 755 debian/rules
+# and finally build it using 'dpkg-buildpackage -rfakeroot'
+
 ## END OF FILE #################################################################

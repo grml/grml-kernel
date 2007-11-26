@@ -12,6 +12,7 @@ kqemu-source
 kvm-source
 linux-wlan-ng-source
 loop-aes-source
+lzma-source
 madwifi-source
 ndiswrapper-source
 nozomi-source

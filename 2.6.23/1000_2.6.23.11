@@ -266,7 +266,7 @@ index 9f08dab..d9d832c 100644
        http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
  
 diff --git a/Makefile b/Makefile
-index 4635a64..3f2c4e3 100644
+index 4635a64..ada10d5 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,7 +1,7 @@
@@ -274,7 +274,7 @@ index 4635a64..3f2c4e3 100644
  PATCHLEVEL = 6
  SUBLEVEL = 23
 -EXTRAVERSION =
-+EXTRAVERSION = .10
++EXTRAVERSION = .11
  NAME = Arr Matey! A Hairy Bilge Rat!
  
  # *DOCUMENTATION*
@@ -2128,52 +2128,6 @@ index 65150b5..b022942 100644
  };
  
  static int rd_blkdev_pagecache_IO(int rw, struct bio_vec *vec, sector_t sector,
-diff --git a/drivers/char/apm-emulation.c b/drivers/char/apm-emulation.c
-index ec116df..72183bd 100644
---- a/drivers/char/apm-emulation.c
-+++ b/drivers/char/apm-emulation.c
-@@ -295,7 +295,6 @@ static int
- apm_ioctl(struct inode * inode, struct file *filp, u_int cmd, u_long arg)
- {
- 	struct apm_user *as = filp->private_data;
--	unsigned long flags;
- 	int err = -EINVAL;
- 
- 	if (!as->suser || !as->writer)
-@@ -331,10 +330,16 @@ apm_ioctl(struct inode * inode, struct file *filp, u_int cmd, u_long arg)
- 			 * Wait for the suspend/resume to complete.  If there
- 			 * are pending acknowledges, we wait here for them.
- 			 */
--			flags = current->flags;
-+			freezer_do_not_count();
- 
- 			wait_event(apm_suspend_waitqueue,
- 				   as->suspend_state == SUSPEND_DONE);
-+
-+			/*
-+			 * Since we are waiting until the suspend is done, the
-+			 * try_to_freeze() in freezer_count() will not trigger
-+			 */
-+			freezer_count();
- 		} else {
- 			as->suspend_state = SUSPEND_WAIT;
- 			mutex_unlock(&state_lock);
-@@ -362,14 +367,10 @@ apm_ioctl(struct inode * inode, struct file *filp, u_int cmd, u_long arg)
- 			 * Wait for the suspend/resume to complete.  If there
- 			 * are pending acknowledges, we wait here for them.
- 			 */
--			flags = current->flags;
--
--			wait_event_interruptible(apm_suspend_waitqueue,
-+			wait_event_freezable(apm_suspend_waitqueue,
- 					 as->suspend_state == SUSPEND_DONE);
- 		}
- 
--		current->flags = flags;
--
- 		mutex_lock(&state_lock);
- 		err = as->suspend_result;
- 		as->suspend_state = SUSPEND_NONE;
 diff --git a/drivers/char/drm/i915_irq.c b/drivers/char/drm/i915_irq.c
 index bb8e9e9..94d638e 100644
 --- a/drivers/char/drm/i915_irq.c
@@ -6953,6 +6907,19 @@ index 848b8fa..94ae4d2 100644
 +err_out:
  	llc_sap_put(br_stp_sap);
  	return err;
+ }
+diff --git a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+index eb57502..bc40377 100644
+--- a/net/bridge/br_fdb.c
++++ b/net/bridge/br_fdb.c
+@@ -44,7 +44,7 @@ int __init br_fdb_init(void)
+ 	return 0;
+ }
+ 
+-void __exit br_fdb_fini(void)
++void br_fdb_fini(void)
+ {
+ 	kmem_cache_destroy(br_fdb_cache);
  }
 diff --git a/net/bridge/br_input.c b/net/bridge/br_input.c
 index 3a8a015..5706cd1 100644

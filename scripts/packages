@@ -1,4 +1,5 @@
 acx100
+at76-usb
 atl2
 aufs
 bcm5700
@@ -18,8 +19,8 @@ madwifi
 ndiswrapper
 nozomi
 nvidia
-open-vm
 openafs
+open-vm
 qc-usb
 realtime-lsm
 rt2400

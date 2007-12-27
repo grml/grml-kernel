@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
-Latest change: Sam Okt 13 11:56:39 CEST 2007 [mika]
+Latest change: Don Dez 27 21:52:51 CET 2007 [mika]
 --------------------------------------------------------------------------
 
 README
@@ -43,21 +43,17 @@ GRML
 Individual Patch Descriptions:
 --------------------------------------------------------------------------
 
-Patch:  1000_2.6.23.8
+Patch:  1000_2.6.23.11
 From:   http://kernel.org/
 Desc:   stable series patch
-
-Patch:  1001_2.6.23.9-rc1
-From:   http://kernel.org/
-Desc:   stable series patch (release candidate)
-
-Patch:  2405_hostap-netdev-type.patch
-From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
-Desc:   Fix hostap AP interface type to prevent udev confusion
 
 Patch:  2300_git-ieee1394.patch
 From:   svn co svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches
 Desc:   several bugfixes from ieee1394 git tree
+
+Patch:  2405_hostap-netdev-type.patch
+From:   http://dev.gentoo.org/~dsd/genpatches/trunk/2.6.23/
+Desc:   Fix hostap AP interface type to prevent udev confusion
 
 Patch:  4000_ipw2200-1.1.4-inject.patch
 From:   /usr/share/doc/aircrack-ng/injection-patches/ipw2200-1.1.4-inject.patch

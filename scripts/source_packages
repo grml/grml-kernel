@@ -32,4 +32,5 @@ squashfs-source
 sysprof-module-source
 tp-smapi-source
 virtualbox-ose-source
+virtualbox-ose-guest-source
 zaptel-source

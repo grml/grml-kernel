@@ -32,4 +32,5 @@ squashfs
 sysprof
 tp-smapi
 virtualbox-ose
+virtualbox-ose-guest
 zaptel

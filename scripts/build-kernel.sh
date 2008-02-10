@@ -7,7 +7,7 @@
 # Latest change: Son Nov 25 19:34:51 CET 2007 [mika]
 ################################################################################
 
-if [ -z "$REVISION" ] ;
+if [ -z "$REVISION" ] ; then
    REVISION="grml.01"
 fi
 

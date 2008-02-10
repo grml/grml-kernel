@@ -71,10 +71,6 @@ Patch:  4020_v7-iwlwifi-add-iwlwifi-wireless-drivers.patch
 From:   svn://svn.debian.org/kernel/dists/trunk/linux-2.6/debian/patches/features/all
 Desc:   Support for iwlwifi
 
-Patch:  4030_sierra_umts_MC8775.diff
-From:   http://kernel.ubuntu.com/git?p=ubuntu/ubuntu-gutsy.git;a=commit;h=6a7024949b3c26ce3027995218159d49b151ff67
-Desc:   Enable Sierra Wireless MC8775 0x6813
-
 Patch:  4105_dm-bbr.patch
 From:   EVMS 2.5.2
 Desc:   Bad block relocation support for LiveCD users

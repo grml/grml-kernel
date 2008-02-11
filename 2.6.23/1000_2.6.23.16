@@ -266,7 +266,7 @@ index 9f08dab..d9d832c 100644
        http://www.zip.com.au/~akpm/linux/patches/stuff/tpp.txt
  
 diff --git a/Makefile b/Makefile
-index 4635a64..8920cb8 100644
+index 4635a64..3a932c7 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,7 +1,7 @@
@@ -274,7 +274,7 @@ index 4635a64..8920cb8 100644
  PATCHLEVEL = 6
  SUBLEVEL = 23
 -EXTRAVERSION =
-+EXTRAVERSION = .15
++EXTRAVERSION = .16
  NAME = Arr Matey! A Hairy Bilge Rat!
  
  # *DOCUMENTATION*
@@ -13237,7 +13237,7 @@ index 981027d..ce3c937 100644
  	}
  }
 diff --git a/fs/splice.c b/fs/splice.c
-index e95a362..2aa8f5a 100644
+index e95a362..1a9c0e6 100644
 --- a/fs/splice.c
 +++ b/fs/splice.c
 @@ -1234,6 +1234,9 @@ static int copy_from_user_mmap_sem(void *dst, const void __user *src, size_t n)
@@ -13250,6 +13250,15 @@ index e95a362..2aa8f5a 100644
  	pagefault_disable();
  	partial = __copy_from_user_inatomic(dst, src, n);
  	pagefault_enable();
+@@ -1286,7 +1289,7 @@ static int get_iovec_page_array(const struct iovec __user *iov,
+ 		if (unlikely(!len))
+ 			break;
+ 		error = -EFAULT;
+-		if (unlikely(!base))
++		if (!access_ok(VERIFY_READ, base, len))
+ 			break;
+ 
+ 		/*
 @@ -1390,10 +1393,10 @@ static int pipe_to_user(struct pipe_inode_info *pipe, struct pipe_buffer *buf,
  	if (copy_to_user(sd->u.userptr, src + buf->offset, sd->len))
  		ret = -EFAULT;

@@ -13,7 +13,7 @@ ii  aufs-source                 0+20071211-1                  Source for the auf
 ii  bcm5700-source              8.3.14-5                      module source for Broadcom's bcm5700 ethernet
 ii  drbd8-source                2:8.0.7-1                     RAID 1 over tcp/ip for Linux module source
 ii  exmap-modules-source        0.10-2                        determine how much physical memory and swap i
-ii  fglrx-kernel-src            8.42.3-2                      kernel module source for the ATI graphics car
+ii  fglrx-kernel-src            8.45.4-1                      kernel module source for the ATI graphics car
 ii  gspca-source                01.00.18-2                    source for the gspca v4l kernel module
 ii  ipw3945-source              1.2.2-1                       Source for the Intel Wireless 3945ABG (ipw394
 ii  iscsitarget-source          0.4.15+svn145-1               iSCSI Enterprise Target kernel module source

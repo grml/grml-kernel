@@ -13,6 +13,7 @@ iscsitarget
 ivtv
 kqemu
 kvm
+linux-uvc
 linux-wlan-ng
 loop-aes
 lzma

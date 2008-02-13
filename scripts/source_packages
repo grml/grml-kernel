@@ -13,6 +13,7 @@ iscsitarget-source
 ivtv-source
 kqemu-source
 kvm-source
+linux-uvc-source
 linux-wlan-ng-source
 loop-aes-source
 lzma-source

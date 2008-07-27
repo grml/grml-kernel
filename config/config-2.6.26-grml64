@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.26
-# Sun Jul 27 13:04:39 2008
+# Linux kernel version: 2.6.26-grml64
+# Sun Jul 27 18:54:43 2008
 #
 CONFIG_64BIT=y
 # CONFIG_X86_32 is not set
@@ -447,7 +447,7 @@ CONFIG_VE_ETHDEV=m
 CONFIG_VZ_DEV=m
 CONFIG_VE_IPTABLES=y
 CONFIG_VZ_WDOG=m
-# CONFIG_VZ_CHECKPOINT is not set
+CONFIG_VZ_CHECKPOINT=m
 
 #
 # Networking

@@ -1,103 +1,3 @@
-commit dbe7093bdda52ce46fb80f013e6937dddb03980c
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 18:49:45 2008 +0400
-
-    conntracks: register nf_conntrack_expect in each namespace
-    
-    Otherwise - warning:
-    
-    proc_dir_entry 'nf_conntrack_expect' already registered
-    Pid: 3955, comm: vzctl Not tainted 2.6.26 #130
-    
-    Call Trace:
-     [<ffffffff803637ac>] ? idr_get_new+0x13/0x33
-     [<ffffffff802d09ca>] proc_register+0x11b/0x151
-     [<ffffffff802d0a86>] proc_create_data+0x86/0x9f
-     [<ffffffff802d48fd>] proc_net_fops_create+0x18/0x1a
-     [<ffffffffa003284d>] :nf_conntrack:nf_conntrack_expect_init+0x11e/0x17c
-     [<ffffffffa00301c5>] :nf_conntrack:nf_conntrack_init+0x26d/0x31c
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 9429b536e6ed239b7c1752ba611482c7ed49205f
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 16:24:29 2008 +0400
-
-    Adjust Kconfig options to fix arbitrary compilation errors
-    
-    xemul: Some options are incompatible or are implemented in other way in OpenVZ
-    model, so we disable them.
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 4b58555e7bf62369b6cc065343cba1df8b085c2d
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 16:23:05 2008 +0400
-
-    conntracks: make nf_conntrack_proto_icmp compile and work
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 3fc2b5e403891efbb88887372e6764a4ee21c2c3
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 16:22:13 2008 +0400
-
-    conntracks: make nf_conntrack_l3proto_ipv4_compat compile and work
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 3c11bdc8d0005a659a72fc0805093a7c0a83632b
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 16:21:28 2008 +0400
-
-    conntracks: make nf_conntrack_l3proto_ipv4 part compile and work
-    
-    Main problem - poor sysctl tables registrarion.
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 2655d79febc106ac47c9bf925e23d99dadb52072
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 16:20:31 2008 +0400
-
-    netfilter: nf_conntrack_proto_fini() must be called before generic_sysctl_cleanup
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 2ce6bb08051038cb5e11d9523b5e1b67df03022f
-Author: Vitaliy Gusev <vgusev@openvz.org>
-Date:   Thu Jul 17 16:19:58 2008 +0400
-
-    netfilter: fix forgotten call nf_conntrack_proto_init().
-    
-    Signed-off-by: Vitaliy Gusev <vgusev@openvz.org>
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit 1f7c5382a62f5518c7f26bd83fbf68131dd30aee
-Author: Pavel Emelyanov <xemul@openvz.org>
-Date:   Wed Jul 16 17:31:55 2008 +0400
-
-    Fix __d_path codeflow wrt vfsmnt_lock locking
-    
-    Signed-off-by: Pavel Emelyanov <xemul@openvz.org>
-
-commit aafb4cebb852b897a594675389328c829e7680ea
-Author: OpenVZ team <devel@openvz.org>
-Date:   Wed Jul 16 17:20:32 2008 +0400
-
-    Linux 2.6.26-ovz
-    
-    Netfilter in container now works! Checkpointing now compiles!
-    These were good news. Bad news is that conntracks are still
-    broken, and checkpointing can be compiled *only*
-    
-    Will fix it all later :)
 diff --git a/COPYING.SWsoft b/COPYING.SWsoft
 new file mode 100644
 index 0000000..059256d
@@ -467,8 +367,8 @@ index e3c5eb6..62dc374 100644
  
  # *DOCUMENTATION*
 @@ -339,7 +340,7 @@ KBUILD_AFLAGS   := -D__ASSEMBLY__
-         SRCARCH := x86
- endif
+ KERNELRELEASE = $(shell cat include/config/kernel.release 2> /dev/null)
+ KERNELVERSION = $(VERSION).$(PATCHLEVEL).$(SUBLEVEL)$(EXTRAVERSION)
  
 -export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 +export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION VZVERSION
@@ -24947,9 +24847,9 @@ index f31debf..5b44dd6 100644
 --- a/include/linux/page-flags.h
 +++ b/include/linux/page-flags.h
 @@ -157,6 +157,7 @@ PAGEFLAG(Active, active) __CLEARPAGEFLAG(Active, active)
+ __PAGEFLAG(Slab, slab)
  PAGEFLAG(Checked, owner_priv_1)		/* Used by some filesystems */
  PAGEFLAG(Pinned, owner_priv_1) TESTSCFLAG(Pinned, owner_priv_1) /* Xen */
- PAGEFLAG(SavePinned, dirty);					/* Xen */
 +PAGEFLAG(Checkpointed, owner_priv_1)
  PAGEFLAG(Reserved, reserved) __CLEARPAGEFLAG(Reserved, reserved)
  PAGEFLAG(Private, private) __CLEARPAGEFLAG(Private, private)
@@ -29995,9 +29895,9 @@ index 9d17d70..ce53b6b 100644
 +};
 +EXPORT_SYMBOL(virt_utsname);
 +
+ /* FIXED STRINGS! Don't touch! */
  const char linux_banner[] =
- 	"Linux version " UTS_RELEASE
- #ifdef LINUX_COMPILE_DISTRIBUTION_OFFICIAL_BUILD
+ 	"Linux version " UTS_RELEASE " (" LINUX_COMPILE_BY "@"
 diff --git a/ipc/ipc_sysctl.c b/ipc/ipc_sysctl.c
 index d349746..7e5dde4 100644
 --- a/ipc/ipc_sysctl.c

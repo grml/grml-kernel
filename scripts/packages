@@ -8,18 +8,15 @@ drbd8
 exmap
 fglrx
 gspca
-ipw3945
 iscsitarget
 ivtv
 kqemu
-kvm
 linux-uvc
 linux-wlan-ng
 loop-aes
 lzma
 madwifi
 ndiswrapper
-nozomi
 nvidia
 openafs
 open-vm
@@ -29,6 +26,7 @@ rt2400
 rt2500
 rt73
 sl-modem
+speakup
 squashfs
 sysprof
 tp-smapi

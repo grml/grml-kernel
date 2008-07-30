@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.26-grml
-# Wed Jul 30 17:49:56 2008
+# Wed Jul 30 18:14:38 2008
 #
 CONFIG_64BIT=y
 # CONFIG_X86_32 is not set
@@ -228,7 +228,7 @@ CONFIG_CALGARY_IOMMU=y
 CONFIG_CALGARY_IOMMU_ENABLED_BY_DEFAULT=y
 CONFIG_SWIOTLB=y
 CONFIG_IOMMU_HELPER=y
-CONFIG_NR_CPUS=16
+CONFIG_NR_CPUS=32
 # CONFIG_SCHED_SMT is not set
 CONFIG_SCHED_MC=y
 # CONFIG_PREEMPT_NONE is not set

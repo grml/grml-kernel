@@ -1,0 +1,70 @@
+--------------------------------------------------------------------------
+Latest change: Thu Jul 31 09:09:13 CEST 2008 [mika]
+--------------------------------------------------------------------------
+
+README
+--------------------------------------------------------------------------
+
+This patchset is for the latest linux kernel provided by grml.org.
+It is based on genpatches, ubuntu-2.6.git, debian patches and work by the
+grml-team.
+
+Patchset Numbering Scheme
+--------------------------------------------------------------------------
+
+FIXES
+1000-1400       linux-stable
+1400-1500       linux-stable queue
+1500-1700       security
+1700-1800       architecture-related
+1800-1900       mm/scheduling/misc
+1900-2000       filesystems
+2000-2100       networking core
+2100-2200       storage core
+2200-2300       power management (ACPI, APM)
+2300-2400       bus (USB, IEEE1394, PCI, PCMCIA, ...)
+2400-2500       network drivers
+2500-2600       storage drivers
+2600-2700       input
+2700-2900       media (graphics, sound, tv)
+2900-3000       other
+3000-4000       reserved
+
+FEATURES
+4000-4100       network
+4100-4200       storage
+4200-4300       graphics
+4300-4400       filesystem
+4400-4500       other
+
+GRML
+5000-5100       grml-specific
+
+Individual Patch Descriptions:
+--------------------------------------------------------------------------
+
+Patch:  2700_sound_hda_ich9.patch
+From:   Debian's svn
+Desc:   Add ICH9 controller support (8086:2911)
+
+Patch:  2710_sound_hda_intel_dg33.patch
+From:   Debian's svn
+Desc:   support intel DG33 motherboards
+
+Patch:  4010_iwlwifi-monitor-mode-for-3945.patch
+From:   Debian's svn
+Desc:   Support monitor mode for 3945
+
+Patch:  4400_drivers-hp_ilo.patch
+From:   Debian's svn
+Desc:   HP iLO driver
+
+Patch:  5000_grml-version.patch
+From:   http://hg.grml.org/grml-kernel/
+Desc:   adjust kernel version for the grml-system (add -grml)
+
+Patch:  5001_grml_logo.patch
+From:   http://hg.grml.org/grml-kernel/
+Desc:   grml-logo in framebuffer
+
+##############################################################################################

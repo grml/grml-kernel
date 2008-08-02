@@ -43,6 +43,10 @@ GRML
 Individual Patch Descriptions:
 --------------------------------------------------------------------------
 
+Patch:  1000_2.6.26.1
+From:   http://kernel.org/
+Desc:   stable series patch
+
 Patch:  2700_sound_hda_ich9.patch
 From:   Debian's svn
 Desc:   Add ICH9 controller support (8086:2911)

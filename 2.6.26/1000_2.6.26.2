@@ -1,0 +1,4710 @@
+diff --git a/Documentation/ftrace.txt b/Documentation/ftrace.txt
+deleted file mode 100644
+index 13e4bf0..0000000
+--- a/Documentation/ftrace.txt
++++ /dev/null
+@@ -1,1353 +0,0 @@
+-		ftrace - Function Tracer
+-		========================
+-
+-Copyright 2008 Red Hat Inc.
+-Author: Steven Rostedt <srostedt@redhat.com>
+-
+-
+-Introduction
+-------------
+-
+-Ftrace is an internal tracer designed to help out developers and
+-designers of systems to find what is going on inside the kernel.
+-It can be used for debugging or analyzing latencies and performance
+-issues that take place outside of user-space.
+-
+-Although ftrace is the function tracer, it also includes an
+-infrastructure that allows for other types of tracing. Some of the
+-tracers that are currently in ftrace is a tracer to trace
+-context switches, the time it takes for a high priority task to
+-run after it was woken up, the time interrupts are disabled, and
+-more.
+-
+-
+-The File System
+----------------
+-
+-Ftrace uses the debugfs file system to hold the control files as well
+-as the files to display output.
+-
+-To mount the debugfs system:
+-
+-  # mkdir /debug
+-  # mount -t debugfs nodev /debug
+-
+-
+-That's it! (assuming that you have ftrace configured into your kernel)
+-
+-After mounting the debugfs, you can see a directory called
+-"tracing".  This directory contains the control and output files
+-of ftrace. Here is a list of some of the key files:
+-
+-
+- Note: all time values are in microseconds.
+-
+-  current_tracer : This is used to set or display the current tracer
+-		that is configured.
+-
+-  available_tracers : This holds the different types of tracers that
+-		has been compiled into the kernel. The tracers
+-		listed here can be configured by echoing in their
+-		name into current_tracer.
+-
+-  tracing_enabled : This sets or displays whether the current_tracer
+-		is activated and tracing or not. Echo 0 into this
+-		file to disable the tracer or 1 (or non-zero) to
+-		enable it.
+-
+-  trace : This file holds the output of the trace in a human readable
+-		format.
+-
+-  latency_trace : This file shows the same trace but the information
+-		is organized more to display possible latencies
+-		in the system.
+-
+-  trace_pipe : The output is the same as the "trace" file but this
+-		file is meant to be streamed with live tracing.
+-		Reads from this file will block until new data
+-		is retrieved. Unlike the "trace" and "latency_trace"
+-		files, this file is a consumer. This means reading
+-		from this file causes sequential reads to display
+-		more current data. Once data is read from this
+-		file, it is consumed, and will not be read
+-		again with a sequential read. The "trace" and
+-		"latency_trace" files are static, and if the
+-		tracer isn't adding more data, they will display
+-		the same information every time they are read.
+-
+-  iter_ctrl : This file lets the user control the amount of data
+-		that is displayed in one of the above output
+-		files.
+-
+-  trace_max_latency : Some of the tracers record the max latency.
+-		For example, the time interrupts are disabled.
+-		This time is saved in this file. The max trace
+-		will also be stored, and displayed by either
+-		"trace" or "latency_trace".  A new max trace will
+-		only be recorded if the latency is greater than
+-		the value in this file. (in microseconds)
+-
+-  trace_entries : This sets or displays the number of trace
+-		entries each CPU buffer can hold. The tracer buffers
+-		are the same size for each CPU, so care must be
+-		taken when modifying the trace_entries. The number
+-		of actually entries will be the number given
+-		times the number of possible CPUS. The buffers
+-		are saved as individual pages, and the actual entries
+-		will always be rounded up to entries per page.
+-
+-		This can only be updated when the current_tracer
+-		is set to "none".
+-
+-		NOTE: It is planned on changing the allocated buffers
+-		      from being the number of possible CPUS to
+-		      the number of online CPUS.
+-
+-  tracing_cpumask : This is a mask that lets the user only trace
+-		on specified CPUS. The format is a hex string
+-		representing the CPUS.
+-
+-  set_ftrace_filter : When dynamic ftrace is configured in, the
+-		code is dynamically modified to disable calling
+-		of the function profiler (mcount). This lets
+-		tracing be configured in with practically no overhead
+-		in performance.  This also has a side effect of
+-		enabling or disabling specific functions to be
+-		traced.  Echoing in names of functions into this
+-		file will limit the trace to only those files.
+-
+-  set_ftrace_notrace: This has the opposite effect that
+-		set_ftrace_filter has. Any function that is added
+-		here will not be traced. If a function exists
+-		in both set_ftrace_filter and set_ftrace_notrace
+-		the function will _not_ bet traced.
+-
+-  available_filter_functions : When a function is encountered the first
+-		time by the dynamic tracer, it is recorded and
+-		later the call is converted into a nop. This file
+-		lists the functions that have been recorded
+-		by the dynamic tracer and these functions can
+-		be used to set the ftrace filter by the above
+-		"set_ftrace_filter" file.
+-
+-
+-The Tracers
+------------
+-
+-Here are the list of current tracers that can be configured.
+-
+-  ftrace - function tracer that uses mcount to trace all functions.
+-		It is possible to filter out which functions that are
+-		traced when dynamic ftrace is configured in.
+-
+-  sched_switch - traces the context switches between tasks.
+-
+-  irqsoff - traces the areas that disable interrupts and saves off
+-  		the trace with the longest max latency.
+-		See tracing_max_latency.  When a new max is recorded,
+-		it replaces the old trace. It is best to view this
+-		trace with the latency_trace file.
+-
+-  preemptoff - Similar to irqsoff but traces and records the time
+-		preemption is disabled.
+-
+-  preemptirqsoff - Similar to irqsoff and preemptoff, but traces and
+-		 records the largest time irqs and/or preemption is
+-		 disabled.
+-
+-  wakeup - Traces and records the max latency that it takes for
+-		the highest priority task to get scheduled after
+-		it has been woken up.
+-
+-  none - This is not a tracer. To remove all tracers from tracing
+-		simply echo "none" into current_tracer.
+-
+-
+-Examples of using the tracer
+-----------------------------
+-
+-Here are typical examples of using the tracers with only controlling
+-them with the debugfs interface (without using any user-land utilities).
+-
+-Output format:
+---------------
+-
+-Here's an example of the output format of the file "trace"
+-
+-                             --------
+-# tracer: ftrace
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-            bash-4251  [01] 10152.583854: path_put <-path_walk
+-            bash-4251  [01] 10152.583855: dput <-path_put
+-            bash-4251  [01] 10152.583855: _atomic_dec_and_lock <-dput
+-                             --------
+-
+-A header is printed with the trace that is represented. In this case
+-the tracer is "ftrace". Then a header showing the format. Task name
+-"bash", the task PID "4251", the CPU that it was running on
+-"01", the timestamp in <secs>.<usecs> format, the function name that was
+-traced "path_put" and the parent function that called this function
+-"path_walk".
+-
+-The sched_switch tracer also includes tracing of task wake ups and
+-context switches.
+-
+-     ksoftirqd/1-7     [01]  1453.070013:      7:115:R   +  2916:115:S
+-     ksoftirqd/1-7     [01]  1453.070013:      7:115:R   +    10:115:S
+-     ksoftirqd/1-7     [01]  1453.070013:      7:115:R ==>    10:115:R
+-        events/1-10    [01]  1453.070013:     10:115:S ==>  2916:115:R
+-     kondemand/1-2916  [01]  1453.070013:   2916:115:S ==>     7:115:R
+-     ksoftirqd/1-7     [01]  1453.070013:      7:115:S ==>     0:140:R
+-
+-Wake ups are represented by a "+" and the context switches show
+-"==>".  The format is:
+-
+- Context switches:
+-
+-       Previous task              Next Task
+-
+-  <pid>:<prio>:<state>  ==>  <pid>:<prio>:<state>
+-
+- Wake ups:
+-
+-       Current task               Task waking up
+-
+-  <pid>:<prio>:<state>    +  <pid>:<prio>:<state>
+-
+-The prio is the internal kernel priority, which is inverse to the
+-priority that is usually displayed by user-space tools. Zero represents
+-the highest priority (99). Prio 100 starts the "nice" priorities with
+-100 being equal to nice -20 and 139 being nice 19. The prio "140" is
+-reserved for the idle task which is the lowest priority thread (pid 0).
+-
+-
+-Latency trace format
+---------------------
+-
+-For traces that display latency times, the latency_trace file gives
+-a bit more information to see why a latency happened. Here's a typical
+-trace.
+-
+-# tracer: irqsoff
+-#
+-irqsoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 97 us, #3/3, CPU#0 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: swapper-0 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: apic_timer_interrupt
+- => ended at:   do_softirq
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-  <idle>-0     0d..1    0us+: trace_hardirqs_off_thunk (apic_timer_interrupt)
+-  <idle>-0     0d.s.   97us : __do_softirq (do_softirq)
+-  <idle>-0     0d.s1   98us : trace_hardirqs_on (do_softirq)
+-
+-
+-vim:ft=help
+-
+-
+-This shows that the current tracer is "irqsoff" tracing the time
+-interrupts are disabled. It gives the trace version and the kernel
+-this was executed on (2.6.26-rc8). Then it displays the max latency
+-in microsecs (97 us). The number of trace entries displayed
+-by the total number recorded (both are three: #3/3). The type of
+-preemption that was used (PREEMPT). VP, KP, SP, and HP are always zero
+-and reserved for later use. #P is the number of online CPUS (#P:2).
+-
+-The task is the process that was running when the latency happened.
+-(swapper pid: 0).
+-
+-The start and stop that caused the latencies:
+-
+-  apic_timer_interrupt is where the interrupts were disabled.
+-  do_softirq is where they were enabled again.
+-
+-The next lines after the header are the trace itself. The header
+-explains which is which.
+-
+-  cmd: The name of the process in the trace.
+-
+-  pid: The PID of that process.
+-
+-  CPU#: The CPU that the process was running on.
+-
+-  irqs-off: 'd' interrupts are disabled. '.' otherwise.
+-
+-  need-resched: 'N' task need_resched is set, '.' otherwise.
+-
+-  hardirq/softirq:
+-	'H' - hard irq happened inside a softirq.
+-	'h' - hard irq is running
+-	's' - soft irq is running
+-	'.' - normal context.
+-
+-  preempt-depth: The level of preempt_disabled
+-
+-The above is mostly meaningful for kernel developers.
+-
+-  time: This differs from the trace output where as the trace output
+-	contained a absolute timestamp. This timestamp is relative
+-	to the start of the first entry in the the trace.
+-
+-  delay: This is just to help catch your eye a bit better. And
+-	needs to be fixed to be only relative to the same CPU.
+-	The marks is determined by the difference between this
+-	current trace and the next trace.
+-	 '!' - greater than preempt_mark_thresh (default 100)
+-	 '+' - greater than 1 microsecond
+-	 ' ' - less than or equal to 1 microsecond.
+-
+-  The rest is the same as the 'trace' file.
+-
+-
+-iter_ctrl
+----------
+-
+-The iter_ctrl file is used to control what gets printed in the trace
+-output. To see what is available, simply cat the file:
+-
+-  cat /debug/tracing/iter_ctrl
+-  print-parent nosym-offset nosym-addr noverbose noraw nohex nobin \
+- noblock nostacktrace nosched-tree
+-
+-To disable one of the options, echo in the option appended with "no".
+-
+-  echo noprint-parent > /debug/tracing/iter_ctrl
+-
+-To enable an option, leave off the "no".
+-
+-  echo sym-offest > /debug/tracing/iter_ctrl
+-
+-Here are the available options:
+-
+-  print-parent - On function traces, display the calling function
+-		as well as the function being traced.
+-
+-  print-parent:
+-   bash-4000  [01]  1477.606694: simple_strtoul <-strict_strtoul
+-
+-  noprint-parent:
+-   bash-4000  [01]  1477.606694: simple_strtoul
+-
+-
+-  sym-offset - Display not only the function name, but also the offset
+-		in the function. For example, instead of seeing just
+-		"ktime_get" you will see "ktime_get+0xb/0x20"
+-
+-  sym-offset:
+-   bash-4000  [01]  1477.606694: simple_strtoul+0x6/0xa0
+-
+-  sym-addr - this will also display the function address as well as
+-		the function name.
+-
+-  sym-addr:
+-   bash-4000  [01]  1477.606694: simple_strtoul <c0339346>
+-
+-  verbose - This deals with the latency_trace file.
+-
+-    bash  4000 1 0 00000000 00010a95 [58127d26] 1720.415ms \
+-    (+0.000ms): simple_strtoul (strict_strtoul)
+-
+-  raw - This will display raw numbers. This option is best for use with
+-	user applications that can translate the raw numbers better than
+-	having it done in the kernel.
+-
+-  hex - similar to raw, but the numbers will be in a hexadecimal format.
+-
+-  bin - This will print out the formats in raw binary.
+-
+-  block - TBD (needs update)
+-
+-  stacktrace - This is one of the options that changes the trace itself.
+-		When a trace is recorded, so is the stack of functions.
+-		This allows for back traces of trace sites.
+-
+-  sched-tree - TBD (any users??)
+-
+-
+-sched_switch
+-------------
+-
+-This tracer simply records schedule switches. Here's an example
+-on how to implement it.
+-
+- # echo sched_switch > /debug/tracing/current_tracer
+- # echo 1 > /debug/tracing/tracing_enabled
+- # sleep 1
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/trace
+-
+-# tracer: sched_switch
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-            bash-3997  [01]   240.132281:   3997:120:R   +  4055:120:R
+-            bash-3997  [01]   240.132284:   3997:120:R ==>  4055:120:R
+-           sleep-4055  [01]   240.132371:   4055:120:S ==>  3997:120:R
+-            bash-3997  [01]   240.132454:   3997:120:R   +  4055:120:S
+-            bash-3997  [01]   240.132457:   3997:120:R ==>  4055:120:R
+-           sleep-4055  [01]   240.132460:   4055:120:D ==>  3997:120:R
+-            bash-3997  [01]   240.132463:   3997:120:R   +  4055:120:D
+-            bash-3997  [01]   240.132465:   3997:120:R ==>  4055:120:R
+-          <idle>-0     [00]   240.132589:      0:140:R   +     4:115:S
+-          <idle>-0     [00]   240.132591:      0:140:R ==>     4:115:R
+-     ksoftirqd/0-4     [00]   240.132595:      4:115:S ==>     0:140:R
+-          <idle>-0     [00]   240.132598:      0:140:R   +     4:115:S
+-          <idle>-0     [00]   240.132599:      0:140:R ==>     4:115:R
+-     ksoftirqd/0-4     [00]   240.132603:      4:115:S ==>     0:140:R
+-           sleep-4055  [01]   240.133058:   4055:120:S ==>  3997:120:R
+- [...]
+-
+-
+-As we have discussed previously about this format, the header shows
+-the name of the trace and points to the options. The "FUNCTION"
+-is a misnomer since here it represents the wake ups and context
+-switches.
+-
+-The sched_switch only lists the wake ups (represented with '+')
+-and context switches ('==>') with the previous task or current
+-first followed by the next task or task waking up. The format for both
+-of these is PID:KERNEL-PRIO:TASK-STATE. Remember that the KERNEL-PRIO
+-is the inverse of the actual priority with zero (0) being the highest
+-priority and the nice values starting at 100 (nice -20). Below is
+-a quick chart to map the kernel priority to user land priorities.
+-
+-  Kernel priority: 0 to 99    ==> user RT priority 99 to 0
+-  Kernel priority: 100 to 139 ==> user nice -20 to 19
+-  Kernel priority: 140        ==> idle task priority
+-
+-The task states are:
+-
+- R - running : wants to run, may not actually be running
+- S - sleep   : process is waiting to be woken up (handles signals)
+- D - deep sleep : process must be woken up (ignores signals)
+- T - stopped : process suspended
+- t - traced  : process is being traced (with something like gdb)
+- Z - zombie  : process waiting to be cleaned up
+- X - unknown
+-
+-
+-ftrace_enabled
+---------------
+-
+-The following tracers give different output depending on whether
+-or not the sysctl ftrace_enabled is set. To set ftrace_enabled,
+-one can either use the sysctl function or set it via the proc
+-file system interface.
+-
+-  sysctl kernel.ftrace_enabled=1
+-
+- or
+-
+-  echo 1 > /proc/sys/kernel/ftrace_enabled
+-
+-To disable ftrace_enabled simply replace the '1' with '0' in
+-the above commands.
+-
+-When ftrace_enabled is set the tracers will also record the functions
+-that are within the trace. The descriptions of the tracers
+-will also show an example with ftrace enabled.
+-
+-
+-irqsoff
+--------
+-
+-When interrupts are disabled, the CPU can not react to any other
+-external event (besides NMIs and SMIs). This prevents the timer
+-interrupt from triggering or the mouse interrupt from letting the
+-kernel know of a new mouse event. The result is a latency with the
+-reaction time.
+-
+-The irqsoff tracer tracks the time interrupts are disabled and when
+-they are re-enabled. When a new maximum latency is hit, it saves off
+-the trace so that it may be retrieved at a later time. Every time a
+-new maximum in reached, the old saved trace is discarded and the new
+-trace is saved.
+-
+-To reset the maximum, echo 0 into tracing_max_latency. Here's an
+-example:
+-
+- # echo irqsoff > /debug/tracing/current_tracer
+- # echo 0 > /debug/tracing/tracing_max_latency
+- # echo 1 > /debug/tracing/tracing_enabled
+- # ls -ltr
+- [...]
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/latency_trace
+-# tracer: irqsoff
+-#
+-irqsoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 6 us, #3/3, CPU#1 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: bash-4269 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: copy_page_range
+- => ended at:   copy_page_range
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-    bash-4269  1...1    0us+: _spin_lock (copy_page_range)
+-    bash-4269  1...1    7us : _spin_unlock (copy_page_range)
+-    bash-4269  1...2    7us : trace_preempt_on (copy_page_range)
+-
+-
+-vim:ft=help
+-
+-Here we see that that we had a latency of 6 microsecs (which is
+-very good). The spin_lock in copy_page_range disabled interrupts.
+-The difference between the 6 and the displayed timestamp 7us is
+-because the clock must have incremented between the time of recording
+-the max latency and recording the function that had that latency.
+-
+-Note the above had ftrace_enabled not set. If we set the ftrace_enabled
+-we get a much larger output:
+-
+-# tracer: irqsoff
+-#
+-irqsoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 50 us, #101/101, CPU#0 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: ls-4339 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: __alloc_pages_internal
+- => ended at:   __alloc_pages_internal
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-      ls-4339  0...1    0us+: get_page_from_freelist (__alloc_pages_internal)
+-      ls-4339  0d..1    3us : rmqueue_bulk (get_page_from_freelist)
+-      ls-4339  0d..1    3us : _spin_lock (rmqueue_bulk)
+-      ls-4339  0d..1    4us : add_preempt_count (_spin_lock)
+-      ls-4339  0d..2    4us : __rmqueue (rmqueue_bulk)
+-      ls-4339  0d..2    5us : __rmqueue_smallest (__rmqueue)
+-      ls-4339  0d..2    5us : __mod_zone_page_state (__rmqueue_smallest)
+-      ls-4339  0d..2    6us : __rmqueue (rmqueue_bulk)
+-      ls-4339  0d..2    6us : __rmqueue_smallest (__rmqueue)
+-      ls-4339  0d..2    7us : __mod_zone_page_state (__rmqueue_smallest)
+-      ls-4339  0d..2    7us : __rmqueue (rmqueue_bulk)
+-      ls-4339  0d..2    8us : __rmqueue_smallest (__rmqueue)
+-[...]
+-      ls-4339  0d..2   46us : __rmqueue_smallest (__rmqueue)
+-      ls-4339  0d..2   47us : __mod_zone_page_state (__rmqueue_smallest)
+-      ls-4339  0d..2   47us : __rmqueue (rmqueue_bulk)
+-      ls-4339  0d..2   48us : __rmqueue_smallest (__rmqueue)
+-      ls-4339  0d..2   48us : __mod_zone_page_state (__rmqueue_smallest)
+-      ls-4339  0d..2   49us : _spin_unlock (rmqueue_bulk)
+-      ls-4339  0d..2   49us : sub_preempt_count (_spin_unlock)
+-      ls-4339  0d..1   50us : get_page_from_freelist (__alloc_pages_internal)
+-      ls-4339  0d..2   51us : trace_hardirqs_on (__alloc_pages_internal)
+-
+-
+-vim:ft=help
+-
+-
+-Here we traced a 50 microsecond latency. But we also see all the
+-functions that were called during that time. Note that enabling
+-function tracing we endure an added overhead. This overhead may
+-extend the latency times. But never the less, this trace has provided
+-some very helpful debugging.
+-
+-
+-preemptoff
+-----------
+-
+-When preemption is disabled we may be able to receive interrupts but
+-the task can not be preempted and a higher priority task must wait
+-for preemption to be enabled again before it can preempt a lower
+-priority task.
+-
+-The preemptoff tracer traces the places that disables preemption.
+-Like the irqsoff, it records the maximum latency that preemption
+-was disabled. The control of preemptoff is much like the irqsoff.
+-
+- # echo preemptoff > /debug/tracing/current_tracer
+- # echo 0 > /debug/tracing/tracing_max_latency
+- # echo 1 > /debug/tracing/tracing_enabled
+- # ls -ltr
+- [...]
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/latency_trace
+-# tracer: preemptoff
+-#
+-preemptoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 29 us, #3/3, CPU#0 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: sshd-4261 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: do_IRQ
+- => ended at:   __do_softirq
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-    sshd-4261  0d.h.    0us+: irq_enter (do_IRQ)
+-    sshd-4261  0d.s.   29us : _local_bh_enable (__do_softirq)
+-    sshd-4261  0d.s1   30us : trace_preempt_on (__do_softirq)
+-
+-
+-vim:ft=help
+-
+-This has some more changes. Preemption was disabled when an interrupt
+-came in (notice the 'h'), and was enabled while doing a softirq.
+-(notice the 's'). But we also see that interrupts have been disabled
+-when entering the preempt off section and leaving it (the 'd').
+-We do not know if interrupts were enabled in the mean time.
+-
+-# tracer: preemptoff
+-#
+-preemptoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 63 us, #87/87, CPU#0 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: sshd-4261 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: remove_wait_queue
+- => ended at:   __do_softirq
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-    sshd-4261  0d..1    0us : _spin_lock_irqsave (remove_wait_queue)
+-    sshd-4261  0d..1    1us : _spin_unlock_irqrestore (remove_wait_queue)
+-    sshd-4261  0d..1    2us : do_IRQ (common_interrupt)
+-    sshd-4261  0d..1    2us : irq_enter (do_IRQ)
+-    sshd-4261  0d..1    2us : idle_cpu (irq_enter)
+-    sshd-4261  0d..1    3us : add_preempt_count (irq_enter)
+-    sshd-4261  0d.h1    3us : idle_cpu (irq_enter)
+-    sshd-4261  0d.h.    4us : handle_fasteoi_irq (do_IRQ)
+-[...]
+-    sshd-4261  0d.h.   12us : add_preempt_count (_spin_lock)
+-    sshd-4261  0d.h1   12us : ack_ioapic_quirk_irq (handle_fasteoi_irq)
+-    sshd-4261  0d.h1   13us : move_native_irq (ack_ioapic_quirk_irq)
+-    sshd-4261  0d.h1   13us : _spin_unlock (handle_fasteoi_irq)
+-    sshd-4261  0d.h1   14us : sub_preempt_count (_spin_unlock)
+-    sshd-4261  0d.h1   14us : irq_exit (do_IRQ)
+-    sshd-4261  0d.h1   15us : sub_preempt_count (irq_exit)
+-    sshd-4261  0d..2   15us : do_softirq (irq_exit)
+-    sshd-4261  0d...   15us : __do_softirq (do_softirq)
+-    sshd-4261  0d...   16us : __local_bh_disable (__do_softirq)
+-    sshd-4261  0d...   16us+: add_preempt_count (__local_bh_disable)
+-    sshd-4261  0d.s4   20us : add_preempt_count (__local_bh_disable)
+-    sshd-4261  0d.s4   21us : sub_preempt_count (local_bh_enable)
+-    sshd-4261  0d.s5   21us : sub_preempt_count (local_bh_enable)
+-[...]
+-    sshd-4261  0d.s6   41us : add_preempt_count (__local_bh_disable)
+-    sshd-4261  0d.s6   42us : sub_preempt_count (local_bh_enable)
+-    sshd-4261  0d.s7   42us : sub_preempt_count (local_bh_enable)
+-    sshd-4261  0d.s5   43us : add_preempt_count (__local_bh_disable)
+-    sshd-4261  0d.s5   43us : sub_preempt_count (local_bh_enable_ip)
+-    sshd-4261  0d.s6   44us : sub_preempt_count (local_bh_enable_ip)
+-    sshd-4261  0d.s5   44us : add_preempt_count (__local_bh_disable)
+-    sshd-4261  0d.s5   45us : sub_preempt_count (local_bh_enable)
+-[...]
+-    sshd-4261  0d.s.   63us : _local_bh_enable (__do_softirq)
+-    sshd-4261  0d.s1   64us : trace_preempt_on (__do_softirq)
+-
+-
+-The above is an example of the preemptoff trace with ftrace_enabled
+-set. Here we see that interrupts were disabled the entire time.
+-The irq_enter code lets us know that we entered an interrupt 'h'.
+-Before that, the functions being traced still show that it is not
+-in an interrupt, but we can see by the functions themselves that
+-this is not the case.
+-
+-Notice that the __do_softirq when called doesn't have a preempt_count.
+-It may seem that we missed a preempt enabled. What really happened
+-is that the preempt count is held on the threads stack and we
+-switched to the softirq stack (4K stacks in effect). The code
+-does not copy the preempt count, but because interrupts are disabled
+-we don't need to worry about it. Having a tracer like this is good
+-to let people know what really happens inside the kernel.
+-
+-
+-preemptirqsoff
+---------------
+-
+-Knowing the locations that have interrupts disabled or preemption
+-disabled for the longest times is helpful. But sometimes we would
+-like to know when either preemption and/or interrupts are disabled.
+-
+-The following code:
+-
+-    local_irq_disable();
+-    call_function_with_irqs_off();
+-    preempt_disable();
+-    call_function_with_irqs_and_preemption_off();
+-    local_irq_enable();
+-    call_function_with_preemption_off();
+-    preempt_enable();
+-
+-The irqsoff tracer will record the total length of
+-call_function_with_irqs_off() and
+-call_function_with_irqs_and_preemption_off().
+-
+-The preemptoff tracer will record the total length of
+-call_function_with_irqs_and_preemption_off() and
+-call_function_with_preemption_off().
+-
+-But neither will trace the time that interrupts and/or preemption
+-is disabled. This total time is the time that we can not schedule.
+-To record this time, use the preemptirqsoff tracer.
+-
+-Again, using this trace is much like the irqsoff and preemptoff tracers.
+-
+- # echo preemptoff > /debug/tracing/current_tracer
+- # echo 0 > /debug/tracing/tracing_max_latency
+- # echo 1 > /debug/tracing/tracing_enabled
+- # ls -ltr
+- [...]
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/latency_trace
+-# tracer: preemptirqsoff
+-#
+-preemptirqsoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 293 us, #3/3, CPU#0 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: ls-4860 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: apic_timer_interrupt
+- => ended at:   __do_softirq
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-      ls-4860  0d...    0us!: trace_hardirqs_off_thunk (apic_timer_interrupt)
+-      ls-4860  0d.s.  294us : _local_bh_enable (__do_softirq)
+-      ls-4860  0d.s1  294us : trace_preempt_on (__do_softirq)
+-
+-
+-vim:ft=help
+-
+-
+-The trace_hardirqs_off_thunk is called from assembly on x86 when
+-interrupts are disabled in the assembly code. Without the function
+-tracing, we don't know if interrupts were enabled within the preemption
+-points. We do see that it started with preemption enabled.
+-
+-Here is a trace with ftrace_enabled set:
+-
+-
+-# tracer: preemptirqsoff
+-#
+-preemptirqsoff latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 105 us, #183/183, CPU#0 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: sshd-4261 (uid:0 nice:0 policy:0 rt_prio:0)
+-    -----------------
+- => started at: write_chan
+- => ended at:   __do_softirq
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-      ls-4473  0.N..    0us : preempt_schedule (write_chan)
+-      ls-4473  0dN.1    1us : _spin_lock (schedule)
+-      ls-4473  0dN.1    2us : add_preempt_count (_spin_lock)
+-      ls-4473  0d..2    2us : put_prev_task_fair (schedule)
+-[...]
+-      ls-4473  0d..2   13us : set_normalized_timespec (ktime_get_ts)
+-      ls-4473  0d..2   13us : __switch_to (schedule)
+-    sshd-4261  0d..2   14us : finish_task_switch (schedule)
+-    sshd-4261  0d..2   14us : _spin_unlock_irq (finish_task_switch)
+-    sshd-4261  0d..1   15us : add_preempt_count (_spin_lock_irqsave)
+-    sshd-4261  0d..2   16us : _spin_unlock_irqrestore (hrtick_set)
+-    sshd-4261  0d..2   16us : do_IRQ (common_interrupt)
+-    sshd-4261  0d..2   17us : irq_enter (do_IRQ)
+-    sshd-4261  0d..2   17us : idle_cpu (irq_enter)
+-    sshd-4261  0d..2   18us : add_preempt_count (irq_enter)
+-    sshd-4261  0d.h2   18us : idle_cpu (irq_enter)
+-    sshd-4261  0d.h.   18us : handle_fasteoi_irq (do_IRQ)
+-    sshd-4261  0d.h.   19us : _spin_lock (handle_fasteoi_irq)
+-    sshd-4261  0d.h.   19us : add_preempt_count (_spin_lock)
+-    sshd-4261  0d.h1   20us : _spin_unlock (handle_fasteoi_irq)
+-    sshd-4261  0d.h1   20us : sub_preempt_count (_spin_unlock)
+-[...]
+-    sshd-4261  0d.h1   28us : _spin_unlock (handle_fasteoi_irq)
+-    sshd-4261  0d.h1   29us : sub_preempt_count (_spin_unlock)
+-    sshd-4261  0d.h2   29us : irq_exit (do_IRQ)
+-    sshd-4261  0d.h2   29us : sub_preempt_count (irq_exit)
+-    sshd-4261  0d..3   30us : do_softirq (irq_exit)
+-    sshd-4261  0d...   30us : __do_softirq (do_softirq)
+-    sshd-4261  0d...   31us : __local_bh_disable (__do_softirq)
+-    sshd-4261  0d...   31us+: add_preempt_count (__local_bh_disable)
+-    sshd-4261  0d.s4   34us : add_preempt_count (__local_bh_disable)
+-[...]
+-    sshd-4261  0d.s3   43us : sub_preempt_count (local_bh_enable_ip)
+-    sshd-4261  0d.s4   44us : sub_preempt_count (local_bh_enable_ip)
+-    sshd-4261  0d.s3   44us : smp_apic_timer_interrupt (apic_timer_interrupt)
+-    sshd-4261  0d.s3   45us : irq_enter (smp_apic_timer_interrupt)
+-    sshd-4261  0d.s3   45us : idle_cpu (irq_enter)
+-    sshd-4261  0d.s3   46us : add_preempt_count (irq_enter)
+-    sshd-4261  0d.H3   46us : idle_cpu (irq_enter)
+-    sshd-4261  0d.H3   47us : hrtimer_interrupt (smp_apic_timer_interrupt)
+-    sshd-4261  0d.H3   47us : ktime_get (hrtimer_interrupt)
+-[...]
+-    sshd-4261  0d.H3   81us : tick_program_event (hrtimer_interrupt)
+-    sshd-4261  0d.H3   82us : ktime_get (tick_program_event)
+-    sshd-4261  0d.H3   82us : ktime_get_ts (ktime_get)
+-    sshd-4261  0d.H3   83us : getnstimeofday (ktime_get_ts)
+-    sshd-4261  0d.H3   83us : set_normalized_timespec (ktime_get_ts)
+-    sshd-4261  0d.H3   84us : clockevents_program_event (tick_program_event)
+-    sshd-4261  0d.H3   84us : lapic_next_event (clockevents_program_event)
+-    sshd-4261  0d.H3   85us : irq_exit (smp_apic_timer_interrupt)
+-    sshd-4261  0d.H3   85us : sub_preempt_count (irq_exit)
+-    sshd-4261  0d.s4   86us : sub_preempt_count (irq_exit)
+-    sshd-4261  0d.s3   86us : add_preempt_count (__local_bh_disable)
+-[...]
+-    sshd-4261  0d.s1   98us : sub_preempt_count (net_rx_action)
+-    sshd-4261  0d.s.   99us : add_preempt_count (_spin_lock_irq)
+-    sshd-4261  0d.s1   99us+: _spin_unlock_irq (run_timer_softirq)
+-    sshd-4261  0d.s.  104us : _local_bh_enable (__do_softirq)
+-    sshd-4261  0d.s.  104us : sub_preempt_count (_local_bh_enable)
+-    sshd-4261  0d.s.  105us : _local_bh_enable (__do_softirq)
+-    sshd-4261  0d.s1  105us : trace_preempt_on (__do_softirq)
+-
+-
+-This is a very interesting trace. It started with the preemption of
+-the ls task. We see that the task had the "need_resched" bit set
+-with the 'N' in the trace.  Interrupts are disabled in the spin_lock
+-and the trace started. We see that a schedule took place to run
+-sshd.  When the interrupts were enabled we took an interrupt.
+-On return of the interrupt the softirq ran. We took another interrupt
+-while running the softirq as we see with the capital 'H'.
+-
+-
+-wakeup
+-------
+-
+-In Real-Time environment it is very important to know the wakeup
+-time it takes for the highest priority task that wakes up to the
+-time it executes. This is also known as "schedule latency".
+-I stress the point that this is about RT tasks. It is also important
+-to know the scheduling latency of non-RT tasks, but the average
+-schedule latency is better for non-RT tasks. Tools like
+-LatencyTop is more appropriate for such measurements.
+-
+-Real-Time environments is interested in the worst case latency.
+-That is the longest latency it takes for something to happen, and
+-not the average. We can have a very fast scheduler that may only
+-have a large latency once in a while, but that would not work well
+-with Real-Time tasks.  The wakeup tracer was designed to record
+-the worst case wakeups of RT tasks. Non-RT tasks are not recorded
+-because the tracer only records one worst case and tracing non-RT
+-tasks that are unpredictable will overwrite the worst case latency
+-of RT tasks.
+-
+-Since this tracer only deals with RT tasks, we will run this slightly
+-different than we did with the previous tracers. Instead of performing
+-an 'ls' we will run 'sleep 1' under 'chrt' which changes the
+-priority of the task.
+-
+- # echo wakeup > /debug/tracing/current_tracer
+- # echo 0 > /debug/tracing/tracing_max_latency
+- # echo 1 > /debug/tracing/tracing_enabled
+- # chrt -f 5 sleep 1
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/latency_trace
+-# tracer: wakeup
+-#
+-wakeup latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 4 us, #2/2, CPU#1 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: sleep-4901 (uid:0 nice:0 policy:1 rt_prio:5)
+-    -----------------
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-  <idle>-0     1d.h4    0us+: try_to_wake_up (wake_up_process)
+-  <idle>-0     1d..4    4us : schedule (cpu_idle)
+-
+-
+-vim:ft=help
+-
+-
+-Running this on an idle system we see that it only took 4 microseconds
+-to perform the task switch.  Note, since the trace marker in the
+-schedule is before the actual "switch" we stop the tracing when
+-the recorded task is about to schedule in. This may change if
+-we add a new marker at the end of the scheduler.
+-
+-Notice that the recorded task is 'sleep' with the PID of 4901 and it
+-has an rt_prio of 5. This priority is user-space priority and not
+-the internal kernel priority. The policy is 1 for SCHED_FIFO and 2
+-for SCHED_RR.
+-
+-Doing the same with chrt -r 5 and ftrace_enabled set.
+-
+-# tracer: wakeup
+-#
+-wakeup latency trace v1.1.5 on 2.6.26-rc8
+---------------------------------------------------------------------
+- latency: 50 us, #60/60, CPU#1 | (M:preempt VP:0, KP:0, SP:0 HP:0 #P:2)
+-    -----------------
+-    | task: sleep-4068 (uid:0 nice:0 policy:2 rt_prio:5)
+-    -----------------
+-
+-#                _------=> CPU#
+-#               / _-----=> irqs-off
+-#              | / _----=> need-resched
+-#              || / _---=> hardirq/softirq
+-#              ||| / _--=> preempt-depth
+-#              |||| /
+-#              |||||     delay
+-#  cmd     pid ||||| time  |   caller
+-#     \   /    |||||   \   |   /
+-ksoftirq-7     1d.H3    0us : try_to_wake_up (wake_up_process)
+-ksoftirq-7     1d.H4    1us : sub_preempt_count (marker_probe_cb)
+-ksoftirq-7     1d.H3    2us : check_preempt_wakeup (try_to_wake_up)
+-ksoftirq-7     1d.H3    3us : update_curr (check_preempt_wakeup)
+-ksoftirq-7     1d.H3    4us : calc_delta_mine (update_curr)
+-ksoftirq-7     1d.H3    5us : __resched_task (check_preempt_wakeup)
+-ksoftirq-7     1d.H3    6us : task_wake_up_rt (try_to_wake_up)
+-ksoftirq-7     1d.H3    7us : _spin_unlock_irqrestore (try_to_wake_up)
+-[...]
+-ksoftirq-7     1d.H2   17us : irq_exit (smp_apic_timer_interrupt)
+-ksoftirq-7     1d.H2   18us : sub_preempt_count (irq_exit)
+-ksoftirq-7     1d.s3   19us : sub_preempt_count (irq_exit)
+-ksoftirq-7     1..s2   20us : rcu_process_callbacks (__do_softirq)
+-[...]
+-ksoftirq-7     1..s2   26us : __rcu_process_callbacks (rcu_process_callbacks)
+-ksoftirq-7     1d.s2   27us : _local_bh_enable (__do_softirq)
+-ksoftirq-7     1d.s2   28us : sub_preempt_count (_local_bh_enable)
+-ksoftirq-7     1.N.3   29us : sub_preempt_count (ksoftirqd)
+-ksoftirq-7     1.N.2   30us : _cond_resched (ksoftirqd)
+-ksoftirq-7     1.N.2   31us : __cond_resched (_cond_resched)
+-ksoftirq-7     1.N.2   32us : add_preempt_count (__cond_resched)
+-ksoftirq-7     1.N.2   33us : schedule (__cond_resched)
+-ksoftirq-7     1.N.2   33us : add_preempt_count (schedule)
+-ksoftirq-7     1.N.3   34us : hrtick_clear (schedule)
+-ksoftirq-7     1dN.3   35us : _spin_lock (schedule)
+-ksoftirq-7     1dN.3   36us : add_preempt_count (_spin_lock)
+-ksoftirq-7     1d..4   37us : put_prev_task_fair (schedule)
+-ksoftirq-7     1d..4   38us : update_curr (put_prev_task_fair)
+-[...]
+-ksoftirq-7     1d..5   47us : _spin_trylock (tracing_record_cmdline)
+-ksoftirq-7     1d..5   48us : add_preempt_count (_spin_trylock)
+-ksoftirq-7     1d..6   49us : _spin_unlock (tracing_record_cmdline)
+-ksoftirq-7     1d..6   49us : sub_preempt_count (_spin_unlock)
+-ksoftirq-7     1d..4   50us : schedule (__cond_resched)
+-
+-The interrupt went off while running ksoftirqd. This task runs at
+-SCHED_OTHER. Why didn't we see the 'N' set early? This may be
+-a harmless bug with x86_32 and 4K stacks. The need_reched() function
+-that tests if we need to reschedule looks on the actual stack.
+-Where as the setting of the NEED_RESCHED bit happens on the
+-task's stack. But because we are in a hard interrupt, the test
+-is with the interrupts stack which has that to be false. We don't
+-see the 'N' until we switch back to the task's stack.
+-
+-ftrace
+-------
+-
+-ftrace is not only the name of the tracing infrastructure, but it
+-is also a name of one of the tracers. The tracer is the function
+-tracer. Enabling the function tracer can be done from the
+-debug file system. Make sure the ftrace_enabled is set otherwise
+-this tracer is a nop.
+-
+- # sysctl kernel.ftrace_enabled=1
+- # echo ftrace > /debug/tracing/current_tracer
+- # echo 1 > /debug/tracing/tracing_enabled
+- # usleep 1
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/trace
+-# tracer: ftrace
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-            bash-4003  [00]   123.638713: finish_task_switch <-schedule
+-            bash-4003  [00]   123.638714: _spin_unlock_irq <-finish_task_switch
+-            bash-4003  [00]   123.638714: sub_preempt_count <-_spin_unlock_irq
+-            bash-4003  [00]   123.638715: hrtick_set <-schedule
+-            bash-4003  [00]   123.638715: _spin_lock_irqsave <-hrtick_set
+-            bash-4003  [00]   123.638716: add_preempt_count <-_spin_lock_irqsave
+-            bash-4003  [00]   123.638716: _spin_unlock_irqrestore <-hrtick_set
+-            bash-4003  [00]   123.638717: sub_preempt_count <-_spin_unlock_irqrestore
+-            bash-4003  [00]   123.638717: hrtick_clear <-hrtick_set
+-            bash-4003  [00]   123.638718: sub_preempt_count <-schedule
+-            bash-4003  [00]   123.638718: sub_preempt_count <-preempt_schedule
+-            bash-4003  [00]   123.638719: wait_for_completion <-__stop_machine_run
+-            bash-4003  [00]   123.638719: wait_for_common <-wait_for_completion
+-            bash-4003  [00]   123.638720: _spin_lock_irq <-wait_for_common
+-            bash-4003  [00]   123.638720: add_preempt_count <-_spin_lock_irq
+-[...]
+-
+-
+-Note: It is sometimes better to enable or disable tracing directly from
+-a program, because the buffer may be overflowed by the echo commands
+-before you get to the point you want to trace. It is also easier to
+-stop the tracing at the point that you hit the part that you are
+-interested in. Since the ftrace buffer is a ring buffer with the
+-oldest data being overwritten, usually it is sufficient to start the
+-tracer with an echo command but have you code stop it. Something
+-like the following is usually appropriate for this.
+-
+-int trace_fd;
+-[...]
+-int main(int argc, char *argv[]) {
+-	[...]
+-	trace_fd = open("/debug/tracing/tracing_enabled", O_WRONLY);
+-	[...]
+-	if (condition_hit()) {
+-	write(trace_fd, "0", 1);
+-	}
+-	[...]
+-}
+-
+-
+-dynamic ftrace
+---------------
+-
+-If CONFIG_DYNAMIC_FTRACE is set, then the system will run with
+-virtually no overhead when function tracing is disabled. The way
+-this works is the mcount function call (placed at the start of
+-every kernel function, produced by the -pg switch in gcc), starts
+-of pointing to a simple return.
+-
+-When dynamic ftrace is initialized, it calls kstop_machine to make it
+-act like a uniprocessor so that it can freely modify code without
+-worrying about other processors executing that same code.  At
+-initialization, the mcount calls are change to call a "record_ip"
+-function.  After this, the first time a kernel function is called,
+-it has the calling address saved in a hash table.
+-
+-Later on the ftraced kernel thread is awoken and will again call
+-kstop_machine if new functions have been recorded. The ftraced thread
+-will change all calls to mcount to "nop".  Just calling mcount
+-and having mcount return has shown a 10% overhead. By converting
+-it to a nop, there is no recordable overhead to the system.
+-
+-One special side-effect to the recording of the functions being
+-traced, is that we can now selectively choose which functions we
+-want to trace and which ones we want the mcount calls to remain as
+-nops.
+-
+-Two files that contain to the enabling and disabling of recorded
+-functions are:
+-
+-  set_ftrace_filter
+-
+-and
+-
+-  set_ftrace_notrace
+-
+-A list of available functions that you can add to this files is listed
+-in:
+-
+-   available_filter_functions
+-
+- # cat /debug/tracing/available_filter_functions
+-put_prev_task_idle
+-kmem_cache_create
+-pick_next_task_rt
+-get_online_cpus
+-pick_next_task_fair
+-mutex_lock
+-[...]
+-
+-If I'm only interested in sys_nanosleep and hrtimer_interrupt:
+-
+- # echo sys_nanosleep hrtimer_interrupt \
+-		> /debug/tracing/set_ftrace_filter
+- # echo ftrace > /debug/tracing/current_tracer
+- # echo 1 > /debug/tracing/tracing_enabled
+- # usleep 1
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/trace
+-# tracer: ftrace
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-          usleep-4134  [00]  1317.070017: hrtimer_interrupt <-smp_apic_timer_interrupt
+-          usleep-4134  [00]  1317.070111: sys_nanosleep <-syscall_call
+-          <idle>-0     [00]  1317.070115: hrtimer_interrupt <-smp_apic_timer_interrupt
+-
+-To see what functions are being traced, you can cat the file:
+-
+- # cat /debug/tracing/set_ftrace_filter
+-hrtimer_interrupt
+-sys_nanosleep
+-
+-
+-Perhaps this isn't enough. The filters also allow simple wild cards.
+-Only the following is currently available
+-
+-  <match>*  - will match functions that begins with <match>
+-  *<match>  - will match functions that end with <match>
+-  *<match>* - will match functions that have <match> in it
+-
+-Thats all the wild cards that are allowed.
+-
+-  <match>*<match> will not work.
+-
+- # echo hrtimer_* > /debug/tracing/set_ftrace_filter
+-
+-Produces:
+-
+-# tracer: ftrace
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-            bash-4003  [00]  1480.611794: hrtimer_init <-copy_process
+-            bash-4003  [00]  1480.611941: hrtimer_start <-hrtick_set
+-            bash-4003  [00]  1480.611956: hrtimer_cancel <-hrtick_clear
+-            bash-4003  [00]  1480.611956: hrtimer_try_to_cancel <-hrtimer_cancel
+-          <idle>-0     [00]  1480.612019: hrtimer_get_next_event <-get_next_timer_interrupt
+-          <idle>-0     [00]  1480.612025: hrtimer_get_next_event <-get_next_timer_interrupt
+-          <idle>-0     [00]  1480.612032: hrtimer_get_next_event <-get_next_timer_interrupt
+-          <idle>-0     [00]  1480.612037: hrtimer_get_next_event <-get_next_timer_interrupt
+-          <idle>-0     [00]  1480.612382: hrtimer_get_next_event <-get_next_timer_interrupt
+-
+-
+-Notice that we lost the sys_nanosleep.
+-
+- # cat /debug/tracing/set_ftrace_filter
+-hrtimer_run_queues
+-hrtimer_run_pending
+-hrtimer_init
+-hrtimer_cancel
+-hrtimer_try_to_cancel
+-hrtimer_forward
+-hrtimer_start
+-hrtimer_reprogram
+-hrtimer_force_reprogram
+-hrtimer_get_next_event
+-hrtimer_interrupt
+-hrtimer_nanosleep
+-hrtimer_wakeup
+-hrtimer_get_remaining
+-hrtimer_get_res
+-hrtimer_init_sleeper
+-
+-
+-This is because the '>' and '>>' act just like they do in bash.
+-To rewrite the filters, use '>'
+-To append to the filters, use '>>'
+-
+-To clear out a filter so that all functions will be recorded again.
+-
+- # echo > /debug/tracing/set_ftrace_filter
+- # cat /debug/tracing/set_ftrace_filter
+- #
+-
+-Again, now we want to append.
+-
+- # echo sys_nanosleep > /debug/tracing/set_ftrace_filter
+- # cat /debug/tracing/set_ftrace_filter
+-sys_nanosleep
+- # echo hrtimer_* >> /debug/tracing/set_ftrace_filter
+- # cat /debug/tracing/set_ftrace_filter
+-hrtimer_run_queues
+-hrtimer_run_pending
+-hrtimer_init
+-hrtimer_cancel
+-hrtimer_try_to_cancel
+-hrtimer_forward
+-hrtimer_start
+-hrtimer_reprogram
+-hrtimer_force_reprogram
+-hrtimer_get_next_event
+-hrtimer_interrupt
+-sys_nanosleep
+-hrtimer_nanosleep
+-hrtimer_wakeup
+-hrtimer_get_remaining
+-hrtimer_get_res
+-hrtimer_init_sleeper
+-
+-
+-The set_ftrace_notrace prevents those functions from being traced.
+-
+- # echo '*preempt*' '*lock*' > /debug/tracing/set_ftrace_notrace
+-
+-Produces:
+-
+-# tracer: ftrace
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-            bash-4043  [01]   115.281644: finish_task_switch <-schedule
+-            bash-4043  [01]   115.281645: hrtick_set <-schedule
+-            bash-4043  [01]   115.281645: hrtick_clear <-hrtick_set
+-            bash-4043  [01]   115.281646: wait_for_completion <-__stop_machine_run
+-            bash-4043  [01]   115.281647: wait_for_common <-wait_for_completion
+-            bash-4043  [01]   115.281647: kthread_stop <-stop_machine_run
+-            bash-4043  [01]   115.281648: init_waitqueue_head <-kthread_stop
+-            bash-4043  [01]   115.281648: wake_up_process <-kthread_stop
+-            bash-4043  [01]   115.281649: try_to_wake_up <-wake_up_process
+-
+-We can see that there's no more lock or preempt tracing.
+-
+-ftraced
+--------
+-
+-As mentioned above, when dynamic ftrace is configured in, a kernel
+-thread wakes up once a second and checks to see if there are mcount
+-calls that need to be converted into nops. If there is not, then
+-it simply goes back to sleep. But if there is, it will call
+-kstop_machine to convert the calls to nops.
+-
+-There may be a case that you do not want this added latency.
+-Perhaps you are doing some audio recording and this activity might
+-cause skips in the playback. There is an interface to disable
+-and enable the ftraced kernel thread.
+-
+- # echo 0 > /debug/tracing/ftraced_enabled
+-
+-This will disable the calling of the kstop_machine to update the
+-mcount calls to nops. Remember that there's a large overhead
+-to calling mcount. Without this kernel thread, that overhead will
+-exist.
+-
+-Any write to the ftraced_enabled file will cause the kstop_machine
+-to run if there are recorded calls to mcount. This means that a
+-user can manually perform the updates when they want to by simply
+-echoing a '0' into the ftraced_enabled file.
+-
+-The updates are also done at the beginning of enabling a tracer
+-that uses ftrace function recording.
+-
+-
+-trace_pipe
+-----------
+-
+-The trace_pipe outputs the same as trace, but the effect on the
+-tracing is different. Every read from trace_pipe is consumed.
+-This means that subsequent reads will be different. The trace
+-is live.
+-
+- # echo ftrace > /debug/tracing/current_tracer
+- # cat /debug/tracing/trace_pipe > /tmp/trace.out &
+-[1] 4153
+- # echo 1 > /debug/tracing/tracing_enabled
+- # usleep 1
+- # echo 0 > /debug/tracing/tracing_enabled
+- # cat /debug/tracing/trace
+-# tracer: ftrace
+-#
+-#           TASK-PID   CPU#    TIMESTAMP  FUNCTION
+-#              | |      |          |         |
+-
+- #
+- # cat /tmp/trace.out
+-            bash-4043  [00] 41.267106: finish_task_switch <-schedule
+-            bash-4043  [00] 41.267106: hrtick_set <-schedule
+-            bash-4043  [00] 41.267107: hrtick_clear <-hrtick_set
+-            bash-4043  [00] 41.267108: wait_for_completion <-__stop_machine_run
+-            bash-4043  [00] 41.267108: wait_for_common <-wait_for_completion
+-            bash-4043  [00] 41.267109: kthread_stop <-stop_machine_run
+-            bash-4043  [00] 41.267109: init_waitqueue_head <-kthread_stop
+-            bash-4043  [00] 41.267110: wake_up_process <-kthread_stop
+-            bash-4043  [00] 41.267110: try_to_wake_up <-wake_up_process
+-            bash-4043  [00] 41.267111: select_task_rq_rt <-try_to_wake_up
+-
+-
+-Note, reading the trace_pipe will block until more input is added.
+-By changing the tracer, trace_pipe will issue an EOF. We needed
+-to set the ftrace tracer _before_ cating the trace_pipe file.
+-
+-
+-trace entries
+--------------
+-
+-Having too much or not enough data can be troublesome in diagnosing
+-some issue in the kernel. The file trace_entries is used to modify
+-the size of the internal trace buffers. The numbers listed
+-is the number of entries that can be recorded per CPU. To know
+-the full size, multiply the number of possible CPUS with the
+-number of entries.
+-
+- # cat /debug/tracing/trace_entries
+-65620
+-
+-Note, to modify this you must have tracing fulling disabled. To do that,
+-echo "none" into the current_tracer.
+-
+- # echo none > /debug/tracing/current_tracer
+- # echo 100000 > /debug/tracing/trace_entries
+- # cat /debug/tracing/trace_entries
+-100045
+-
+-
+-Notice that we echoed in 100,000 but the size is 100,045. The entries
+-are held by individual pages. It allocates the number of pages it takes
+-to fulfill the request. If more entries may fit on the last page
+-it will add them.
+-
+- # echo 1 > /debug/tracing/trace_entries
+- # cat /debug/tracing/trace_entries
+-85
+-
+-This shows us that 85 entries can fit on a single page.
+-
+-The number of pages that will be allocated is a percentage of available
+-memory. Allocating too much will produces an error.
+-
+- # echo 1000000000000 > /debug/tracing/trace_entries
+--bash: echo: write error: Cannot allocate memory
+- # cat /debug/tracing/trace_entries
+-85
+-
+diff --git a/Documentation/networking/udplite.txt b/Documentation/networking/udplite.txt
+index 3870f28..855d8da 100644
+--- a/Documentation/networking/udplite.txt
++++ b/Documentation/networking/udplite.txt
+@@ -148,7 +148,7 @@
+         getsockopt(sockfd, SOL_SOCKET, SO_NO_CHECK, &value, ...);
+ 
+   is meaningless (as in TCP). Packets with a zero checksum field are
+-  illegal (cf. RFC 3828, sec. 3.1) will be silently discarded.
++  illegal (cf. RFC 3828, sec. 3.1) and will be silently discarded.
+ 
+   4) Fragmentation
+ 
+diff --git a/Documentation/video4linux/cx18.txt b/Documentation/video4linux/cx18.txt
+index 6842c26..63f3aef 100644
+--- a/Documentation/video4linux/cx18.txt
++++ b/Documentation/video4linux/cx18.txt
+@@ -23,14 +23,8 @@ encoder chip:
+ 
+ Firmware:
+ 
+-The firmware needs to be extracted from the Windows Hauppauge HVR-1600
+-driver, available here:
++You can obtain the firmware files here:
+ 
+-http://hauppauge.lightpath.net/software/install_cd/hauppauge_cd_3.4d1.zip
++http://dl.ivtvdriver.org/ivtv/firmware/cx18-firmware.tar.gz
+ 
+-Unzip, then copy the following files to the firmware directory
+-and rename them as follows:
+-
+-Drivers/Driver18/hcw18apu.rom -> v4l-cx23418-apu.fw
+-Drivers/Driver18/hcw18enc.rom -> v4l-cx23418-cpu.fw
+-Drivers/Driver18/hcw18mlC.rom -> v4l-cx23418-dig.fw
++Untar and copy the .fw files to your firmware directory.
+diff --git a/Makefile b/Makefile
+index e3c5eb6..5599044 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ VERSION = 2
+ PATCHLEVEL = 6
+ SUBLEVEL = 26
+-EXTRAVERSION =
++EXTRAVERSION = .2
+ NAME = Rotary Wombat
+ 
+ # *DOCUMENTATION*
+@@ -1133,7 +1133,8 @@ clean: archclean $(clean-dirs)
+ 	@find . $(RCS_FIND_IGNORE) \
+ 		\( -name '*.[oas]' -o -name '*.ko' -o -name '.*.cmd' \
+ 		-o -name '.*.d' -o -name '.*.tmp' -o -name '*.mod.c' \
+-		-o -name '*.symtypes' -o -name 'modules.order' \) \
++		-o -name '*.symtypes' -o -name 'modules.order' \
++		-o -name 'Module.markers' \) \
+ 		-type f -print | xargs rm -f
+ 
+ # mrproper - Delete all generated files, including .config
+diff --git a/arch/ia64/kvm/kvm-ia64.c b/arch/ia64/kvm/kvm-ia64.c
+index 318b811..5152ba0 100644
+--- a/arch/ia64/kvm/kvm-ia64.c
++++ b/arch/ia64/kvm/kvm-ia64.c
+@@ -1460,6 +1460,9 @@ int kvm_arch_set_memory_region(struct kvm *kvm,
+ 	return 0;
+ }
+ 
++void kvm_arch_flush_shadow(struct kvm *kvm)
++{
++}
+ 
+ long kvm_arch_dev_ioctl(struct file *filp,
+ 		unsigned int ioctl, unsigned long arg)
+diff --git a/arch/powerpc/kernel/ppc32.h b/arch/powerpc/kernel/ppc32.h
+index 90e5627..fda05e2 100644
+--- a/arch/powerpc/kernel/ppc32.h
++++ b/arch/powerpc/kernel/ppc32.h
+@@ -135,4 +135,6 @@ struct ucontext32 {
+ 	struct mcontext32	uc_mcontext;
+ };
+ 
++extern int copy_siginfo_to_user32(struct compat_siginfo __user *d, siginfo_t *s);
++
+ #endif  /* _PPC64_PPC32_H */
+diff --git a/arch/powerpc/kernel/ptrace32.c b/arch/powerpc/kernel/ptrace32.c
+index 4c1de6a..9d30e10 100644
+--- a/arch/powerpc/kernel/ptrace32.c
++++ b/arch/powerpc/kernel/ptrace32.c
+@@ -29,12 +29,15 @@
+ #include <linux/security.h>
+ #include <linux/signal.h>
+ #include <linux/compat.h>
++#include <linux/elf.h>
+ 
+ #include <asm/uaccess.h>
+ #include <asm/page.h>
+ #include <asm/pgtable.h>
+ #include <asm/system.h>
+ 
++#include "ppc32.h"
++
+ /*
+  * does not yet catch signals sent when the child dies.
+  * in exit.c or in signal.c.
+@@ -64,6 +67,27 @@ static long compat_ptrace_old(struct task_struct *child, long request,
+ 	return -EPERM;
+ }
+ 
++static int compat_ptrace_getsiginfo(struct task_struct *child, compat_siginfo_t __user *data)
++{
++	siginfo_t lastinfo;
++	int error = -ESRCH;
++
++	read_lock(&tasklist_lock);
++	if (likely(child->sighand != NULL)) {
++		error = -EINVAL;
++		spin_lock_irq(&child->sighand->siglock);
++		if (likely(child->last_siginfo != NULL)) {
++			lastinfo = *child->last_siginfo;
++			error = 0;
++		}
++		spin_unlock_irq(&child->sighand->siglock);
++	}
++	read_unlock(&tasklist_lock);
++	if (!error)
++		return copy_siginfo_to_user32(data, &lastinfo);
++	return error;
++}
++
+ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
+ 			compat_ulong_t caddr, compat_ulong_t cdata)
+ {
+@@ -282,6 +306,9 @@ long compat_arch_ptrace(struct task_struct *child, compat_long_t request,
+ 			0, PT_REGS_COUNT * sizeof(compat_long_t),
+ 			compat_ptr(data));
+ 
++	case PTRACE_GETSIGINFO:
++		return compat_ptrace_getsiginfo(child, compat_ptr(data));
++
+ 	case PTRACE_GETFPREGS:
+ 	case PTRACE_SETFPREGS:
+ 	case PTRACE_GETVRREGS:
+diff --git a/arch/powerpc/kvm/powerpc.c b/arch/powerpc/kvm/powerpc.c
+index 777e0f3..1eaa3e4 100644
+--- a/arch/powerpc/kvm/powerpc.c
++++ b/arch/powerpc/kvm/powerpc.c
+@@ -167,6 +167,10 @@ int kvm_arch_set_memory_region(struct kvm *kvm,
+ 	return 0;
+ }
+ 
++void kvm_arch_flush_shadow(struct kvm *kvm)
++{
++}
++
+ struct kvm_vcpu *kvm_arch_vcpu_create(struct kvm *kvm, unsigned int id)
+ {
+ 	struct kvm_vcpu *vcpu;
+diff --git a/arch/powerpc/platforms/cell/cbe_cpufreq_pmi.c b/arch/powerpc/platforms/cell/cbe_cpufreq_pmi.c
+index 69288f6..3233fe8 100644
+--- a/arch/powerpc/platforms/cell/cbe_cpufreq_pmi.c
++++ b/arch/powerpc/platforms/cell/cbe_cpufreq_pmi.c
+@@ -96,6 +96,12 @@ static int pmi_notifier(struct notifier_block *nb,
+ 	struct cpufreq_frequency_table *cbe_freqs;
+ 	u8 node;
+ 
++	/* Should this really be called for CPUFREQ_ADJUST, CPUFREQ_INCOMPATIBLE
++	 * and CPUFREQ_NOTIFY policy events?)
++	 */
++	if (event == CPUFREQ_START)
++		return 0;
++
+ 	cbe_freqs = cpufreq_frequency_get_table(policy->cpu);
+ 	node = cbe_cpu_to_node(policy->cpu);
+ 
+diff --git a/arch/s390/kvm/kvm-s390.c b/arch/s390/kvm/kvm-s390.c
+index 6558b09..b19c170 100644
+--- a/arch/s390/kvm/kvm-s390.c
++++ b/arch/s390/kvm/kvm-s390.c
+@@ -672,6 +672,10 @@ int kvm_arch_set_memory_region(struct kvm *kvm,
+ 	return 0;
+ }
+ 
++void kvm_arch_flush_shadow(struct kvm *kvm)
++{
++}
++
+ gfn_t unalias_gfn(struct kvm *kvm, gfn_t gfn)
+ {
+ 	return gfn;
+diff --git a/arch/sparc64/kernel/irq.c b/arch/sparc64/kernel/irq.c
+index b441a26..c481673 100644
+--- a/arch/sparc64/kernel/irq.c
++++ b/arch/sparc64/kernel/irq.c
+@@ -621,8 +621,9 @@ unsigned int sun4v_build_irq(u32 devhandle, unsigned int devino)
+ unsigned int sun4v_build_virq(u32 devhandle, unsigned int devino)
+ {
+ 	struct irq_handler_data *data;
+-	struct ino_bucket *bucket;
+ 	unsigned long hv_err, cookie;
++	struct ino_bucket *bucket;
++	struct irq_desc *desc;
+ 	unsigned int virt_irq;
+ 
+ 	bucket = kzalloc(sizeof(struct ino_bucket), GFP_ATOMIC);
+@@ -643,6 +644,13 @@ unsigned int sun4v_build_virq(u32 devhandle, unsigned int devino)
+ 	if (unlikely(!data))
+ 		return 0;
+ 
++	/* In order to make the LDC channel startup sequence easier,
++	 * especially wrt. locking, we do not let request_irq() enable
++	 * the interrupt.
++	 */
++	desc = irq_desc + virt_irq;
++	desc->status |= IRQ_NOAUTOEN;
++
+ 	set_irq_chip_data(virt_irq, data);
+ 
+ 	/* Catch accidental accesses to these things.  IMAP/ICLR handling
+diff --git a/arch/sparc64/kernel/ldc.c b/arch/sparc64/kernel/ldc.c
+index 63969f6..d689823 100644
+--- a/arch/sparc64/kernel/ldc.c
++++ b/arch/sparc64/kernel/ldc.c
+@@ -1,6 +1,6 @@
+ /* ldc.c: Logical Domain Channel link-layer protocol driver.
+  *
+- * Copyright (C) 2007 David S. Miller <davem@davemloft.net>
++ * Copyright (C) 2007, 2008 David S. Miller <davem@davemloft.net>
+  */
+ 
+ #include <linux/kernel.h>
+@@ -23,8 +23,8 @@
+ 
+ #define DRV_MODULE_NAME		"ldc"
+ #define PFX DRV_MODULE_NAME	": "
+-#define DRV_MODULE_VERSION	"1.0"
+-#define DRV_MODULE_RELDATE	"June 25, 2007"
++#define DRV_MODULE_VERSION	"1.1"
++#define DRV_MODULE_RELDATE	"July 22, 2008"
+ 
+ static char version[] __devinitdata =
+ 	DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
+@@ -1235,13 +1235,9 @@ int ldc_bind(struct ldc_channel *lp, const char *name)
+ 	unsigned long hv_err, flags;
+ 	int err = -EINVAL;
+ 
+-	spin_lock_irqsave(&lp->lock, flags);
+-
+-	if (!name)
+-		goto out_err;
+-
+-	if (lp->state != LDC_STATE_INIT)
+-		goto out_err;
++	if (!name ||
++	    (lp->state != LDC_STATE_INIT))
++		return -EINVAL;
+ 
+ 	snprintf(lp->rx_irq_name, LDC_IRQ_NAME_MAX, "%s RX", name);
+ 	snprintf(lp->tx_irq_name, LDC_IRQ_NAME_MAX, "%s TX", name);
+@@ -1250,25 +1246,32 @@ int ldc_bind(struct ldc_channel *lp, const char *name)
+ 			  IRQF_SAMPLE_RANDOM | IRQF_SHARED,
+ 			  lp->rx_irq_name, lp);
+ 	if (err)
+-		goto out_err;
++		return err;
+ 
+ 	err = request_irq(lp->cfg.tx_irq, ldc_tx,
+ 			  IRQF_SAMPLE_RANDOM | IRQF_SHARED,
+ 			  lp->tx_irq_name, lp);
+-	if (err)
+-		goto out_free_rx_irq;
++	if (err) {
++		free_irq(lp->cfg.rx_irq, lp);
++		return err;
++	}
++
+ 
++	spin_lock_irqsave(&lp->lock, flags);
++
++	enable_irq(lp->cfg.rx_irq);
++	enable_irq(lp->cfg.tx_irq);
+ 
+ 	lp->flags |= LDC_FLAG_REGISTERED_IRQS;
+ 
+ 	err = -ENODEV;
+ 	hv_err = sun4v_ldc_tx_qconf(lp->id, 0, 0);
+ 	if (hv_err)
+-		goto out_free_tx_irq;
++		goto out_free_irqs;
+ 
+ 	hv_err = sun4v_ldc_tx_qconf(lp->id, lp->tx_ra, lp->tx_num_entries);
+ 	if (hv_err)
+-		goto out_free_tx_irq;
++		goto out_free_irqs;
+ 
+ 	hv_err = sun4v_ldc_rx_qconf(lp->id, 0, 0);
+ 	if (hv_err)
+@@ -1304,14 +1307,11 @@ out_unmap_rx:
+ out_unmap_tx:
+ 	sun4v_ldc_tx_qconf(lp->id, 0, 0);
+ 
+-out_free_tx_irq:
++out_free_irqs:
+ 	lp->flags &= ~LDC_FLAG_REGISTERED_IRQS;
+ 	free_irq(lp->cfg.tx_irq, lp);
+-
+-out_free_rx_irq:
+ 	free_irq(lp->cfg.rx_irq, lp);
+ 
+-out_err:
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ 
+ 	return err;
+diff --git a/arch/sparc64/kernel/time.c b/arch/sparc64/kernel/time.c
+index e5d2389..f464023 100644
+--- a/arch/sparc64/kernel/time.c
++++ b/arch/sparc64/kernel/time.c
+@@ -883,6 +883,16 @@ static struct notifier_block sparc64_cpufreq_notifier_block = {
+ 	.notifier_call	= sparc64_cpufreq_notifier
+ };
+ 
++static int __init register_sparc64_cpufreq_notifier(void)
++{
++
++	cpufreq_register_notifier(&sparc64_cpufreq_notifier_block,
++				  CPUFREQ_TRANSITION_NOTIFIER);
++	return 0;
++}
++
++core_initcall(register_sparc64_cpufreq_notifier);
++
+ #endif /* CONFIG_CPU_FREQ */
+ 
+ static int sparc64_next_event(unsigned long delta,
+@@ -1049,11 +1059,6 @@ void __init time_init(void)
+ 	       sparc64_clockevent.mult, sparc64_clockevent.shift);
+ 
+ 	setup_sparc64_timer();
+-
+-#ifdef CONFIG_CPU_FREQ
+-	cpufreq_register_notifier(&sparc64_cpufreq_notifier_block,
+-				  CPUFREQ_TRANSITION_NOTIFIER);
+-#endif
+ }
+ 
+ unsigned long long sched_clock(void)
+diff --git a/arch/um/include/init.h b/arch/um/include/init.h
+index b00a957..37dd097 100644
+--- a/arch/um/include/init.h
++++ b/arch/um/include/init.h
+@@ -45,6 +45,8 @@ typedef void (*exitcall_t)(void);
+ # define __section(S) __attribute__ ((__section__(#S)))
+ #endif
+ 
++#if __GNUC__ == 3
++
+ #if __GNUC_MINOR__ >= 3
+ # define __used			__attribute__((__used__))
+ #else
+@@ -52,6 +54,12 @@ typedef void (*exitcall_t)(void);
+ #endif
+ 
+ #else
++#if __GNUC__ == 4
++# define __used			__attribute__((__used__))
++#endif
++#endif
++
++#else
+ #include <linux/compiler.h>
+ #endif
+ /* These are for everybody (although not all archs will actually
+diff --git a/arch/x86/Kconfig.cpu b/arch/x86/Kconfig.cpu
+index 2ad6301..dd138a2 100644
+--- a/arch/x86/Kconfig.cpu
++++ b/arch/x86/Kconfig.cpu
+@@ -414,4 +414,4 @@ config X86_MINIMUM_CPU_FAMILY
+ 
+ config X86_DEBUGCTLMSR
+ 	def_bool y
+-	depends on !(M586MMX || M586TSC || M586 || M486 || M386)
++	depends on !(MK6 || MWINCHIPC6 || MWINCHIP2 || MWINCHIP3D || MCYRIXIII || M586MMX || M586TSC || M586 || M486 || M386)
+diff --git a/arch/x86/kernel/acpi/sleep.c b/arch/x86/kernel/acpi/sleep.c
+index 36af01f..130711f 100644
+--- a/arch/x86/kernel/acpi/sleep.c
++++ b/arch/x86/kernel/acpi/sleep.c
+@@ -23,6 +23,15 @@ static unsigned long acpi_realmode;
+ static char temp_stack[10240];
+ #endif
+ 
++/* XXX: this macro should move to asm-x86/segment.h and be shared with the
++   boot code... */
++#define GDT_ENTRY(flags, base, limit)		\
++	(((u64)(base & 0xff000000) << 32) |	\
++	 ((u64)flags << 40) |			\
++	 ((u64)(limit & 0x00ff0000) << 32) |	\
++	 ((u64)(base & 0x00ffffff) << 16) |	\
++	 ((u64)(limit & 0x0000ffff)))
++
+ /**
+  * acpi_save_state_mem - save kernel state
+  *
+@@ -58,11 +67,11 @@ int acpi_save_state_mem(void)
+ 			((char *)&header->wakeup_gdt - (char *)acpi_realmode))
+ 				<< 16);
+ 	/* GDT[1]: real-mode-like code segment */
+-	header->wakeup_gdt[1] = (0x009bULL << 40) +
+-		((u64)acpi_wakeup_address << 16) + 0xffff;
++	header->wakeup_gdt[1] =
++		GDT_ENTRY(0x809b, acpi_wakeup_address, 0xfffff);
+ 	/* GDT[2]: real-mode-like data segment */
+-	header->wakeup_gdt[2] = (0x0093ULL << 40) +
+-		((u64)acpi_wakeup_address << 16) + 0xffff;
++	header->wakeup_gdt[2] =
++		GDT_ENTRY(0x8093, acpi_wakeup_address, 0xfffff);
+ 
+ #ifndef CONFIG_64BIT
+ 	store_gdt((struct desc_ptr *)&header->pmode_gdt);
+diff --git a/arch/x86/kernel/i387.c b/arch/x86/kernel/i387.c
+index 95e80e5..eb9ddd8 100644
+--- a/arch/x86/kernel/i387.c
++++ b/arch/x86/kernel/i387.c
+@@ -162,7 +162,7 @@ int xfpregs_get(struct task_struct *target, const struct user_regset *regset,
+ 	int ret;
+ 
+ 	if (!cpu_has_fxsr)
+-		return -EIO;
++		return -ENODEV;
+ 
+ 	ret = init_fpu(target);
+ 	if (ret)
+@@ -179,7 +179,7 @@ int xfpregs_set(struct task_struct *target, const struct user_regset *regset,
+ 	int ret;
+ 
+ 	if (!cpu_has_fxsr)
+-		return -EIO;
++		return -ENODEV;
+ 
+ 	ret = init_fpu(target);
+ 	if (ret)
+diff --git a/arch/x86/kernel/io_delay.c b/arch/x86/kernel/io_delay.c
+index 5921e5f..1c3a66a 100644
+--- a/arch/x86/kernel/io_delay.c
++++ b/arch/x86/kernel/io_delay.c
+@@ -103,6 +103,9 @@ void __init io_delay_init(void)
+ 
+ static int __init io_delay_param(char *s)
+ {
++	if (!s)
++		return -EINVAL;
++
+ 	if (!strcmp(s, "0x80"))
+ 		io_delay_type = CONFIG_IO_DELAY_TYPE_0X80;
+ 	else if (!strcmp(s, "0xed"))
+diff --git a/arch/x86/kernel/kprobes.c b/arch/x86/kernel/kprobes.c
+index b8c6743..43c019f 100644
+--- a/arch/x86/kernel/kprobes.c
++++ b/arch/x86/kernel/kprobes.c
+@@ -860,7 +860,6 @@ static int __kprobes post_kprobe_handler(struct pt_regs *regs)
+ 
+ 	resume_execution(cur, regs, kcb);
+ 	regs->flags |= kcb->kprobe_saved_flags;
+-	trace_hardirqs_fixup_flags(regs->flags);
+ 
+ 	if ((kcb->kprobe_status != KPROBE_REENTER) && cur->post_handler) {
+ 		kcb->kprobe_status = KPROBE_HIT_SSDONE;
+diff --git a/arch/x86/kernel/process.c b/arch/x86/kernel/process.c
+index ba370dc..58325a6 100644
+--- a/arch/x86/kernel/process.c
++++ b/arch/x86/kernel/process.c
+@@ -164,6 +164,9 @@ void __cpuinit select_idle_routine(const struct cpuinfo_x86 *c)
+ 
+ static int __init idle_setup(char *str)
+ {
++	if (!str)
++		return -EINVAL;
++
+ 	if (!strcmp(str, "poll")) {
+ 		printk("using polling idle threads.\n");
+ 		pm_idle = poll_idle;
+diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
+index a7835f2..77040b6 100644
+--- a/arch/x86/kernel/ptrace.c
++++ b/arch/x86/kernel/ptrace.c
+@@ -943,13 +943,13 @@ long arch_ptrace(struct task_struct *child, long request, long addr, long data)
+ 		return copy_regset_to_user(child, &user_x86_32_view,
+ 					   REGSET_XFP,
+ 					   0, sizeof(struct user_fxsr_struct),
+-					   datap);
++					   datap) ? -EIO : 0;
+ 
+ 	case PTRACE_SETFPXREGS:	/* Set the child extended FPU state. */
+ 		return copy_regset_from_user(child, &user_x86_32_view,
+ 					     REGSET_XFP,
+ 					     0, sizeof(struct user_fxsr_struct),
+-					     datap);
++					     datap) ? -EIO : 0;
+ #endif
+ 
+ #if defined CONFIG_X86_32 || defined CONFIG_IA32_EMULATION
+diff --git a/arch/x86/kernel/reboot.c b/arch/x86/kernel/reboot.c
+index f6be7d5..d834b36 100644
+--- a/arch/x86/kernel/reboot.c
++++ b/arch/x86/kernel/reboot.c
+@@ -177,6 +177,14 @@ static struct dmi_system_id __initdata reboot_dmi_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_NAME, "PowerEdge 2400"),
+ 		},
+ 	},
++	{	/* Handle problems with rebooting on Dell T5400's */
++		.callback = set_bios_reboot,
++		.ident = "Dell Precision T5400",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Dell Inc."),
++			DMI_MATCH(DMI_PRODUCT_NAME, "Precision WorkStation T5400"),
++		},
++	},
+ 	{	/* Handle problems with rebooting on HP laptops */
+ 		.callback = set_bios_reboot,
+ 		.ident = "HP Compaq Laptop",
+diff --git a/arch/x86/kvm/mmu.c b/arch/x86/kvm/mmu.c
+index 7e7c396..c26d811 100644
+--- a/arch/x86/kvm/mmu.c
++++ b/arch/x86/kvm/mmu.c
+@@ -1171,9 +1171,10 @@ static int __direct_map(struct kvm_vcpu *vcpu, gpa_t v, int write,
+ 				return -ENOMEM;
+ 			}
+ 
+-			table[index] = __pa(new_table->spt)
+-				| PT_PRESENT_MASK | PT_WRITABLE_MASK
+-				| shadow_user_mask | shadow_x_mask;
++			set_shadow_pte(&table[index],
++				       __pa(new_table->spt)
++				       | PT_PRESENT_MASK | PT_WRITABLE_MASK
++				       | shadow_user_mask | shadow_x_mask);
+ 		}
+ 		table_addr = table[index] & PT64_BASE_ADDR_MASK;
+ 	}
+@@ -1968,6 +1969,8 @@ static int mmu_shrink(int nr_to_scan, gfp_t gfp_mask)
+ 	list_for_each_entry(kvm, &vm_list, vm_list) {
+ 		int npages;
+ 
++		if (!down_read_trylock(&kvm->slots_lock))
++			continue;
+ 		spin_lock(&kvm->mmu_lock);
+ 		npages = kvm->arch.n_alloc_mmu_pages -
+ 			 kvm->arch.n_free_mmu_pages;
+@@ -1980,6 +1983,7 @@ static int mmu_shrink(int nr_to_scan, gfp_t gfp_mask)
+ 		nr_to_scan--;
+ 
+ 		spin_unlock(&kvm->mmu_lock);
++		up_read(&kvm->slots_lock);
+ 	}
+ 	if (kvm_freed)
+ 		list_move_tail(&kvm_freed->vm_list, &vm_list);
+diff --git a/arch/x86/kvm/svm.c b/arch/x86/kvm/svm.c
+index 6b0d5fa..06992d6 100644
+--- a/arch/x86/kvm/svm.c
++++ b/arch/x86/kvm/svm.c
+@@ -270,19 +270,11 @@ static int has_svm(void)
+ 
+ static void svm_hardware_disable(void *garbage)
+ {
+-	struct svm_cpu_data *svm_data
+-		= per_cpu(svm_data, raw_smp_processor_id());
+-
+-	if (svm_data) {
+-		uint64_t efer;
++	uint64_t efer;
+ 
+-		wrmsrl(MSR_VM_HSAVE_PA, 0);
+-		rdmsrl(MSR_EFER, efer);
+-		wrmsrl(MSR_EFER, efer & ~MSR_EFER_SVME_MASK);
+-		per_cpu(svm_data, raw_smp_processor_id()) = NULL;
+-		__free_page(svm_data->save_area);
+-		kfree(svm_data);
+-	}
++	wrmsrl(MSR_VM_HSAVE_PA, 0);
++	rdmsrl(MSR_EFER, efer);
++	wrmsrl(MSR_EFER, efer & ~MSR_EFER_SVME_MASK);
+ }
+ 
+ static void svm_hardware_enable(void *garbage)
+@@ -321,6 +313,19 @@ static void svm_hardware_enable(void *garbage)
+ 	       page_to_pfn(svm_data->save_area) << PAGE_SHIFT);
+ }
+ 
++static void svm_cpu_uninit(int cpu)
++{
++	struct svm_cpu_data *svm_data
++		= per_cpu(svm_data, raw_smp_processor_id());
++
++	if (!svm_data)
++		return;
++
++	per_cpu(svm_data, raw_smp_processor_id()) = NULL;
++	__free_page(svm_data->save_area);
++	kfree(svm_data);
++}
++
+ static int svm_cpu_init(int cpu)
+ {
+ 	struct svm_cpu_data *svm_data;
+@@ -458,6 +463,11 @@ err:
+ 
+ static __exit void svm_hardware_unsetup(void)
+ {
++	int cpu;
++
++	for_each_online_cpu(cpu)
++		svm_cpu_uninit(cpu);
++
+ 	__free_pages(pfn_to_page(iopm_base >> PAGE_SHIFT), IOPM_ALLOC_ORDER);
+ 	iopm_base = 0;
+ }
+diff --git a/arch/x86/kvm/vmx.c b/arch/x86/kvm/vmx.c
+index 540e951..2ce9063 100644
+--- a/arch/x86/kvm/vmx.c
++++ b/arch/x86/kvm/vmx.c
+@@ -88,6 +88,7 @@ static inline struct vcpu_vmx *to_vmx(struct kvm_vcpu *vcpu)
+ }
+ 
+ static int init_rmode(struct kvm *kvm);
++static u64 construct_eptp(unsigned long root_hpa);
+ 
+ static DEFINE_PER_CPU(struct vmcs *, vmxarea);
+ static DEFINE_PER_CPU(struct vmcs *, current_vmcs);
+@@ -1389,6 +1390,8 @@ static void exit_lmode(struct kvm_vcpu *vcpu)
+ static void vmx_flush_tlb(struct kvm_vcpu *vcpu)
+ {
+ 	vpid_sync_vcpu_all(to_vmx(vcpu));
++	if (vm_need_ept())
++		ept_sync_context(construct_eptp(vcpu->arch.mmu.root_hpa));
+ }
+ 
+ static void vmx_decache_cr4_guest_bits(struct kvm_vcpu *vcpu)
+@@ -1420,7 +1423,7 @@ static void ept_update_paging_mode_cr0(unsigned long *hw_cr0,
+ 	if (!(cr0 & X86_CR0_PG)) {
+ 		/* From paging/starting to nonpaging */
+ 		vmcs_write32(CPU_BASED_VM_EXEC_CONTROL,
+-			     vmcs_config.cpu_based_exec_ctrl |
++			     vmcs_read32(CPU_BASED_VM_EXEC_CONTROL) |
+ 			     (CPU_BASED_CR3_LOAD_EXITING |
+ 			      CPU_BASED_CR3_STORE_EXITING));
+ 		vcpu->arch.cr0 = cr0;
+@@ -1430,7 +1433,7 @@ static void ept_update_paging_mode_cr0(unsigned long *hw_cr0,
+ 	} else if (!is_paging(vcpu)) {
+ 		/* From nonpaging to paging */
+ 		vmcs_write32(CPU_BASED_VM_EXEC_CONTROL,
+-			     vmcs_config.cpu_based_exec_ctrl &
++			     vmcs_read32(CPU_BASED_VM_EXEC_CONTROL) &
+ 			     ~(CPU_BASED_CR3_LOAD_EXITING |
+ 			       CPU_BASED_CR3_STORE_EXITING));
+ 		vcpu->arch.cr0 = cr0;
+diff --git a/arch/x86/kvm/x86.c b/arch/x86/kvm/x86.c
+index 63a77ca..5a7406e 100644
+--- a/arch/x86/kvm/x86.c
++++ b/arch/x86/kvm/x86.c
+@@ -4016,6 +4016,11 @@ int kvm_arch_set_memory_region(struct kvm *kvm,
+ 	return 0;
+ }
+ 
++void kvm_arch_flush_shadow(struct kvm *kvm)
++{
++	kvm_mmu_zap_all(kvm);
++}
++
+ int kvm_arch_vcpu_runnable(struct kvm_vcpu *vcpu)
+ {
+ 	return vcpu->arch.mp_state == KVM_MP_STATE_RUNNABLE
+diff --git a/arch/x86/kvm/x86_emulate.c b/arch/x86/kvm/x86_emulate.c
+index 932f216..d41b9bc 100644
+--- a/arch/x86/kvm/x86_emulate.c
++++ b/arch/x86/kvm/x86_emulate.c
+@@ -1666,7 +1666,7 @@ special_insn:
+ 		break;
+ 	case 0xf4:              /* hlt */
+ 		ctxt->vcpu->arch.halt_request = 1;
+-		goto done;
++		break;
+ 	case 0xf5:	/* cmc */
+ 		/* complement carry flag from eflags reg */
+ 		ctxt->eflags ^= EFLG_CF;
+diff --git a/arch/x86/mm/init_64.c b/arch/x86/mm/init_64.c
+index 819dad9..7b27710 100644
+--- a/arch/x86/mm/init_64.c
++++ b/arch/x86/mm/init_64.c
+@@ -579,7 +579,7 @@ unsigned long __init_refok init_memory_mapping(unsigned long start, unsigned lon
+ 		else
+ 			pud = alloc_low_page(&pud_phys);
+ 
+-		next = start + PGDIR_SIZE;
++		next = (start + PGDIR_SIZE) & PGDIR_MASK;
+ 		if (next > end)
+ 			next = end;
+ 		last_map_addr = phys_pud_init(pud, __pa(start), __pa(next));
+diff --git a/block/bsg.c b/block/bsg.c
+index 54d617f..0526471 100644
+--- a/block/bsg.c
++++ b/block/bsg.c
+@@ -725,8 +725,13 @@ static int bsg_put_device(struct bsg_device *bd)
+ 	mutex_lock(&bsg_mutex);
+ 
+ 	do_free = atomic_dec_and_test(&bd->ref_count);
+-	if (!do_free)
++	if (!do_free) {
++		mutex_unlock(&bsg_mutex);
+ 		goto out;
++	}
++
++	hlist_del(&bd->dev_list);
++	mutex_unlock(&bsg_mutex);
+ 
+ 	dprintk("%s: tearing down\n", bd->name);
+ 
+@@ -742,10 +747,8 @@ static int bsg_put_device(struct bsg_device *bd)
+ 	 */
+ 	ret = bsg_complete_all_commands(bd);
+ 
+-	hlist_del(&bd->dev_list);
+ 	kfree(bd);
+ out:
+-	mutex_unlock(&bsg_mutex);
+ 	kref_put(&q->bsg_dev.ref, bsg_kref_release_function);
+ 	if (do_free)
+ 		blk_put_queue(q);
+diff --git a/drivers/acpi/processor_perflib.c b/drivers/acpi/processor_perflib.c
+index d80b2d1..8c06a53 100644
+--- a/drivers/acpi/processor_perflib.c
++++ b/drivers/acpi/processor_perflib.c
+@@ -64,7 +64,13 @@ static DEFINE_MUTEX(performance_mutex);
+  * policy is adjusted accordingly.
+  */
+ 
+-static unsigned int ignore_ppc = 0;
++/* ignore_ppc:
++ * -1 -> cpufreq low level drivers not initialized -> _PSS, etc. not called yet
++ *       ignore _PPC
++ *  0 -> cpufreq low level drivers initialized -> consider _PPC values
++ *  1 -> ignore _PPC totally -> forced by user through boot param
++ */
++static unsigned int ignore_ppc = -1;
+ module_param(ignore_ppc, uint, 0644);
+ MODULE_PARM_DESC(ignore_ppc, "If the frequency of your machine gets wrongly" \
+ 		 "limited by BIOS, this should help");
+@@ -72,7 +78,7 @@ MODULE_PARM_DESC(ignore_ppc, "If the frequency of your machine gets wrongly" \
+ #define PPC_REGISTERED   1
+ #define PPC_IN_USE       2
+ 
+-static int acpi_processor_ppc_status = 0;
++static int acpi_processor_ppc_status;
+ 
+ static int acpi_processor_ppc_notifier(struct notifier_block *nb,
+ 				       unsigned long event, void *data)
+@@ -81,6 +87,11 @@ static int acpi_processor_ppc_notifier(struct notifier_block *nb,
+ 	struct acpi_processor *pr;
+ 	unsigned int ppc = 0;
+ 
++	if (event == CPUFREQ_START && ignore_ppc <= 0) {
++		ignore_ppc = 0;
++		return 0;
++	}
++
+ 	if (ignore_ppc)
+ 		return 0;
+ 
+diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
+index 1d41496..0471ef5 100644
+--- a/drivers/cpufreq/cpufreq.c
++++ b/drivers/cpufreq/cpufreq.c
+@@ -825,6 +825,9 @@ static int cpufreq_add_dev(struct sys_device *sys_dev)
+ 	policy->user_policy.min = policy->cpuinfo.min_freq;
+ 	policy->user_policy.max = policy->cpuinfo.max_freq;
+ 
++	blocking_notifier_call_chain(&cpufreq_policy_notifier_list,
++				     CPUFREQ_START, policy);
++
+ #ifdef CONFIG_SMP
+ 
+ #ifdef CONFIG_HOTPLUG_CPU
+diff --git a/drivers/dma/iop-adma.c b/drivers/dma/iop-adma.c
+index 0ec0f43..4e6b052 100644
+--- a/drivers/dma/iop-adma.c
++++ b/drivers/dma/iop-adma.c
+@@ -1387,6 +1387,8 @@ static void iop_chan_start_null_xor(struct iop_adma_chan *iop_chan)
+ 	spin_unlock_bh(&iop_chan->lock);
+ }
+ 
++MODULE_ALIAS("platform:iop-adma");
++
+ static struct platform_driver iop_adma_driver = {
+ 	.probe		= iop_adma_probe,
+ 	.remove		= iop_adma_remove,
+diff --git a/drivers/ide/ide-cd.c b/drivers/ide/ide-cd.c
+index 68e7f19..0cc854e 100644
+--- a/drivers/ide/ide-cd.c
++++ b/drivers/ide/ide-cd.c
+@@ -1308,13 +1308,30 @@ static int cdrom_read_capacity(ide_drive_t *drive, unsigned long *capacity,
+ 	req.cmd_flags |= REQ_QUIET;
+ 
+ 	stat = ide_cd_queue_pc(drive, &req);
+-	if (stat == 0) {
+-		*capacity = 1 + be32_to_cpu(capbuf.lba);
+-		*sectors_per_frame =
+-			be32_to_cpu(capbuf.blocklen) >> SECTOR_BITS;
++	if (stat)
++		return stat;
++
++	/*
++	 * Sanity check the given block size
++	 */
++	switch (capbuf.blocklen) {
++	case __constant_cpu_to_be32(512):
++	case __constant_cpu_to_be32(1024):
++	case __constant_cpu_to_be32(2048):
++	case __constant_cpu_to_be32(4096):
++		break;
++	default:
++		printk(KERN_ERR "%s: weird block size %u\n",
++			drive->name, capbuf.blocklen);
++		printk(KERN_ERR "%s: default to 2kb block size\n",
++			drive->name);
++		capbuf.blocklen = __constant_cpu_to_be32(2048);
++		break;
+ 	}
+ 
+-	return stat;
++	*capacity = 1 + be32_to_cpu(capbuf.lba);
++	*sectors_per_frame = be32_to_cpu(capbuf.blocklen) >> SECTOR_BITS;
++	return 0;
+ }
+ 
+ static int cdrom_read_tocentry(ide_drive_t *drive, int trackno, int msf_flag,
+diff --git a/drivers/input/serio/i8042-x86ia64io.h b/drivers/input/serio/i8042-x86ia64io.h
+index 78eb784..7828ef2 100644
+--- a/drivers/input/serio/i8042-x86ia64io.h
++++ b/drivers/input/serio/i8042-x86ia64io.h
+@@ -63,7 +63,7 @@ static inline void i8042_write_command(int val)
+ 	outb(val, I8042_COMMAND_REG);
+ }
+ 
+-#if defined(__i386__) || defined(__x86_64__)
++#ifdef CONFIG_X86
+ 
+ #include <linux/dmi.h>
+ 
+@@ -291,17 +291,36 @@ static struct dmi_system_id __initdata i8042_dmi_nomux_table[] = {
+ 			DMI_MATCH(DMI_PRODUCT_VERSION, "3000 N100"),
+ 		},
+ 	},
++	{
++		.ident = "Acer Aspire 1360",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Acer"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "Aspire 1360"),
++		},
++	},
+ 	{ }
+ };
+ 
+-
+-
++#ifdef CONFIG_PNP
++static struct dmi_system_id __initdata i8042_dmi_nopnp_table[] = {
++	{
++		.ident = "Intel MBO Desktop D845PESV",
++		.matches = {
++			DMI_MATCH(DMI_BOARD_NAME, "D845PESV"),
++			DMI_MATCH(DMI_BOARD_VENDOR, "Intel Corporation"),
++		},
++	},
++	{
++		.ident = "Gericom Bellagio",
++		.matches = {
++			DMI_MATCH(DMI_SYS_VENDOR, "Gericom"),
++			DMI_MATCH(DMI_PRODUCT_NAME, "N34AS6"),
++		},
++	},
++	{ }
++};
+ #endif
+ 
+-#ifdef CONFIG_X86
+-
+-#include <linux/dmi.h>
+-
+ /*
+  * Some Wistron based laptops need us to explicitly enable the 'Dritek
+  * keyboard extension' to make their extra keys start generating scancodes.
+@@ -356,7 +375,6 @@ static struct dmi_system_id __initdata i8042_dmi_dritek_table[] = {
+ 
+ #endif /* CONFIG_X86 */
+ 
+-
+ #ifdef CONFIG_PNP
+ #include <linux/pnp.h>
+ 
+@@ -466,6 +484,11 @@ static int __init i8042_pnp_init(void)
+ 	int pnp_data_busted = 0;
+ 	int err;
+ 
++#ifdef CONFIG_X86
++	if (dmi_check_system(i8042_dmi_nopnp_table))
++		i8042_nopnp = 1;
++#endif
++
+ 	if (i8042_nopnp) {
+ 		printk(KERN_INFO "i8042: PNP detection disabled\n");
+ 		return 0;
+@@ -591,15 +614,13 @@ static int __init i8042_platform_init(void)
+         i8042_reset = 1;
+ #endif
+ 
+-#if defined(__i386__) || defined(__x86_64__)
++#ifdef CONFIG_X86
+ 	if (dmi_check_system(i8042_dmi_noloop_table))
+ 		i8042_noloop = 1;
+ 
+ 	if (dmi_check_system(i8042_dmi_nomux_table))
+ 		i8042_nomux = 1;
+-#endif
+ 
+-#ifdef CONFIG_X86
+ 	if (dmi_check_system(i8042_dmi_dritek_table))
+ 		i8042_dritek = 1;
+ #endif /* CONFIG_X86 */
+diff --git a/drivers/md/linear.c b/drivers/md/linear.c
+index 1074824..ec921f5 100644
+--- a/drivers/md/linear.c
++++ b/drivers/md/linear.c
+@@ -126,7 +126,7 @@ static linear_conf_t *linear_conf(mddev_t *mddev, int raid_disks)
+ 		int j = rdev->raid_disk;
+ 		dev_info_t *disk = conf->disks + j;
+ 
+-		if (j < 0 || j > raid_disks || disk->rdev) {
++		if (j < 0 || j >= raid_disks || disk->rdev) {
+ 			printk("linear: disk numbering problem. Aborting!\n");
+ 			goto out;
+ 		}
+diff --git a/drivers/md/md.c b/drivers/md/md.c
+index 2580ac1..9664511 100644
+--- a/drivers/md/md.c
++++ b/drivers/md/md.c
+@@ -3326,9 +3326,9 @@ static struct kobject *md_probe(dev_t dev, int *part, void *data)
+ 	disk->queue = mddev->queue;
+ 	add_disk(disk);
+ 	mddev->gendisk = disk;
+-	mutex_unlock(&disks_mutex);
+ 	error = kobject_init_and_add(&mddev->kobj, &md_ktype, &disk->dev.kobj,
+ 				     "%s", "md");
++	mutex_unlock(&disks_mutex);
+ 	if (error)
+ 		printk(KERN_WARNING "md: cannot register %s/md - name in use\n",
+ 		       disk->disk_name);
+diff --git a/drivers/media/dvb/dvb-usb/dib0700_devices.c b/drivers/media/dvb/dvb-usb/dib0700_devices.c
+index c4d40fe..3dd20bf 100644
+--- a/drivers/media/dvb/dvb-usb/dib0700_devices.c
++++ b/drivers/media/dvb/dvb-usb/dib0700_devices.c
+@@ -1117,6 +1117,7 @@ struct usb_device_id dib0700_usb_id_table[] = {
+ 	{ USB_DEVICE(USB_VID_TERRATEC,	USB_PID_TERRATEC_CINERGY_HT_EXPRESS) },
+ 	{ USB_DEVICE(USB_VID_TERRATEC,	USB_PID_TERRATEC_CINERGY_T_XXS) },
+ 	{ USB_DEVICE(USB_VID_LEADTEK,   USB_PID_WINFAST_DTV_DONGLE_STK7700P_2) },
++	{ USB_DEVICE(USB_VID_HAUPPAUGE, USB_PID_HAUPPAUGE_NOVA_TD_STICK_52009) },
+ 	{ 0 }		/* Terminating entry */
+ };
+ MODULE_DEVICE_TABLE(usb, dib0700_usb_id_table);
+@@ -1372,7 +1373,7 @@ struct dvb_usb_device_properties dib0700_devices[] = {
+ 			}
+ 		},
+ 
+-		.num_device_descs = 2,
++		.num_device_descs = 3,
+ 		.devices = {
+ 			{   "DiBcom STK7070PD reference design",
+ 				{ &dib0700_usb_id_table[17], NULL },
+@@ -1381,6 +1382,10 @@ struct dvb_usb_device_properties dib0700_devices[] = {
+ 			{   "Pinnacle PCTV Dual DVB-T Diversity Stick",
+ 				{ &dib0700_usb_id_table[18], NULL },
+ 				{ NULL },
++			},
++			{   "Hauppauge Nova-TD Stick (52009)",
++				{ &dib0700_usb_id_table[35], NULL },
++				{ NULL },
+ 			}
+ 		}
+ 	}, { DIB0700_DEFAULT_DEVICE_PROPERTIES,
+diff --git a/drivers/media/dvb/dvb-usb/dvb-usb-ids.h b/drivers/media/dvb/dvb-usb/dvb-usb-ids.h
+index 34245d1..31ded10 100644
+--- a/drivers/media/dvb/dvb-usb/dvb-usb-ids.h
++++ b/drivers/media/dvb/dvb-usb/dvb-usb-ids.h
+@@ -132,6 +132,7 @@
+ #define USB_PID_HAUPPAUGE_NOVA_T_STICK_3		0x7070
+ #define USB_PID_HAUPPAUGE_MYTV_T			0x7080
+ #define USB_PID_HAUPPAUGE_NOVA_TD_STICK			0x9580
++#define USB_PID_HAUPPAUGE_NOVA_TD_STICK_52009		0x5200
+ #define USB_PID_AVERMEDIA_EXPRESS			0xb568
+ #define USB_PID_AVERMEDIA_VOLAR				0xa807
+ #define USB_PID_AVERMEDIA_VOLAR_2			0xb808
+diff --git a/drivers/media/video/Kconfig b/drivers/media/video/Kconfig
+index 5ccb0ae..e00717d 100644
+--- a/drivers/media/video/Kconfig
++++ b/drivers/media/video/Kconfig
+@@ -793,13 +793,7 @@ menuconfig V4L_USB_DRIVERS
+ 
+ if V4L_USB_DRIVERS && USB
+ 
+-config USB_VIDEO_CLASS
+-	tristate "USB Video Class (UVC)"
+-	---help---
+-	  Support for the USB Video Class (UVC).  Currently only video
+-	  input devices, such as webcams, are supported.
+-
+-	  For more information see: <http://linux-uvc.berlios.de/>
++source "drivers/media/video/uvc/Kconfig"
+ 
+ source "drivers/media/video/pvrusb2/Kconfig"
+ 
+diff --git a/drivers/media/video/cx18/cx18-firmware.c b/drivers/media/video/cx18/cx18-firmware.c
+index 2694ce3..9dda2ca 100644
+--- a/drivers/media/video/cx18/cx18-firmware.c
++++ b/drivers/media/video/cx18/cx18-firmware.c
+@@ -90,7 +90,7 @@
+ #define CX18_DSP0_INTERRUPT_MASK     	0xd0004C
+ 
+ /* Encoder/decoder firmware sizes */
+-#define CX18_FW_CPU_SIZE 		(174716)
++#define CX18_FW_CPU_SIZE 		(158332)
+ #define CX18_FW_APU_SIZE 		(141200)
+ 
+ #define APU_ROM_SYNC1 0x6D676553 /* "mgeS" */
+diff --git a/drivers/media/video/cx23885/cx23885-core.c b/drivers/media/video/cx23885/cx23885-core.c
+index c4cc2f3..ad143f1 100644
+--- a/drivers/media/video/cx23885/cx23885-core.c
++++ b/drivers/media/video/cx23885/cx23885-core.c
+@@ -76,6 +76,117 @@ LIST_HEAD(cx23885_devlist);
+  * 0x00010ea0 0x00010xxx Free
+  */
+ 
++static struct sram_channel cx23885_sram_channels[] = {
++	[SRAM_CH01] = {
++		.name		= "VID A",
++		.cmds_start	= 0x10000,
++		.ctrl_start	= 0x10380,
++		.cdt		= 0x104c0,
++		.fifo_start	= 0x40,
++		.fifo_size	= 0x2800,
++		.ptr1_reg	= DMA1_PTR1,
++		.ptr2_reg	= DMA1_PTR2,
++		.cnt1_reg	= DMA1_CNT1,
++		.cnt2_reg	= DMA1_CNT2,
++	},
++	[SRAM_CH02] = {
++		.name		= "ch2",
++		.cmds_start	= 0x0,
++		.ctrl_start	= 0x0,
++		.cdt		= 0x0,
++		.fifo_start	= 0x0,
++		.fifo_size	= 0x0,
++		.ptr1_reg	= DMA2_PTR1,
++		.ptr2_reg	= DMA2_PTR2,
++		.cnt1_reg	= DMA2_CNT1,
++		.cnt2_reg	= DMA2_CNT2,
++	},
++	[SRAM_CH03] = {
++		.name		= "TS1 B",
++		.cmds_start	= 0x100A0,
++		.ctrl_start	= 0x10400,
++		.cdt		= 0x10580,
++		.fifo_start	= 0x5000,
++		.fifo_size	= 0x1000,
++		.ptr1_reg	= DMA3_PTR1,
++		.ptr2_reg	= DMA3_PTR2,
++		.cnt1_reg	= DMA3_CNT1,
++		.cnt2_reg	= DMA3_CNT2,
++	},
++	[SRAM_CH04] = {
++		.name		= "ch4",
++		.cmds_start	= 0x0,
++		.ctrl_start	= 0x0,
++		.cdt		= 0x0,
++		.fifo_start	= 0x0,
++		.fifo_size	= 0x0,
++		.ptr1_reg	= DMA4_PTR1,
++		.ptr2_reg	= DMA4_PTR2,
++		.cnt1_reg	= DMA4_CNT1,
++		.cnt2_reg	= DMA4_CNT2,
++	},
++	[SRAM_CH05] = {
++		.name		= "ch5",
++		.cmds_start	= 0x0,
++		.ctrl_start	= 0x0,
++		.cdt		= 0x0,
++		.fifo_start	= 0x0,
++		.fifo_size	= 0x0,
++		.ptr1_reg	= DMA5_PTR1,
++		.ptr2_reg	= DMA5_PTR2,
++		.cnt1_reg	= DMA5_CNT1,
++		.cnt2_reg	= DMA5_CNT2,
++	},
++	[SRAM_CH06] = {
++		.name		= "TS2 C",
++		.cmds_start	= 0x10140,
++		.ctrl_start	= 0x10440,
++		.cdt		= 0x105e0,
++		.fifo_start	= 0x6000,
++		.fifo_size	= 0x1000,
++		.ptr1_reg	= DMA5_PTR1,
++		.ptr2_reg	= DMA5_PTR2,
++		.cnt1_reg	= DMA5_CNT1,
++		.cnt2_reg	= DMA5_CNT2,
++	},
++	[SRAM_CH07] = {
++		.name		= "ch7",
++		.cmds_start	= 0x0,
++		.ctrl_start	= 0x0,
++		.cdt		= 0x0,
++		.fifo_start	= 0x0,
++		.fifo_size	= 0x0,
++		.ptr1_reg	= DMA6_PTR1,
++		.ptr2_reg	= DMA6_PTR2,
++		.cnt1_reg	= DMA6_CNT1,
++		.cnt2_reg	= DMA6_CNT2,
++	},
++	[SRAM_CH08] = {
++		.name		= "ch8",
++		.cmds_start	= 0x0,
++		.ctrl_start	= 0x0,
++		.cdt		= 0x0,
++		.fifo_start	= 0x0,
++		.fifo_size	= 0x0,
++		.ptr1_reg	= DMA7_PTR1,
++		.ptr2_reg	= DMA7_PTR2,
++		.cnt1_reg	= DMA7_CNT1,
++		.cnt2_reg	= DMA7_CNT2,
++	},
++	[SRAM_CH09] = {
++		.name		= "ch9",
++		.cmds_start	= 0x0,
++		.ctrl_start	= 0x0,
++		.cdt		= 0x0,
++		.fifo_start	= 0x0,
++		.fifo_size	= 0x0,
++		.ptr1_reg	= DMA8_PTR1,
++		.ptr2_reg	= DMA8_PTR2,
++		.cnt1_reg	= DMA8_CNT1,
++		.cnt2_reg	= DMA8_CNT2,
++	},
++};
++
+ static struct sram_channel cx23887_sram_channels[] = {
+ 	[SRAM_CH01] = {
+ 		.name		= "VID A",
+@@ -104,8 +215,8 @@ static struct sram_channel cx23887_sram_channels[] = {
+ 	[SRAM_CH03] = {
+ 		.name		= "TS1 B",
+ 		.cmds_start	= 0x100A0,
+-		.ctrl_start	= 0x10780,
+-		.cdt		= 0x10400,
++		.ctrl_start	= 0x10630,
++		.cdt		= 0x10870,
+ 		.fifo_start	= 0x5000,
+ 		.fifo_size	= 0x1000,
+ 		.ptr1_reg	= DMA3_PTR1,
+@@ -140,7 +251,7 @@ static struct sram_channel cx23887_sram_channels[] = {
+ 	[SRAM_CH06] = {
+ 		.name		= "TS2 C",
+ 		.cmds_start	= 0x10140,
+-		.ctrl_start	= 0x10680,
++		.ctrl_start	= 0x10670,
+ 		.cdt		= 0x108d0,
+ 		.fifo_start	= 0x6000,
+ 		.fifo_size	= 0x1000,
+@@ -460,6 +571,7 @@ static void cx23885_reset(struct cx23885_dev *dev)
+ 	cx_write(AUDIO_INT_INT_STAT, 0xffffffff);
+ 	cx_write(AUDIO_EXT_INT_STAT, 0xffffffff);
+ 	cx_write(CLK_DELAY, cx_read(CLK_DELAY) & 0x80000000);
++	cx_write(PAD_CTRL, 0x00500300);
+ 
+ 	mdelay(100);
+ 
+@@ -625,7 +737,6 @@ static int cx23885_dev_setup(struct cx23885_dev *dev)
+ 	atomic_inc(&dev->refcount);
+ 
+ 	dev->nr = cx23885_devcount++;
+-	dev->sram_channels = cx23887_sram_channels;
+ 	sprintf(dev->name, "cx23885[%d]", dev->nr);
+ 
+ 	mutex_lock(&devlist);
+@@ -637,11 +748,13 @@ static int cx23885_dev_setup(struct cx23885_dev *dev)
+ 		dev->bridge = CX23885_BRIDGE_887;
+ 		/* Apply a sensible clock frequency for the PCIe bridge */
+ 		dev->clk_freq = 25000000;
++		dev->sram_channels = cx23887_sram_channels;
+ 	} else
+ 	if(dev->pci->device == 0x8852) {
+ 		dev->bridge = CX23885_BRIDGE_885;
+ 		/* Apply a sensible clock frequency for the PCIe bridge */
+ 		dev->clk_freq = 28000000;
++		dev->sram_channels = cx23885_sram_channels;
+ 	} else
+ 		BUG();
+ 
+@@ -1042,6 +1155,9 @@ static int cx23885_start_dma(struct cx23885_tsport *port,
+ 	dprintk(1, "%s() w: %d, h: %d, f: %d\n", __func__,
+ 		buf->vb.width, buf->vb.height, buf->vb.field);
+ 
++	/* Stop the fifo and risc engine for this port */
++	cx_clear(port->reg_dma_ctl, port->dma_ctl_val);
++
+ 	/* setup fifo + format */
+ 	cx23885_sram_channel_setup(dev,
+ 				   &dev->sram_channels[ port->sram_chno ],
+@@ -1083,7 +1199,21 @@ static int cx23885_start_dma(struct cx23885_tsport *port,
+ 	cx_write(port->reg_gpcnt_ctl, 3);
+ 	q->count = 1;
+ 
+-	if (cx23885_boards[dev->board].portb & CX23885_MPEG_ENCODER) {
++	/* Set VIDB pins to input */
++	if (cx23885_boards[dev->board].portb == CX23885_MPEG_DVB) {
++		reg = cx_read(PAD_CTRL);
++		reg &= ~0x3; /* Clear TS1_OE & TS1_SOP_OE */
++		cx_write(PAD_CTRL, reg);
++	}
++
++	/* Set VIDC pins to input */
++	if (cx23885_boards[dev->board].portc == CX23885_MPEG_DVB) {
++		reg = cx_read(PAD_CTRL);
++		reg &= ~0x4; /* Clear TS2_SOP_OE */
++		cx_write(PAD_CTRL, reg);
++	}
++
++	if (cx23885_boards[dev->board].portb == CX23885_MPEG_ENCODER) {
+ 
+ 		reg = cx_read(PAD_CTRL);
+ 		reg = reg & ~0x1;    /* Clear TS1_OE */
+@@ -1133,7 +1263,7 @@ static int cx23885_stop_dma(struct cx23885_tsport *port)
+ 	cx_clear(port->reg_ts_int_msk, port->ts_int_msk_val);
+ 	cx_clear(port->reg_dma_ctl, port->dma_ctl_val);
+ 
+-	if (cx23885_boards[dev->board].portb & CX23885_MPEG_ENCODER) {
++	if (cx23885_boards[dev->board].portb == CX23885_MPEG_ENCODER) {
+ 
+ 		reg = cx_read(PAD_CTRL);
+ 
+diff --git a/drivers/media/video/saa7134/saa7134-cards.c b/drivers/media/video/saa7134/saa7134-cards.c
+index 2618cfa..0227cf9 100644
+--- a/drivers/media/video/saa7134/saa7134-cards.c
++++ b/drivers/media/video/saa7134/saa7134-cards.c
+@@ -5703,9 +5703,6 @@ int saa7134_board_init2(struct saa7134_dev *dev)
+ 	unsigned char buf;
+ 	int board;
+ 
+-	dev->tuner_type = saa7134_boards[dev->board].tuner_type;
+-	dev->tuner_addr = saa7134_boards[dev->board].tuner_addr;
+-
+ 	switch (dev->board) {
+ 	case SAA7134_BOARD_BMK_MPEX_NOTUNER:
+ 	case SAA7134_BOARD_BMK_MPEX_TUNER:
+diff --git a/drivers/media/video/saa7134/saa7134-core.c b/drivers/media/video/saa7134/saa7134-core.c
+index 2c19cd0..69f340d 100644
+--- a/drivers/media/video/saa7134/saa7134-core.c
++++ b/drivers/media/video/saa7134/saa7134-core.c
+@@ -946,11 +946,12 @@ static int __devinit saa7134_initdev(struct pci_dev *pci_dev,
+ 		dev->board = SAA7134_BOARD_UNKNOWN;
+ 	}
+ 	dev->autodetected = card[dev->nr] != dev->board;
+-	dev->tuner_type   = saa7134_boards[dev->board].tuner_type;
++	dev->tuner_type = saa7134_boards[dev->board].tuner_type;
++	dev->tuner_addr = saa7134_boards[dev->board].tuner_addr;
+ 	dev->tda9887_conf = saa7134_boards[dev->board].tda9887_conf;
+ 	if (UNSET != tuner[dev->nr])
+ 		dev->tuner_type = tuner[dev->nr];
+-		printk(KERN_INFO "%s: subsystem: %04x:%04x, board: %s [card=%d,%s]\n",
++	printk(KERN_INFO "%s: subsystem: %04x:%04x, board: %s [card=%d,%s]\n",
+ 		dev->name,pci_dev->subsystem_vendor,
+ 		pci_dev->subsystem_device,saa7134_boards[dev->board].name,
+ 		dev->board, dev->autodetected ?
+diff --git a/drivers/media/video/uvc/Kconfig b/drivers/media/video/uvc/Kconfig
+new file mode 100644
+index 0000000..c2d9760
+--- /dev/null
++++ b/drivers/media/video/uvc/Kconfig
+@@ -0,0 +1,17 @@
++config USB_VIDEO_CLASS
++	tristate "USB Video Class (UVC)"
++	---help---
++	  Support for the USB Video Class (UVC).  Currently only video
++	  input devices, such as webcams, are supported.
++
++	  For more information see: <http://linux-uvc.berlios.de/>
++
++config USB_VIDEO_CLASS_INPUT_EVDEV
++	bool "UVC input events device support"
++	default y
++	depends on USB_VIDEO_CLASS && INPUT
++	---help---
++	  This option makes USB Video Class devices register an input device
++	  to report button events.
++
++	  If you are in doubt, say Y.
+diff --git a/drivers/media/video/uvc/uvc_driver.c b/drivers/media/video/uvc/uvc_driver.c
+index 60ced58..9d954d2 100644
+--- a/drivers/media/video/uvc/uvc_driver.c
++++ b/drivers/media/video/uvc/uvc_driver.c
+@@ -298,7 +298,8 @@ static int uvc_parse_format(struct uvc_device *dev,
+ 	switch (buffer[2]) {
+ 	case VS_FORMAT_UNCOMPRESSED:
+ 	case VS_FORMAT_FRAME_BASED:
+-		if (buflen < 27) {
++		n = buffer[2] == VS_FORMAT_UNCOMPRESSED ? 27 : 28;
++		if (buflen < n) {
+ 			uvc_trace(UVC_TRACE_DESCR, "device %d videostreaming"
+ 			       "interface %d FORMAT error\n",
+ 			       dev->udev->devnum,
+@@ -1891,6 +1892,15 @@ static struct usb_device_id uvc_ids[] = {
+ 	  .bInterfaceSubClass	= 1,
+ 	  .bInterfaceProtocol	= 0,
+ 	  .driver_info		= UVC_QUIRK_PROBE_MINMAX },
++	/* Medion Akoya Mini E1210 */
++	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
++				| USB_DEVICE_ID_MATCH_INT_INFO,
++	  .idVendor		= 0x5986,
++	  .idProduct		= 0x0141,
++	  .bInterfaceClass	= USB_CLASS_VIDEO,
++	  .bInterfaceSubClass	= 1,
++	  .bInterfaceProtocol	= 0,
++	  .driver_info		= UVC_QUIRK_PROBE_MINMAX },
+ 	/* Acer OrbiCam - Unknown vendor */
+ 	{ .match_flags		= USB_DEVICE_ID_MATCH_DEVICE
+ 				| USB_DEVICE_ID_MATCH_INT_INFO,
+diff --git a/drivers/media/video/uvc/uvc_status.c b/drivers/media/video/uvc/uvc_status.c
+index be9084e..eb2f970 100644
+--- a/drivers/media/video/uvc/uvc_status.c
++++ b/drivers/media/video/uvc/uvc_status.c
+@@ -22,6 +22,7 @@
+ /* --------------------------------------------------------------------------
+  * Input device
+  */
++#ifdef CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV
+ static int uvc_input_init(struct uvc_device *dev)
+ {
+ 	struct usb_device *udev = dev->udev;
+@@ -67,6 +68,19 @@ static void uvc_input_cleanup(struct uvc_device *dev)
+ 		input_unregister_device(dev->input);
+ }
+ 
++static void uvc_input_report_key(struct uvc_device *dev, unsigned int code,
++	int value)
++{
++	if (dev->input)
++		input_report_key(dev->input, code, value);
++}
++
++#else
++#define uvc_input_init(dev)
++#define uvc_input_cleanup(dev)
++#define uvc_input_report_key(dev, code, value)
++#endif /* CONFIG_USB_VIDEO_CLASS_INPUT_EVDEV */
++
+ /* --------------------------------------------------------------------------
+  * Status interrupt endpoint
+  */
+@@ -83,8 +97,7 @@ static void uvc_event_streaming(struct uvc_device *dev, __u8 *data, int len)
+ 			return;
+ 		uvc_trace(UVC_TRACE_STATUS, "Button (intf %u) %s len %d\n",
+ 			data[1], data[3] ? "pressed" : "released", len);
+-		if (dev->input)
+-			input_report_key(dev->input, BTN_0, data[3]);
++		uvc_input_report_key(dev, BTN_0, data[3]);
+ 	} else {
+ 		uvc_trace(UVC_TRACE_STATUS, "Stream %u error event %02x %02x "
+ 			"len %d.\n", data[1], data[2], data[3], len);
+@@ -203,5 +216,5 @@ int uvc_status_resume(struct uvc_device *dev)
+ 	if (dev->int_urb == NULL)
+ 		return 0;
+ 
+-	return usb_submit_urb(dev->int_urb, GFP_KERNEL);
++	return usb_submit_urb(dev->int_urb, GFP_NOIO);
+ }
+diff --git a/drivers/media/video/uvc/uvc_video.c b/drivers/media/video/uvc/uvc_video.c
+index 6faf1fb..817af2e 100644
+--- a/drivers/media/video/uvc/uvc_video.c
++++ b/drivers/media/video/uvc/uvc_video.c
+@@ -554,9 +554,56 @@ static void uvc_video_complete(struct urb *urb)
+ }
+ 
+ /*
++ * Free transfer buffers.
++ */
++static void uvc_free_urb_buffers(struct uvc_video_device *video)
++{
++	unsigned int i;
++
++	for (i = 0; i < UVC_URBS; ++i) {
++		if (video->urb_buffer[i]) {
++			usb_buffer_free(video->dev->udev, video->urb_size,
++				video->urb_buffer[i], video->urb_dma[i]);
++			video->urb_buffer[i] = NULL;
++		}
++	}
++
++	video->urb_size = 0;
++}
++
++/*
++ * Allocate transfer buffers. This function can be called with buffers
++ * already allocated when resuming from suspend, in which case it will
++ * return without touching the buffers.
++ *
++ * Return 0 on success or -ENOMEM when out of memory.
++ */
++static int uvc_alloc_urb_buffers(struct uvc_video_device *video,
++	unsigned int size)
++{
++	unsigned int i;
++
++	/* Buffers are already allocated, bail out. */
++	if (video->urb_size)
++		return 0;
++
++	for (i = 0; i < UVC_URBS; ++i) {
++		video->urb_buffer[i] = usb_buffer_alloc(video->dev->udev,
++			size, GFP_KERNEL, &video->urb_dma[i]);
++		if (video->urb_buffer[i] == NULL) {
++			uvc_free_urb_buffers(video);
++			return -ENOMEM;
++		}
++	}
++
++	video->urb_size = size;
++	return 0;
++}
++
++/*
+  * Uninitialize isochronous/bulk URBs and free transfer buffers.
+  */
+-static void uvc_uninit_video(struct uvc_video_device *video)
++static void uvc_uninit_video(struct uvc_video_device *video, int free_buffers)
+ {
+ 	struct urb *urb;
+ 	unsigned int i;
+@@ -566,19 +613,12 @@ static void uvc_uninit_video(struct uvc_video_device *video)
+ 			continue;
+ 
+ 		usb_kill_urb(urb);
+-		/* urb->transfer_buffer_length is not touched by USB core, so
+-		 * we can use it here as the buffer length.
+-		 */
+-		if (video->urb_buffer[i]) {
+-			usb_buffer_free(video->dev->udev,
+-				urb->transfer_buffer_length,
+-				video->urb_buffer[i], urb->transfer_dma);
+-			video->urb_buffer[i] = NULL;
+-		}
+-
+ 		usb_free_urb(urb);
+ 		video->urb[i] = NULL;
+ 	}
++
++	if (free_buffers)
++		uvc_free_urb_buffers(video);
+ }
+ 
+ /*
+@@ -586,7 +626,7 @@ static void uvc_uninit_video(struct uvc_video_device *video)
+  * is given by the endpoint.
+  */
+ static int uvc_init_video_isoc(struct uvc_video_device *video,
+-	struct usb_host_endpoint *ep)
++	struct usb_host_endpoint *ep, gfp_t gfp_flags)
+ {
+ 	struct urb *urb;
+ 	unsigned int npackets, i, j;
+@@ -610,18 +650,13 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
+ 
+ 	size = npackets * psize;
+ 
++	if (uvc_alloc_urb_buffers(video, size) < 0)
++		return -ENOMEM;
++
+ 	for (i = 0; i < UVC_URBS; ++i) {
+-		urb = usb_alloc_urb(npackets, GFP_KERNEL);
++		urb = usb_alloc_urb(npackets, gfp_flags);
+ 		if (urb == NULL) {
+-			uvc_uninit_video(video);
+-			return -ENOMEM;
+-		}
+-
+-		video->urb_buffer[i] = usb_buffer_alloc(video->dev->udev,
+-			size, GFP_KERNEL, &urb->transfer_dma);
+-		if (video->urb_buffer[i] == NULL) {
+-			usb_free_urb(urb);
+-			uvc_uninit_video(video);
++			uvc_uninit_video(video, 1);
+ 			return -ENOMEM;
+ 		}
+ 
+@@ -632,6 +667,7 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
+ 		urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;
+ 		urb->interval = ep->desc.bInterval;
+ 		urb->transfer_buffer = video->urb_buffer[i];
++		urb->transfer_dma = video->urb_dma[i];
+ 		urb->complete = uvc_video_complete;
+ 		urb->number_of_packets = npackets;
+ 		urb->transfer_buffer_length = size;
+@@ -652,7 +688,7 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
+  * given by the endpoint.
+  */
+ static int uvc_init_video_bulk(struct uvc_video_device *video,
+-	struct usb_host_endpoint *ep)
++	struct usb_host_endpoint *ep, gfp_t gfp_flags)
+ {
+ 	struct urb *urb;
+ 	unsigned int pipe, i;
+@@ -671,20 +707,15 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
+ 	if (size > psize * UVC_MAX_ISO_PACKETS)
+ 		size = psize * UVC_MAX_ISO_PACKETS;
+ 
++	if (uvc_alloc_urb_buffers(video, size) < 0)
++		return -ENOMEM;
++
+ 	pipe = usb_rcvbulkpipe(video->dev->udev, ep->desc.bEndpointAddress);
+ 
+ 	for (i = 0; i < UVC_URBS; ++i) {
+-		urb = usb_alloc_urb(0, GFP_KERNEL);
++		urb = usb_alloc_urb(0, gfp_flags);
+ 		if (urb == NULL) {
+-			uvc_uninit_video(video);
+-			return -ENOMEM;
+-		}
+-
+-		video->urb_buffer[i] = usb_buffer_alloc(video->dev->udev,
+-			size, GFP_KERNEL, &urb->transfer_dma);
+-		if (video->urb_buffer[i] == NULL) {
+-			usb_free_urb(urb);
+-			uvc_uninit_video(video);
++			uvc_uninit_video(video, 1);
+ 			return -ENOMEM;
+ 		}
+ 
+@@ -692,6 +723,7 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
+ 			video->urb_buffer[i], size, uvc_video_complete,
+ 			video);
+ 		urb->transfer_flags = URB_NO_TRANSFER_DMA_MAP;
++		urb->transfer_dma = video->urb_dma[i];
+ 
+ 		video->urb[i] = urb;
+ 	}
+@@ -702,7 +734,7 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
+ /*
+  * Initialize isochronous/bulk URBs and allocate transfer buffers.
+  */
+-static int uvc_init_video(struct uvc_video_device *video)
++static int uvc_init_video(struct uvc_video_device *video, gfp_t gfp_flags)
+ {
+ 	struct usb_interface *intf = video->streaming->intf;
+ 	struct usb_host_interface *alts;
+@@ -747,7 +779,7 @@ static int uvc_init_video(struct uvc_video_device *video)
+ 		if ((ret = usb_set_interface(video->dev->udev, intfnum, i)) < 0)
+ 			return ret;
+ 
+-		ret = uvc_init_video_isoc(video, ep);
++		ret = uvc_init_video_isoc(video, ep, gfp_flags);
+ 	} else {
+ 		/* Bulk endpoint, proceed to URB initialization. */
+ 		ep = uvc_find_endpoint(&intf->altsetting[0],
+@@ -755,7 +787,7 @@ static int uvc_init_video(struct uvc_video_device *video)
+ 		if (ep == NULL)
+ 			return -EIO;
+ 
+-		ret = uvc_init_video_bulk(video, ep);
++		ret = uvc_init_video_bulk(video, ep, gfp_flags);
+ 	}
+ 
+ 	if (ret < 0)
+@@ -763,10 +795,10 @@ static int uvc_init_video(struct uvc_video_device *video)
+ 
+ 	/* Submit the URBs. */
+ 	for (i = 0; i < UVC_URBS; ++i) {
+-		if ((ret = usb_submit_urb(video->urb[i], GFP_KERNEL)) < 0) {
++		if ((ret = usb_submit_urb(video->urb[i], gfp_flags)) < 0) {
+ 			uvc_printk(KERN_ERR, "Failed to submit URB %u "
+ 					"(%d).\n", i, ret);
+-			uvc_uninit_video(video);
++			uvc_uninit_video(video, 1);
+ 			return ret;
+ 		}
+ 	}
+@@ -791,7 +823,7 @@ int uvc_video_suspend(struct uvc_video_device *video)
+ 		return 0;
+ 
+ 	video->frozen = 1;
+-	uvc_uninit_video(video);
++	uvc_uninit_video(video, 0);
+ 	usb_set_interface(video->dev->udev, video->streaming->intfnum, 0);
+ 	return 0;
+ }
+@@ -818,7 +850,7 @@ int uvc_video_resume(struct uvc_video_device *video)
+ 	if (!uvc_queue_streaming(&video->queue))
+ 		return 0;
+ 
+-	if ((ret = uvc_init_video(video)) < 0)
++	if ((ret = uvc_init_video(video, GFP_NOIO)) < 0)
+ 		uvc_queue_enable(&video->queue, 0);
+ 
+ 	return ret;
+@@ -920,7 +952,7 @@ int uvc_video_enable(struct uvc_video_device *video, int enable)
+ 	int ret;
+ 
+ 	if (!enable) {
+-		uvc_uninit_video(video);
++		uvc_uninit_video(video, 1);
+ 		usb_set_interface(video->dev->udev,
+ 			video->streaming->intfnum, 0);
+ 		uvc_queue_enable(&video->queue, 0);
+@@ -930,5 +962,5 @@ int uvc_video_enable(struct uvc_video_device *video, int enable)
+ 	if ((ret = uvc_queue_enable(&video->queue, 1)) < 0)
+ 		return ret;
+ 
+-	return uvc_init_video(video);
++	return uvc_init_video(video, GFP_KERNEL);
+ }
+diff --git a/drivers/media/video/uvc/uvcvideo.h b/drivers/media/video/uvc/uvcvideo.h
+index a995a78..2444b8a 100644
+--- a/drivers/media/video/uvc/uvcvideo.h
++++ b/drivers/media/video/uvc/uvcvideo.h
+@@ -602,6 +602,8 @@ struct uvc_video_device {
+ 
+ 	struct urb *urb[UVC_URBS];
+ 	char *urb_buffer[UVC_URBS];
++	dma_addr_t urb_dma[UVC_URBS];
++	unsigned int urb_size;
+ 
+ 	__u8 last_fid;
+ };
+diff --git a/drivers/mmc/host/pxamci.c b/drivers/mmc/host/pxamci.c
+index d89475d..5c35e63 100644
+--- a/drivers/mmc/host/pxamci.c
++++ b/drivers/mmc/host/pxamci.c
+@@ -177,7 +177,7 @@ static void pxamci_setup_data(struct pxamci_host *host, struct mmc_data *data)
+ 	if (dalgn)
+ 		DALGN |= (1 << host->dma);
+ 	else
+-		DALGN &= (1 << host->dma);
++		DALGN &= ~(1 << host->dma);
+ 	DDADR(host->dma) = host->sg_dma;
+ 	DCSR(host->dma) = DCSR_RUN;
+ }
+diff --git a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
+index ae9629f..c258a05 100644
+--- a/drivers/net/hamradio/hdlcdrv.c
++++ b/drivers/net/hamradio/hdlcdrv.c
+@@ -88,6 +88,7 @@
+ static inline void append_crc_ccitt(unsigned char *buffer, int len)
+ {
+  	unsigned int crc = crc_ccitt(0xffff, buffer, len) ^ 0xffff;
++	buffer += len;
+ 	*buffer++ = crc;
+ 	*buffer++ = crc >> 8;
+ }
+diff --git a/drivers/net/ixgbe/ixgbe_main.c b/drivers/net/ixgbe/ixgbe_main.c
+index 8f04609..e248f80 100644
+--- a/drivers/net/ixgbe/ixgbe_main.c
++++ b/drivers/net/ixgbe/ixgbe_main.c
+@@ -70,8 +70,6 @@ static struct pci_device_id ixgbe_pci_tbl[] = {
+ 	 board_82598 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AF_SINGLE_PORT),
+ 	 board_82598 },
+-	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598AT_DUAL_PORT),
+-	 board_82598 },
+ 	{PCI_VDEVICE(INTEL, IXGBE_DEV_ID_82598EB_CX4),
+ 	 board_82598 },
+ 
+diff --git a/drivers/net/myri10ge/myri10ge.c b/drivers/net/myri10ge/myri10ge.c
+index e0d76c7..9e28d91 100644
+--- a/drivers/net/myri10ge/myri10ge.c
++++ b/drivers/net/myri10ge/myri10ge.c
+@@ -3126,6 +3126,8 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 
+ 	mgp = netdev_priv(netdev);
+ 	mgp->dev = netdev;
++	mgp->ss.mgp = mgp;
++	mgp->ss.dev = mgp->dev;
+ 	netif_napi_add(netdev, &mgp->ss.napi, myri10ge_poll, myri10ge_napi_weight);
+ 	mgp->pdev = pdev;
+ 	mgp->csum_flag = MXGEFW_FLAGS_CKSUM;
+@@ -3213,26 +3215,26 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	for (i = 0; i < ETH_ALEN; i++)
+ 		netdev->dev_addr[i] = mgp->mac_addr[i];
+ 
+-	/* allocate rx done ring */
+-	bytes = mgp->max_intr_slots * sizeof(*mgp->ss.rx_done.entry);
+-	mgp->ss.rx_done.entry = dma_alloc_coherent(&pdev->dev, bytes,
+-						&mgp->ss.rx_done.bus, GFP_KERNEL);
+-	if (mgp->ss.rx_done.entry == NULL)
+-		goto abort_with_ioremap;
+-	memset(mgp->ss.rx_done.entry, 0, bytes);
+-
+ 	myri10ge_select_firmware(mgp);
+ 
+ 	status = myri10ge_load_firmware(mgp);
+ 	if (status != 0) {
+ 		dev_err(&pdev->dev, "failed to load firmware\n");
+-		goto abort_with_rx_done;
++		goto abort_with_ioremap;
+ 	}
+ 
++	/* allocate rx done ring */
++	bytes = mgp->max_intr_slots * sizeof(*mgp->ss.rx_done.entry);
++	mgp->ss.rx_done.entry = dma_alloc_coherent(&pdev->dev, bytes,
++						&mgp->ss.rx_done.bus, GFP_KERNEL);
++	if (mgp->ss.rx_done.entry == NULL)
++		goto abort_with_firmware;
++	memset(mgp->ss.rx_done.entry, 0, bytes);
++
+ 	status = myri10ge_reset(mgp);
+ 	if (status != 0) {
+ 		dev_err(&pdev->dev, "failed reset\n");
+-		goto abort_with_firmware;
++		goto abort_with_rx_done;
+ 	}
+ 
+ 	pci_set_drvdata(pdev, mgp);
+@@ -3258,7 +3260,7 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ 	 * is set to correct value if MSI is enabled */
+ 	status = myri10ge_request_irq(mgp);
+ 	if (status != 0)
+-		goto abort_with_firmware;
++		goto abort_with_rx_done;
+ 	netdev->irq = pdev->irq;
+ 	myri10ge_free_irq(mgp);
+ 
+@@ -3287,14 +3289,14 @@ static int myri10ge_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+ abort_with_state:
+ 	pci_restore_state(pdev);
+ 
+-abort_with_firmware:
+-	myri10ge_dummy_rdma(mgp, 0);
+-
+ abort_with_rx_done:
+ 	bytes = mgp->max_intr_slots * sizeof(*mgp->ss.rx_done.entry);
+ 	dma_free_coherent(&pdev->dev, bytes,
+ 			  mgp->ss.rx_done.entry, mgp->ss.rx_done.bus);
+ 
++abort_with_firmware:
++	myri10ge_dummy_rdma(mgp, 0);
++
+ abort_with_ioremap:
+ 	iounmap(mgp->sram);
+ 
+diff --git a/drivers/net/wireless/ath5k/base.c b/drivers/net/wireless/ath5k/base.c
+index 635b9ac..bc3ea09 100644
+--- a/drivers/net/wireless/ath5k/base.c
++++ b/drivers/net/wireless/ath5k/base.c
+@@ -487,9 +487,6 @@ ath5k_pci_probe(struct pci_dev *pdev,
+ 	/* Set private data */
+ 	pci_set_drvdata(pdev, hw);
+ 
+-	/* Enable msi for devices that support it */
+-	pci_enable_msi(pdev);
+-
+ 	/* Setup interrupt handler */
+ 	ret = request_irq(pdev->irq, ath5k_intr, IRQF_SHARED, "ath", sc);
+ 	if (ret) {
+@@ -567,7 +564,6 @@ err_ah:
+ err_irq:
+ 	free_irq(pdev->irq, sc);
+ err_free:
+-	pci_disable_msi(pdev);
+ 	ieee80211_free_hw(hw);
+ err_map:
+ 	pci_iounmap(pdev, mem);
+@@ -589,7 +585,6 @@ ath5k_pci_remove(struct pci_dev *pdev)
+ 	ath5k_detach(pdev, hw);
+ 	ath5k_hw_detach(sc->ah);
+ 	free_irq(pdev->irq, sc);
+-	pci_disable_msi(pdev);
+ 	pci_iounmap(pdev, sc->iobase);
+ 	pci_release_region(pdev, 0);
+ 	pci_disable_device(pdev);
+@@ -1779,20 +1774,21 @@ ath5k_tasklet_rx(unsigned long data)
+ 	struct ath5k_rx_status rs = {};
+ 	struct sk_buff *skb;
+ 	struct ath5k_softc *sc = (void *)data;
+-	struct ath5k_buf *bf;
++	struct ath5k_buf *bf, *bf_last;
+ 	struct ath5k_desc *ds;
+ 	int ret;
+ 	int hdrlen;
+ 	int pad;
+ 
+ 	spin_lock(&sc->rxbuflock);
++	if (list_empty(&sc->rxbuf)) {
++		ATH5K_WARN(sc, "empty rx buf pool\n");
++		goto unlock;
++	}
++	bf_last = list_entry(sc->rxbuf.prev, struct ath5k_buf, list);
+ 	do {
+ 		rxs.flag = 0;
+ 
+-		if (unlikely(list_empty(&sc->rxbuf))) {
+-			ATH5K_WARN(sc, "empty rx buf pool\n");
+-			break;
+-		}
+ 		bf = list_first_entry(&sc->rxbuf, struct ath5k_buf, list);
+ 		BUG_ON(bf->skb == NULL);
+ 		skb = bf->skb;
+@@ -1802,8 +1798,24 @@ ath5k_tasklet_rx(unsigned long data)
+ 		pci_dma_sync_single_for_cpu(sc->pdev, sc->desc_daddr,
+ 				sc->desc_len, PCI_DMA_FROMDEVICE);
+ 
+-		if (unlikely(ds->ds_link == bf->daddr)) /* this is the end */
+-			break;
++		/*
++		 * last buffer must not be freed to ensure proper hardware
++		 * function. When the hardware finishes also a packet next to
++		 * it, we are sure, it doesn't use it anymore and we can go on.
++		 */
++		if (bf_last == bf)
++			bf->flags |= 1;
++		if (bf->flags) {
++			struct ath5k_buf *bf_next = list_entry(bf->list.next,
++					struct ath5k_buf, list);
++			ret = sc->ah->ah_proc_rx_desc(sc->ah, bf_next->desc,
++					&rs);
++			if (ret)
++				break;
++			bf->flags &= ~1;
++			/* skip the overwritten one (even status is martian) */
++			goto next;
++		}
+ 
+ 		ret = sc->ah->ah_proc_rx_desc(sc->ah, ds, &rs);
+ 		if (unlikely(ret == -EINPROGRESS))
+@@ -1926,6 +1938,7 @@ accept:
+ next:
+ 		list_move_tail(&bf->list, &sc->rxbuf);
+ 	} while (ath5k_rxbuf_setup(sc, bf) == 0);
++unlock:
+ 	spin_unlock(&sc->rxbuflock);
+ }
+ 
+@@ -2440,6 +2453,9 @@ ath5k_stop_hw(struct ath5k_softc *sc)
+ 	mutex_unlock(&sc->lock);
+ 
+ 	del_timer_sync(&sc->calib_tim);
++	tasklet_kill(&sc->rxtq);
++	tasklet_kill(&sc->txtq);
++	tasklet_kill(&sc->restq);
+ 
+ 	return ret;
+ }
+diff --git a/drivers/net/wireless/ath5k/base.h b/drivers/net/wireless/ath5k/base.h
+index 3a97558..4badca7 100644
+--- a/drivers/net/wireless/ath5k/base.h
++++ b/drivers/net/wireless/ath5k/base.h
+@@ -55,7 +55,7 @@
+ 
+ struct ath5k_buf {
+ 	struct list_head	list;
+-	unsigned int		flags;	/* tx descriptor flags */
++	unsigned int		flags;	/* rx descriptor flags */
+ 	struct ath5k_desc	*desc;	/* virtual addr of desc */
+ 	dma_addr_t		daddr;	/* physical addr of desc */
+ 	struct sk_buff		*skb;	/* skbuff for buf */
+diff --git a/drivers/net/wireless/b43legacy/main.c b/drivers/net/wireless/b43legacy/main.c
+index 3e612d0..9bba3ec 100644
+--- a/drivers/net/wireless/b43legacy/main.c
++++ b/drivers/net/wireless/b43legacy/main.c
+@@ -3862,10 +3862,10 @@ static int b43legacy_resume(struct ssb_device *dev)
+ 			goto out;
+ 		}
+ 	}
+-	mutex_unlock(&wl->mutex);
+ 
+ 	b43legacydbg(wl, "Device resumed.\n");
+ out:
++	mutex_unlock(&wl->mutex);
+ 	return err;
+ }
+ 
+diff --git a/drivers/rtc/rtc-at91rm9200.c b/drivers/rtc/rtc-at91rm9200.c
+index 39e64ab..67c7a01 100644
+--- a/drivers/rtc/rtc-at91rm9200.c
++++ b/drivers/rtc/rtc-at91rm9200.c
+@@ -175,8 +175,10 @@ static int at91_rtc_setalarm(struct device *dev, struct rtc_wkalrm *alrm)
+ 		| BIN2BCD(tm.tm_mday) << 24
+ 		| AT91_RTC_DATEEN | AT91_RTC_MTHEN);
+ 
+-	if (alrm->enabled)
++	if (alrm->enabled) {
++		at91_sys_write(AT91_RTC_SCCR, AT91_RTC_ALARM);
+ 		at91_sys_write(AT91_RTC_IER, AT91_RTC_ALARM);
++	}
+ 
+ 	pr_debug("%s(): %4d-%02d-%02d %02d:%02d:%02d\n", __func__,
+ 		at91_alarm_year, tm.tm_mon, tm.tm_mday, tm.tm_hour,
+@@ -195,28 +197,22 @@ static int at91_rtc_ioctl(struct device *dev, unsigned int cmd,
+ 
+ 	pr_debug("%s(): cmd=%08x, arg=%08lx.\n", __func__, cmd, arg);
+ 
++	/* important:  scrub old status before enabling IRQs */
+ 	switch (cmd) {
+ 	case RTC_AIE_OFF:	/* alarm off */
+ 		at91_sys_write(AT91_RTC_IDR, AT91_RTC_ALARM);
+ 		break;
+ 	case RTC_AIE_ON:	/* alarm on */
++		at91_sys_write(AT91_RTC_SCCR, AT91_RTC_ALARM);
+ 		at91_sys_write(AT91_RTC_IER, AT91_RTC_ALARM);
+ 		break;
+ 	case RTC_UIE_OFF:	/* update off */
+-	case RTC_PIE_OFF:	/* periodic off */
+ 		at91_sys_write(AT91_RTC_IDR, AT91_RTC_SECEV);
+ 		break;
+ 	case RTC_UIE_ON:	/* update on */
+-	case RTC_PIE_ON:	/* periodic on */
++		at91_sys_write(AT91_RTC_SCCR, AT91_RTC_SECEV);
+ 		at91_sys_write(AT91_RTC_IER, AT91_RTC_SECEV);
+ 		break;
+-	case RTC_IRQP_READ:	/* read periodic alarm frequency */
+-		ret = put_user(AT91_RTC_FREQ, (unsigned long *) arg);
+-		break;
+-	case RTC_IRQP_SET:	/* set periodic alarm frequency */
+-		if (arg != AT91_RTC_FREQ)
+-			ret = -EINVAL;
+-		break;
+ 	default:
+ 		ret = -ENOIOCTLCMD;
+ 		break;
+diff --git a/drivers/scsi/ch.c b/drivers/scsi/ch.c
+index c4b938b..2be2da6 100644
+--- a/drivers/scsi/ch.c
++++ b/drivers/scsi/ch.c
+@@ -926,6 +926,7 @@ static int ch_probe(struct device *dev)
+ 	if (init)
+ 		ch_init_elem(ch);
+ 
++	dev_set_drvdata(dev, ch);
+ 	sdev_printk(KERN_INFO, sd, "Attached scsi changer %s\n", ch->name);
+ 
+ 	return 0;
+diff --git a/drivers/spi/mpc52xx_psc_spi.c b/drivers/spi/mpc52xx_psc_spi.c
+index 681d623..d8a1f91 100644
+--- a/drivers/spi/mpc52xx_psc_spi.c
++++ b/drivers/spi/mpc52xx_psc_spi.c
+@@ -148,7 +148,6 @@ static int mpc52xx_psc_spi_transfer_rxtx(struct spi_device *spi,
+ 	unsigned rfalarm;
+ 	unsigned send_at_once = MPC52xx_PSC_BUFSIZE;
+ 	unsigned recv_at_once;
+-	unsigned bpw = mps->bits_per_word / 8;
+ 
+ 	if (!t->tx_buf && !t->rx_buf && t->len)
+ 		return -EINVAL;
+@@ -164,22 +163,15 @@ static int mpc52xx_psc_spi_transfer_rxtx(struct spi_device *spi,
+ 		}
+ 
+ 		dev_dbg(&spi->dev, "send %d bytes...\n", send_at_once);
+-		if (tx_buf) {
+-			for (; send_at_once; sb++, send_at_once--) {
+-				/* set EOF flag */
+-				if (mps->bits_per_word
+-						&& (sb + 1) % bpw == 0)
+-					out_8(&psc->ircr2, 0x01);
++		for (; send_at_once; sb++, send_at_once--) {
++			/* set EOF flag before the last word is sent */
++			if (send_at_once == 1)
++				out_8(&psc->ircr2, 0x01);
++
++			if (tx_buf)
+ 				out_8(&psc->mpc52xx_psc_buffer_8, tx_buf[sb]);
+-			}
+-		} else {
+-			for (; send_at_once; sb++, send_at_once--) {
+-				/* set EOF flag */
+-				if (mps->bits_per_word
+-						&& ((sb + 1) % bpw) == 0)
+-					out_8(&psc->ircr2, 0x01);
++			else
+ 				out_8(&psc->mpc52xx_psc_buffer_8, 0);
+-			}
+ 		}
+ 
+ 
+diff --git a/drivers/usb/serial/usb-serial.c b/drivers/usb/serial/usb-serial.c
+index 0cb0d77..db1db4c 100644
+--- a/drivers/usb/serial/usb-serial.c
++++ b/drivers/usb/serial/usb-serial.c
+@@ -283,7 +283,10 @@ static void serial_close(struct tty_struct *tty, struct file * filp)
+ 	}
+ 
+ 	if (port->open_count == 0) {
+-		usb_autopm_put_interface(port->serial->interface);
++		mutex_lock(&port->serial->disc_mutex);
++		if (!port->serial->disconnected)
++			usb_autopm_put_interface(port->serial->interface);
++		mutex_unlock(&port->serial->disc_mutex);
+ 		module_put(port->serial->type->driver.owner);
+ 	}
+ 
+diff --git a/fs/dquot.c b/fs/dquot.c
+index 5ac77da..ad88cf6 100644
+--- a/fs/dquot.c
++++ b/fs/dquot.c
+@@ -562,6 +562,8 @@ static struct shrinker dqcache_shrinker = {
+  */
+ static void dqput(struct dquot *dquot)
+ {
++	int ret;
++
+ 	if (!dquot)
+ 		return;
+ #ifdef __DQUOT_PARANOIA
+@@ -594,7 +596,19 @@ we_slept:
+ 	if (test_bit(DQ_ACTIVE_B, &dquot->dq_flags) && dquot_dirty(dquot)) {
+ 		spin_unlock(&dq_list_lock);
+ 		/* Commit dquot before releasing */
+-		dquot->dq_sb->dq_op->write_dquot(dquot);
++		ret = dquot->dq_sb->dq_op->write_dquot(dquot);
++		if (ret < 0) {
++			printk(KERN_ERR "VFS: cannot write quota structure on "
++				"device %s (error %d). Quota may get out of "
++				"sync!\n", dquot->dq_sb->s_id, ret);
++			/*
++			 * We clear dirty bit anyway, so that we avoid
++			 * infinite loop here
++			 */
++			spin_lock(&dq_list_lock);
++			clear_dquot_dirty(dquot);
++			spin_unlock(&dq_list_lock);
++		}
+ 		goto we_slept;
+ 	}
+ 	/* Clear flag in case dquot was inactive (something bad happened) */
+diff --git a/fs/ecryptfs/crypto.c b/fs/ecryptfs/crypto.c
+index e2832bc..a82e0cb 100644
+--- a/fs/ecryptfs/crypto.c
++++ b/fs/ecryptfs/crypto.c
+@@ -474,8 +474,8 @@ int ecryptfs_encrypt_page(struct page *page)
+ {
+ 	struct inode *ecryptfs_inode;
+ 	struct ecryptfs_crypt_stat *crypt_stat;
+-	char *enc_extent_virt = NULL;
+-	struct page *enc_extent_page;
++	char *enc_extent_virt;
++	struct page *enc_extent_page = NULL;
+ 	loff_t extent_offset;
+ 	int rc = 0;
+ 
+@@ -491,14 +491,14 @@ int ecryptfs_encrypt_page(struct page *page)
+ 			       page->index);
+ 		goto out;
+ 	}
+-	enc_extent_virt = kmalloc(PAGE_CACHE_SIZE, GFP_USER);
+-	if (!enc_extent_virt) {
++	enc_extent_page = alloc_page(GFP_USER);
++	if (!enc_extent_page) {
+ 		rc = -ENOMEM;
+ 		ecryptfs_printk(KERN_ERR, "Error allocating memory for "
+ 				"encrypted extent\n");
+ 		goto out;
+ 	}
+-	enc_extent_page = virt_to_page(enc_extent_virt);
++	enc_extent_virt = kmap(enc_extent_page);
+ 	for (extent_offset = 0;
+ 	     extent_offset < (PAGE_CACHE_SIZE / crypt_stat->extent_size);
+ 	     extent_offset++) {
+@@ -526,7 +526,10 @@ int ecryptfs_encrypt_page(struct page *page)
+ 		}
+ 	}
+ out:
+-	kfree(enc_extent_virt);
++	if (enc_extent_page) {
++		kunmap(enc_extent_page);
++		__free_page(enc_extent_page);
++	}
+ 	return rc;
+ }
+ 
+@@ -608,8 +611,8 @@ int ecryptfs_decrypt_page(struct page *page)
+ {
+ 	struct inode *ecryptfs_inode;
+ 	struct ecryptfs_crypt_stat *crypt_stat;
+-	char *enc_extent_virt = NULL;
+-	struct page *enc_extent_page;
++	char *enc_extent_virt;
++	struct page *enc_extent_page = NULL;
+ 	unsigned long extent_offset;
+ 	int rc = 0;
+ 
+@@ -626,14 +629,14 @@ int ecryptfs_decrypt_page(struct page *page)
+ 			       page->index);
+ 		goto out;
+ 	}
+-	enc_extent_virt = kmalloc(PAGE_CACHE_SIZE, GFP_USER);
+-	if (!enc_extent_virt) {
++	enc_extent_page = alloc_page(GFP_USER);
++	if (!enc_extent_page) {
+ 		rc = -ENOMEM;
+ 		ecryptfs_printk(KERN_ERR, "Error allocating memory for "
+ 				"encrypted extent\n");
+ 		goto out;
+ 	}
+-	enc_extent_page = virt_to_page(enc_extent_virt);
++	enc_extent_virt = kmap(enc_extent_page);
+ 	for (extent_offset = 0;
+ 	     extent_offset < (PAGE_CACHE_SIZE / crypt_stat->extent_size);
+ 	     extent_offset++) {
+@@ -661,7 +664,10 @@ int ecryptfs_decrypt_page(struct page *page)
+ 		}
+ 	}
+ out:
+-	kfree(enc_extent_virt);
++	if (enc_extent_page) {
++		kunmap(enc_extent_page);
++		__free_page(enc_extent_page);
++	}
+ 	return rc;
+ }
+ 
+diff --git a/fs/isofs/rock.c b/fs/isofs/rock.c
+index 6bd48f0..c2fb2dd 100644
+--- a/fs/isofs/rock.c
++++ b/fs/isofs/rock.c
+@@ -209,6 +209,11 @@ repeat:
+ 
+ 	while (rs.len > 2) { /* There may be one byte for padding somewhere */
+ 		rr = (struct rock_ridge *)rs.chr;
++		/*
++		 * Ignore rock ridge info if rr->len is out of range, but
++		 * don't return -EIO because that would make the file
++		 * invisible.
++		 */
+ 		if (rr->len < 3)
+ 			goto out;	/* Something got screwed up here */
+ 		sig = isonum_721(rs.chr);
+@@ -216,8 +221,12 @@ repeat:
+ 			goto eio;
+ 		rs.chr += rr->len;
+ 		rs.len -= rr->len;
++		/*
++		 * As above, just ignore the rock ridge info if rr->len
++		 * is bogus.
++		 */
+ 		if (rs.len < 0)
+-			goto eio;	/* corrupted isofs */
++			goto out;	/* Something got screwed up here */
+ 
+ 		switch (sig) {
+ 		case SIG('R', 'R'):
+@@ -307,6 +316,11 @@ parse_rock_ridge_inode_internal(struct iso_directory_record *de,
+ repeat:
+ 	while (rs.len > 2) { /* There may be one byte for padding somewhere */
+ 		rr = (struct rock_ridge *)rs.chr;
++		/*
++		 * Ignore rock ridge info if rr->len is out of range, but
++		 * don't return -EIO because that would make the file
++		 * invisible.
++		 */
+ 		if (rr->len < 3)
+ 			goto out;	/* Something got screwed up here */
+ 		sig = isonum_721(rs.chr);
+@@ -314,8 +328,12 @@ repeat:
+ 			goto eio;
+ 		rs.chr += rr->len;
+ 		rs.len -= rr->len;
++		/*
++		 * As above, just ignore the rock ridge info if rr->len
++		 * is bogus.
++		 */
+ 		if (rs.len < 0)
+-			goto eio;	/* corrupted isofs */
++			goto out;	/* Something got screwed up here */
+ 
+ 		switch (sig) {
+ #ifndef CONFIG_ZISOFS		/* No flag for SF or ZF */
+diff --git a/fs/jbd/transaction.c b/fs/jbd/transaction.c
+index 67ff202..8dee320 100644
+--- a/fs/jbd/transaction.c
++++ b/fs/jbd/transaction.c
+@@ -1648,12 +1648,42 @@ out:
+ 	return;
+ }
+ 
++/*
++ * journal_try_to_free_buffers() could race with journal_commit_transaction()
++ * The latter might still hold the a count on buffers when inspecting
++ * them on t_syncdata_list or t_locked_list.
++ *
++ * journal_try_to_free_buffers() will call this function to
++ * wait for the current transaction to finish syncing data buffers, before
++ * tryinf to free that buffer.
++ *
++ * Called with journal->j_state_lock held.
++ */
++static void journal_wait_for_transaction_sync_data(journal_t *journal)
++{
++	transaction_t *transaction = NULL;
++	tid_t tid;
++
++	spin_lock(&journal->j_state_lock);
++	transaction = journal->j_committing_transaction;
++
++	if (!transaction) {
++		spin_unlock(&journal->j_state_lock);
++		return;
++	}
++
++	tid = transaction->t_tid;
++	spin_unlock(&journal->j_state_lock);
++	log_wait_commit(journal, tid);
++}
+ 
+ /**
+  * int journal_try_to_free_buffers() - try to free page buffers.
+  * @journal: journal for operation
+  * @page: to try and free
+- * @unused_gfp_mask: unused
++ * @gfp_mask: we use the mask to detect how hard should we try to release
++ * buffers. If __GFP_WAIT and __GFP_FS is set, we wait for commit code to
++ * release the buffers.
+  *
+  *
+  * For all the buffers on this page,
+@@ -1682,9 +1712,11 @@ out:
+  * journal_try_to_free_buffer() is changing its state.  But that
+  * cannot happen because we never reallocate freed data as metadata
+  * while the data is part of a transaction.  Yes?
++ *
++ * Return 0 on failure, 1 on success
+  */
+ int journal_try_to_free_buffers(journal_t *journal,
+-				struct page *page, gfp_t unused_gfp_mask)
++				struct page *page, gfp_t gfp_mask)
+ {
+ 	struct buffer_head *head;
+ 	struct buffer_head *bh;
+@@ -1713,7 +1745,28 @@ int journal_try_to_free_buffers(journal_t *journal,
+ 		if (buffer_jbd(bh))
+ 			goto busy;
+ 	} while ((bh = bh->b_this_page) != head);
++
+ 	ret = try_to_free_buffers(page);
++
++	/*
++	 * There are a number of places where journal_try_to_free_buffers()
++	 * could race with journal_commit_transaction(), the later still
++	 * holds the reference to the buffers to free while processing them.
++	 * try_to_free_buffers() failed to free those buffers. Some of the
++	 * caller of releasepage() request page buffers to be dropped, otherwise
++	 * treat the fail-to-free as errors (such as generic_file_direct_IO())
++	 *
++	 * So, if the caller of try_to_release_page() wants the synchronous
++	 * behaviour(i.e make sure buffers are dropped upon return),
++	 * let's wait for the current transaction to finish flush of
++	 * dirty data buffers, then try to free those buffers again,
++	 * with the journal locked.
++	 */
++	if (ret == 0 && (gfp_mask & __GFP_WAIT) && (gfp_mask & __GFP_FS)) {
++		journal_wait_for_transaction_sync_data(journal);
++		ret = try_to_free_buffers(page);
++	}
++
+ busy:
+ 	return ret;
+ }
+diff --git a/fs/libfs.c b/fs/libfs.c
+index baeb71e..1add676 100644
+--- a/fs/libfs.c
++++ b/fs/libfs.c
+@@ -216,8 +216,8 @@ int get_sb_pseudo(struct file_system_type *fs_type, char *name,
+ 
+ 	s->s_flags = MS_NOUSER;
+ 	s->s_maxbytes = ~0ULL;
+-	s->s_blocksize = 1024;
+-	s->s_blocksize_bits = 10;
++	s->s_blocksize = PAGE_SIZE;
++	s->s_blocksize_bits = PAGE_SHIFT;
+ 	s->s_magic = magic;
+ 	s->s_op = ops ? ops : &simple_super_operations;
+ 	s->s_time_gran = 1;
+diff --git a/fs/namei.c b/fs/namei.c
+index 01e67dd..3b26a24 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -519,7 +519,14 @@ static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, s
+ 	 */
+ 	result = d_lookup(parent, name);
+ 	if (!result) {
+-		struct dentry * dentry = d_alloc(parent, name);
++		struct dentry *dentry;
++
++		/* Don't create child dentry for a dead directory. */
++		result = ERR_PTR(-ENOENT);
++		if (IS_DEADDIR(dir))
++			goto out_unlock;
++
++		dentry = d_alloc(parent, name);
+ 		result = ERR_PTR(-ENOMEM);
+ 		if (dentry) {
+ 			result = dir->i_op->lookup(dir, dentry, nd);
+@@ -528,6 +535,7 @@ static struct dentry * real_lookup(struct dentry * parent, struct qstr * name, s
+ 			else
+ 				result = dentry;
+ 		}
++out_unlock:
+ 		mutex_unlock(&dir->i_mutex);
+ 		return result;
+ 	}
+@@ -1317,7 +1325,14 @@ static struct dentry *__lookup_hash(struct qstr *name,
+ 
+ 	dentry = cached_lookup(base, name, nd);
+ 	if (!dentry) {
+-		struct dentry *new = d_alloc(base, name);
++		struct dentry *new;
++
++		/* Don't create child dentry for a dead directory. */
++		dentry = ERR_PTR(-ENOENT);
++		if (IS_DEADDIR(inode))
++			goto out;
++
++		new = d_alloc(base, name);
+ 		dentry = ERR_PTR(-ENOMEM);
+ 		if (!new)
+ 			goto out;
+diff --git a/fs/nfs/inode.c b/fs/nfs/inode.c
+index 596c5d8..1d7ac64 100644
+--- a/fs/nfs/inode.c
++++ b/fs/nfs/inode.c
+@@ -57,8 +57,6 @@ static int enable_ino64 = NFS_64_BIT_INODE_NUMBERS_ENABLED;
+ static void nfs_invalidate_inode(struct inode *);
+ static int nfs_update_inode(struct inode *, struct nfs_fattr *);
+ 
+-static void nfs_zap_acl_cache(struct inode *);
+-
+ static struct kmem_cache * nfs_inode_cachep;
+ 
+ static inline unsigned long
+@@ -167,7 +165,7 @@ void nfs_zap_mapping(struct inode *inode, struct address_space *mapping)
+ 	}
+ }
+ 
+-static void nfs_zap_acl_cache(struct inode *inode)
++void nfs_zap_acl_cache(struct inode *inode)
+ {
+ 	void (*clear_acl_cache)(struct inode *);
+ 
+diff --git a/fs/nfs/internal.h b/fs/nfs/internal.h
+index 04ae867..24241fc 100644
+--- a/fs/nfs/internal.h
++++ b/fs/nfs/internal.h
+@@ -150,6 +150,7 @@ extern void nfs_clear_inode(struct inode *);
+ #ifdef CONFIG_NFS_V4
+ extern void nfs4_clear_inode(struct inode *);
+ #endif
++void nfs_zap_acl_cache(struct inode *inode);
+ 
+ /* super.c */
+ extern struct file_system_type nfs_xdev_fs_type;
+diff --git a/fs/nfs/nfs3acl.c b/fs/nfs/nfs3acl.c
+index 9b73625..423842f 100644
+--- a/fs/nfs/nfs3acl.c
++++ b/fs/nfs/nfs3acl.c
+@@ -5,6 +5,8 @@
+ #include <linux/posix_acl_xattr.h>
+ #include <linux/nfsacl.h>
+ 
++#include "internal.h"
++
+ #define NFSDBG_FACILITY	NFSDBG_PROC
+ 
+ ssize_t nfs3_listxattr(struct dentry *dentry, char *buffer, size_t size)
+@@ -205,6 +207,8 @@ struct posix_acl *nfs3_proc_getacl(struct inode *inode, int type)
+ 	status = nfs_revalidate_inode(server, inode);
+ 	if (status < 0)
+ 		return ERR_PTR(status);
++	if (NFS_I(inode)->cache_validity & NFS_INO_INVALID_ACL)
++		nfs_zap_acl_cache(inode);
+ 	acl = nfs3_get_cached_acl(inode, type);
+ 	if (acl != ERR_PTR(-EAGAIN))
+ 		return acl;
+@@ -319,9 +323,8 @@ static int nfs3_proc_setacls(struct inode *inode, struct posix_acl *acl,
+ 	dprintk("NFS call setacl\n");
+ 	msg.rpc_proc = &server->client_acl->cl_procinfo[ACLPROC3_SETACL];
+ 	status = rpc_call_sync(server->client_acl, &msg, 0);
+-	spin_lock(&inode->i_lock);
+-	NFS_I(inode)->cache_validity |= NFS_INO_INVALID_ACCESS;
+-	spin_unlock(&inode->i_lock);
++	nfs_access_zap_cache(inode);
++	nfs_zap_acl_cache(inode);
+ 	dprintk("NFS reply setacl: %d\n", status);
+ 
+ 	/* pages may have been allocated at the xdr layer. */
+diff --git a/fs/nfs/nfs4proc.c b/fs/nfs/nfs4proc.c
+index 1293e0a..806d17f 100644
+--- a/fs/nfs/nfs4proc.c
++++ b/fs/nfs/nfs4proc.c
+@@ -2706,6 +2706,8 @@ static ssize_t nfs4_proc_get_acl(struct inode *inode, void *buf, size_t buflen)
+ 	ret = nfs_revalidate_inode(server, inode);
+ 	if (ret < 0)
+ 		return ret;
++	if (NFS_I(inode)->cache_validity & NFS_INO_INVALID_ACL)
++		nfs_zap_acl_cache(inode);
+ 	ret = nfs4_read_cached_acl(inode, buf, buflen);
+ 	if (ret != -ENOENT)
+ 		return ret;
+@@ -2733,7 +2735,8 @@ static int __nfs4_proc_set_acl(struct inode *inode, const void *buf, size_t bufl
+ 	nfs_inode_return_delegation(inode);
+ 	buf_to_pages(buf, buflen, arg.acl_pages, &arg.acl_pgbase);
+ 	ret = rpc_call_sync(NFS_CLIENT(inode), &msg, 0);
+-	nfs_zap_caches(inode);
++	nfs_access_zap_cache(inode);
++	nfs_zap_acl_cache(inode);
+ 	return ret;
+ }
+ 
+diff --git a/fs/proc/task_mmu.c b/fs/proc/task_mmu.c
+index c492449..1eaa39a 100644
+--- a/fs/proc/task_mmu.c
++++ b/fs/proc/task_mmu.c
+@@ -636,7 +636,7 @@ static ssize_t pagemap_read(struct file *file, char __user *buf,
+ 	struct pagemapread pm;
+ 	int pagecount;
+ 	int ret = -ESRCH;
+-	struct mm_walk pagemap_walk;
++	struct mm_walk pagemap_walk = {};
+ 	unsigned long src;
+ 	unsigned long svpfn;
+ 	unsigned long start_vaddr;
+diff --git a/fs/romfs/inode.c b/fs/romfs/inode.c
+index 3f13d49..35e5c6e 100644
+--- a/fs/romfs/inode.c
++++ b/fs/romfs/inode.c
+@@ -418,7 +418,8 @@ static int
+ romfs_readpage(struct file *file, struct page * page)
+ {
+ 	struct inode *inode = page->mapping->host;
+-	loff_t offset, avail, readlen;
++	loff_t offset, size;
++	unsigned long filled;
+ 	void *buf;
+ 	int result = -EIO;
+ 
+@@ -430,21 +431,29 @@ romfs_readpage(struct file *file, struct page * page)
+ 
+ 	/* 32 bit warning -- but not for us :) */
+ 	offset = page_offset(page);
+-	if (offset < i_size_read(inode)) {
+-		avail = inode->i_size-offset;
+-		readlen = min_t(unsigned long, avail, PAGE_SIZE);
+-		if (romfs_copyfrom(inode, buf, ROMFS_I(inode)->i_dataoffset+offset, readlen) == readlen) {
+-			if (readlen < PAGE_SIZE) {
+-				memset(buf + readlen,0,PAGE_SIZE-readlen);
+-			}
+-			SetPageUptodate(page);
+-			result = 0;
++	size = i_size_read(inode);
++	filled = 0;
++	result = 0;
++	if (offset < size) {
++		unsigned long readlen;
++
++		size -= offset;
++		readlen = size > PAGE_SIZE ? PAGE_SIZE : size;
++
++		filled = romfs_copyfrom(inode, buf, ROMFS_I(inode)->i_dataoffset+offset, readlen);
++
++		if (filled != readlen) {
++			SetPageError(page);
++			filled = 0;
++			result = -EIO;
+ 		}
+ 	}
+-	if (result) {
+-		memset(buf, 0, PAGE_SIZE);
+-		SetPageError(page);
+-	}
++
++	if (filled < PAGE_SIZE)
++		memset(buf + filled, 0, PAGE_SIZE-filled);
++
++	if (!result)
++		SetPageUptodate(page);
+ 	flush_dcache_page(page);
+ 
+ 	unlock_page(page);
+diff --git a/include/asm-arm/bitops.h b/include/asm-arm/bitops.h
+index 5c60bfc..9a1db20 100644
+--- a/include/asm-arm/bitops.h
++++ b/include/asm-arm/bitops.h
+@@ -277,9 +277,16 @@ static inline int constant_fls(int x)
+  * the clz instruction for much better code efficiency.
+  */
+ 
+-#define fls(x) \
++#define __fls(x) \
+ 	( __builtin_constant_p(x) ? constant_fls(x) : \
+ 	  ({ int __r; asm("clz\t%0, %1" : "=r"(__r) : "r"(x) : "cc"); 32-__r; }) )
++
++/* Implement fls() in C so that 64-bit args are suitably truncated */
++static inline int fls(int x)
++{
++	return __fls(x);
++}
++
+ #define ffs(x) ({ unsigned long __t = (x); fls(__t & -__t); })
+ #define __ffs(x) (ffs(x) - 1)
+ #define ffz(x) __ffs( ~(x) )
+diff --git a/include/asm-generic/vmlinux.lds.h b/include/asm-generic/vmlinux.lds.h
+index f054778..5a544bf 100644
+--- a/include/asm-generic/vmlinux.lds.h
++++ b/include/asm-generic/vmlinux.lds.h
+@@ -204,6 +204,7 @@
+  * during second ld run in second ld pass when generating System.map */
+ #define TEXT_TEXT							\
+ 		ALIGN_FUNCTION();					\
++		*(.text.hot)						\
+ 		*(.text)						\
+ 		*(.ref.text)						\
+ 		*(.text.init.refok)					\
+@@ -213,7 +214,8 @@
+ 	CPU_KEEP(init.text)						\
+ 	CPU_KEEP(exit.text)						\
+ 	MEM_KEEP(init.text)						\
+-	MEM_KEEP(exit.text)
++	MEM_KEEP(exit.text)						\
++		*(.text.unlikely)
+ 
+ 
+ /* sched.text is aling to function alignment to secure we have same
+diff --git a/include/asm-sparc64/io.h b/include/asm-sparc64/io.h
+index 3158960..38e7ba6 100644
+--- a/include/asm-sparc64/io.h
++++ b/include/asm-sparc64/io.h
+@@ -16,7 +16,6 @@
+ /* BIO layer definitions. */
+ extern unsigned long kern_base, kern_size;
+ #define page_to_phys(page)	(page_to_pfn(page) << PAGE_SHIFT)
+-#define BIO_VMERGE_BOUNDARY	8192
+ 
+ static inline u8 _inb(unsigned long addr)
+ {
+diff --git a/include/asm-x86/signal.h b/include/asm-x86/signal.h
+index f15186d..6dac493 100644
+--- a/include/asm-x86/signal.h
++++ b/include/asm-x86/signal.h
+@@ -181,12 +181,12 @@ typedef struct sigaltstack {
+ #ifdef __KERNEL__
+ #include <asm/sigcontext.h>
+ 
+-#ifdef __386__
++#ifdef __i386__
+ 
+ #define __HAVE_ARCH_SIG_BITOPS
+ 
+ #define sigaddset(set,sig)		    \
+-	(__builtin_constantp(sig)	    \
++	(__builtin_constant_p(sig)	    \
+ 	 ? __const_sigaddset((set), (sig))  \
+ 	 : __gen_sigaddset((set), (sig)))
+ 
+diff --git a/include/linux/cpufreq.h b/include/linux/cpufreq.h
+index e7e91db..07cb761 100644
+--- a/include/linux/cpufreq.h
++++ b/include/linux/cpufreq.h
+@@ -109,6 +109,7 @@ struct cpufreq_policy {
+ #define CPUFREQ_ADJUST		(0)
+ #define CPUFREQ_INCOMPATIBLE	(1)
+ #define CPUFREQ_NOTIFY		(2)
++#define CPUFREQ_START		(3)
+ 
+ #define CPUFREQ_SHARED_TYPE_NONE (0) /* None */
+ #define CPUFREQ_SHARED_TYPE_HW	 (1) /* HW does needed coordination */
+diff --git a/include/linux/ipv6.h b/include/linux/ipv6.h
+index cde056e..0bfd97f 100644
+--- a/include/linux/ipv6.h
++++ b/include/linux/ipv6.h
+@@ -123,6 +123,7 @@ struct ipv6hdr {
+ 	struct	in6_addr	daddr;
+ };
+ 
++#ifdef __KERNEL__
+ /*
+  * This structure contains configuration options per IPv6 link.
+  */
+@@ -165,6 +166,7 @@ struct ipv6_devconf {
+ #endif
+ 	void		*sysctl;
+ };
++#endif
+ 
+ /* index values for the variables in ipv6_devconf */
+ enum {
+diff --git a/include/linux/kvm_host.h b/include/linux/kvm_host.h
+index de9d1df..d413e89 100644
+--- a/include/linux/kvm_host.h
++++ b/include/linux/kvm_host.h
+@@ -166,6 +166,7 @@ int kvm_arch_set_memory_region(struct kvm *kvm,
+ 				struct kvm_userspace_memory_region *mem,
+ 				struct kvm_memory_slot old,
+ 				int user_alloc);
++void kvm_arch_flush_shadow(struct kvm *kvm);
+ gfn_t unalias_gfn(struct kvm *kvm, gfn_t gfn);
+ struct page *gfn_to_page(struct kvm *kvm, gfn_t gfn);
+ unsigned long gfn_to_hva(struct kvm *kvm, gfn_t gfn);
+diff --git a/include/sound/emu10k1.h b/include/sound/emu10k1.h
+index 7b7b9b1..10ee28e 100644
+--- a/include/sound/emu10k1.h
++++ b/include/sound/emu10k1.h
+@@ -1670,6 +1670,7 @@ struct snd_emu_chip_details {
+ 	unsigned char spi_dac;      /* SPI interface for DAC */
+ 	unsigned char i2c_adc;      /* I2C interface for ADC */
+ 	unsigned char adc_1361t;    /* Use Philips 1361T ADC */
++	unsigned char invert_shared_spdif; /* analog/digital switch inverted */
+ 	const char *driver;
+ 	const char *name;
+ 	const char *id;		/* for backward compatibility - can be NULL if not needed */
+diff --git a/kernel/cpuset.c b/kernel/cpuset.c
+index 798b3ab..2a028f5 100644
+--- a/kernel/cpuset.c
++++ b/kernel/cpuset.c
+@@ -679,7 +679,9 @@ restart:
+ 				if (apn == b->pn) {
+ 					cpus_or(*dp, *dp, b->cpus_allowed);
+ 					b->pn = -1;
+-					update_domain_attr(dattr, b);
++					if (dattr)
++						update_domain_attr(dattr
++								   + nslot, b);
+ 				}
+ 			}
+ 			nslot++;
+diff --git a/kernel/marker.c b/kernel/marker.c
+index b5a9fe1..39e7596 100644
+--- a/kernel/marker.c
++++ b/kernel/marker.c
+@@ -127,6 +127,11 @@ void marker_probe_cb(const struct marker *mdata, void *call_private,
+ 		struct marker_probe_closure *multi;
+ 		int i;
+ 		/*
++		 * Read mdata->ptype before mdata->multi.
++		 */
++		smp_rmb();
++		multi = mdata->multi;
++		/*
+ 		 * multi points to an array, therefore accessing the array
+ 		 * depends on reading multi. However, even in this case,
+ 		 * we must insure that the pointer is read _before_ the array
+@@ -134,7 +139,6 @@ void marker_probe_cb(const struct marker *mdata, void *call_private,
+ 		 * in the fast path, so put the explicit barrier here.
+ 		 */
+ 		smp_read_barrier_depends();
+-		multi = mdata->multi;
+ 		for (i = 0; multi[i].func; i++) {
+ 			va_start(args, fmt);
+ 			multi[i].func(multi[i].probe_private, call_private, fmt,
+@@ -177,6 +181,11 @@ void marker_probe_cb_noarg(const struct marker *mdata,
+ 		struct marker_probe_closure *multi;
+ 		int i;
+ 		/*
++		 * Read mdata->ptype before mdata->multi.
++		 */
++		smp_rmb();
++		multi = mdata->multi;
++		/*
+ 		 * multi points to an array, therefore accessing the array
+ 		 * depends on reading multi. However, even in this case,
+ 		 * we must insure that the pointer is read _before_ the array
+@@ -184,7 +193,6 @@ void marker_probe_cb_noarg(const struct marker *mdata,
+ 		 * in the fast path, so put the explicit barrier here.
+ 		 */
+ 		smp_read_barrier_depends();
+-		multi = mdata->multi;
+ 		for (i = 0; multi[i].func; i++)
+ 			multi[i].func(multi[i].probe_private, call_private, fmt,
+ 				&args);
+diff --git a/kernel/rcupreempt.c b/kernel/rcupreempt.c
+index 41d275a..379c25e 100644
+--- a/kernel/rcupreempt.c
++++ b/kernel/rcupreempt.c
+@@ -567,7 +567,7 @@ rcu_try_flip_waitack_needed(int cpu)
+ 	 * that this CPU already acknowledged the counter.
+ 	 */
+ 
+-	if ((curr - snap) > 2 || (snap & 0x1) == 0)
++	if ((curr - snap) > 2 || (curr & 0x1) == 0)
+ 		return 0;
+ 
+ 	/* We need this CPU to explicitly acknowledge the counter flip. */
+diff --git a/kernel/sys_ni.c b/kernel/sys_ni.c
+index 5b9b467..0fea0ee 100644
+--- a/kernel/sys_ni.c
++++ b/kernel/sys_ni.c
+@@ -59,6 +59,7 @@ cond_syscall(sys_epoll_create);
+ cond_syscall(sys_epoll_ctl);
+ cond_syscall(sys_epoll_wait);
+ cond_syscall(sys_epoll_pwait);
++cond_syscall(compat_sys_epoll_pwait);
+ cond_syscall(sys_semget);
+ cond_syscall(sys_semop);
+ cond_syscall(sys_semtimedop);
+diff --git a/mm/filemap.c b/mm/filemap.c
+index 1e6a7d3..afb991a 100644
+--- a/mm/filemap.c
++++ b/mm/filemap.c
+@@ -1778,7 +1778,7 @@ void iov_iter_advance(struct iov_iter *i, size_t bytes)
+ 		 * The !iov->iov_len check ensures we skip over unlikely
+ 		 * zero-length segments (without overruning the iovec).
+ 		 */
+-		while (bytes || unlikely(!iov->iov_len && i->count)) {
++		while (bytes || unlikely(i->count && !iov->iov_len)) {
+ 			int copy;
+ 
+ 			copy = min(bytes, iov->iov_len - base);
+@@ -2581,9 +2581,8 @@ out:
+  * Otherwise return zero.
+  *
+  * The @gfp_mask argument specifies whether I/O may be performed to release
+- * this page (__GFP_IO), and whether the call may block (__GFP_WAIT).
++ * this page (__GFP_IO), and whether the call may block (__GFP_WAIT & __GFP_FS).
+  *
+- * NOTE: @gfp_mask may go away, and this function may become non-blocking.
+  */
+ int try_to_release_page(struct page *page, gfp_t gfp_mask)
+ {
+diff --git a/mm/shmem.c b/mm/shmem.c
+index e2a6ae1..8f8412b 100644
+--- a/mm/shmem.c
++++ b/mm/shmem.c
+@@ -1503,7 +1503,6 @@ shmem_get_inode(struct super_block *sb, int mode, dev_t dev)
+ 		inode->i_uid = current->fsuid;
+ 		inode->i_gid = current->fsgid;
+ 		inode->i_blocks = 0;
+-		inode->i_mapping->a_ops = &shmem_aops;
+ 		inode->i_mapping->backing_dev_info = &shmem_backing_dev_info;
+ 		inode->i_atime = inode->i_mtime = inode->i_ctime = CURRENT_TIME;
+ 		inode->i_generation = get_seconds();
+@@ -1518,6 +1517,7 @@ shmem_get_inode(struct super_block *sb, int mode, dev_t dev)
+ 			init_special_inode(inode, mode, dev);
+ 			break;
+ 		case S_IFREG:
++			inode->i_mapping->a_ops = &shmem_aops;
+ 			inode->i_op = &shmem_inode_operations;
+ 			inode->i_fop = &shmem_file_operations;
+ 			mpol_shared_policy_init(&info->policy,
+@@ -1907,6 +1907,7 @@ static int shmem_symlink(struct inode *dir, struct dentry *dentry, const char *s
+ 			return error;
+ 		}
+ 		unlock_page(page);
++		inode->i_mapping->a_ops = &shmem_aops;
+ 		inode->i_op = &shmem_symlink_inode_operations;
+ 		kaddr = kmap_atomic(page, KM_USER0);
+ 		memcpy(kaddr, symname, len);
+diff --git a/net/bluetooth/bnep/core.c b/net/bluetooth/bnep/core.c
+index f85d946..24e91eb 100644
+--- a/net/bluetooth/bnep/core.c
++++ b/net/bluetooth/bnep/core.c
+@@ -507,6 +507,11 @@ static int bnep_session(void *arg)
+ 	/* Delete network device */
+ 	unregister_netdev(dev);
+ 
++	/* Wakeup user-space polling for socket errors */
++	s->sock->sk->sk_err = EUNATCH;
++
++	wake_up_interruptible(s->sock->sk->sk_sleep);
++
+ 	/* Release the socket */
+ 	fput(s->sock->file);
+ 
+diff --git a/net/bluetooth/hidp/core.c b/net/bluetooth/hidp/core.c
+index 519cdb9..96434d7 100644
+--- a/net/bluetooth/hidp/core.c
++++ b/net/bluetooth/hidp/core.c
+@@ -581,6 +581,12 @@ static int hidp_session(void *arg)
+ 		hid_free_device(session->hid);
+ 	}
+ 
++	/* Wakeup user-space polling for socket errors */
++	session->intr_sock->sk->sk_err = EUNATCH;
++	session->ctrl_sock->sk->sk_err = EUNATCH;
++
++	hidp_schedule(session);
++
+ 	fput(session->intr_sock->file);
+ 
+ 	wait_event_timeout(*(ctrl_sk->sk_sleep),
+@@ -879,6 +885,10 @@ int hidp_del_connection(struct hidp_conndel_req *req)
+ 			skb_queue_purge(&session->ctrl_transmit);
+ 			skb_queue_purge(&session->intr_transmit);
+ 
++			/* Wakeup user-space polling for socket errors */
++			session->intr_sock->sk->sk_err = EUNATCH;
++			session->ctrl_sock->sk->sk_err = EUNATCH;
++
+ 			/* Kill session thread */
+ 			atomic_inc(&session->terminate);
+ 			hidp_schedule(session);
+diff --git a/net/ipv4/netfilter/nf_nat_sip.c b/net/ipv4/netfilter/nf_nat_sip.c
+index 4334d5c..1454432 100644
+--- a/net/ipv4/netfilter/nf_nat_sip.c
++++ b/net/ipv4/netfilter/nf_nat_sip.c
+@@ -318,11 +318,11 @@ static int mangle_content_len(struct sk_buff *skb,
+ 			     buffer, buflen);
+ }
+ 
+-static unsigned mangle_sdp_packet(struct sk_buff *skb, const char **dptr,
+-				  unsigned int dataoff, unsigned int *datalen,
+-				  enum sdp_header_types type,
+-				  enum sdp_header_types term,
+-				  char *buffer, int buflen)
++static int mangle_sdp_packet(struct sk_buff *skb, const char **dptr,
++			     unsigned int dataoff, unsigned int *datalen,
++			     enum sdp_header_types type,
++			     enum sdp_header_types term,
++			     char *buffer, int buflen)
+ {
+ 	enum ip_conntrack_info ctinfo;
+ 	struct nf_conn *ct = nf_ct_get(skb, &ctinfo);
+@@ -330,9 +330,9 @@ static unsigned mangle_sdp_packet(struct sk_buff *skb, const char **dptr,
+ 
+ 	if (ct_sip_get_sdp_header(ct, *dptr, dataoff, *datalen, type, term,
+ 				  &matchoff, &matchlen) <= 0)
+-		return 0;
++		return -ENOENT;
+ 	return mangle_packet(skb, dptr, datalen, matchoff, matchlen,
+-			     buffer, buflen);
++			     buffer, buflen) ? 0 : -EINVAL;
+ }
+ 
+ static unsigned int ip_nat_sdp_addr(struct sk_buff *skb, const char **dptr,
+@@ -346,8 +346,8 @@ static unsigned int ip_nat_sdp_addr(struct sk_buff *skb, const char **dptr,
+ 	unsigned int buflen;
+ 
+ 	buflen = sprintf(buffer, NIPQUAD_FMT, NIPQUAD(addr->ip));
+-	if (!mangle_sdp_packet(skb, dptr, dataoff, datalen, type, term,
+-			       buffer, buflen))
++	if (mangle_sdp_packet(skb, dptr, dataoff, datalen, type, term,
++			      buffer, buflen))
+ 		return 0;
+ 
+ 	return mangle_content_len(skb, dptr, datalen);
+@@ -381,15 +381,27 @@ static unsigned int ip_nat_sdp_session(struct sk_buff *skb, const char **dptr,
+ 
+ 	/* Mangle session description owner and contact addresses */
+ 	buflen = sprintf(buffer, "%u.%u.%u.%u", NIPQUAD(addr->ip));
+-	if (!mangle_sdp_packet(skb, dptr, dataoff, datalen,
++	if (mangle_sdp_packet(skb, dptr, dataoff, datalen,
+ 			       SDP_HDR_OWNER_IP4, SDP_HDR_MEDIA,
+ 			       buffer, buflen))
+ 		return 0;
+ 
+-	if (!mangle_sdp_packet(skb, dptr, dataoff, datalen,
+-			       SDP_HDR_CONNECTION_IP4, SDP_HDR_MEDIA,
+-			       buffer, buflen))
++	switch (mangle_sdp_packet(skb, dptr, dataoff, datalen,
++				  SDP_HDR_CONNECTION_IP4, SDP_HDR_MEDIA,
++				  buffer, buflen)) {
++	case 0:
++	/*
++	 * RFC 2327:
++	 *
++	 * Session description
++	 *
++	 * c=* (connection information - not required if included in all media)
++	 */
++	case -ENOENT:
++		break;
++	default:
+ 		return 0;
++	}
+ 
+ 	return mangle_content_len(skb, dptr, datalen);
+ }
+diff --git a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+index cad73b7..c443a7f 100644
+--- a/net/ipv4/tcp_input.c
++++ b/net/ipv4/tcp_input.c
+@@ -3273,6 +3273,7 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 	 * log. Something worked...
+ 	 */
+ 	sk->sk_err_soft = 0;
++	icsk->icsk_probes_out = 0;
+ 	tp->rcv_tstamp = tcp_time_stamp;
+ 	prior_packets = tp->packets_out;
+ 	if (!prior_packets)
+@@ -3305,8 +3306,6 @@ static int tcp_ack(struct sock *sk, struct sk_buff *skb, int flag)
+ 	return 1;
+ 
+ no_queue:
+-	icsk->icsk_probes_out = 0;
+-
+ 	/* If this ack opens up a zero window, clear backoff.  It was
+ 	 * being used to time the probes, and is probably far higher than
+ 	 * it needs to be for normal retransmission.
+diff --git a/net/ipv4/udp.c b/net/ipv4/udp.c
+index 56fcda3..9f3f7ba 100644
+--- a/net/ipv4/udp.c
++++ b/net/ipv4/udp.c
+@@ -1319,6 +1319,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 			return -ENOPROTOOPT;
+ 		if (val != 0 && val < 8) /* Illegal coverage: use default (8) */
+ 			val = 8;
++		else if (val > USHORT_MAX)
++			val = USHORT_MAX;
+ 		up->pcslen = val;
+ 		up->pcflag |= UDPLITE_SEND_CC;
+ 		break;
+@@ -1331,6 +1333,8 @@ int udp_lib_setsockopt(struct sock *sk, int level, int optname,
+ 			return -ENOPROTOOPT;
+ 		if (val != 0 && val < 8) /* Avoid silly minimal values.       */
+ 			val = 8;
++		else if (val > USHORT_MAX)
++			val = USHORT_MAX;
+ 		up->pcrlen = val;
+ 		up->pcflag |= UDPLITE_RECV_CC;
+ 		break;
+diff --git a/net/ipv6/ip6_fib.c b/net/ipv6/ip6_fib.c
+index 1ee4fa1..918fde4 100644
+--- a/net/ipv6/ip6_fib.c
++++ b/net/ipv6/ip6_fib.c
+@@ -663,7 +663,7 @@ static int fib6_add_rt2node(struct fib6_node *fn, struct rt6_info *rt,
+ 
+ static __inline__ void fib6_start_gc(struct net *net, struct rt6_info *rt)
+ {
+-	if (net->ipv6.ip6_fib_timer->expires == 0 &&
++	if (!timer_pending(net->ipv6.ip6_fib_timer) &&
+ 	    (rt->rt6i_flags & (RTF_EXPIRES|RTF_CACHE)))
+ 		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+@@ -671,7 +671,7 @@ static __inline__ void fib6_start_gc(struct net *net, struct rt6_info *rt)
+ 
+ void fib6_force_start_gc(struct net *net)
+ {
+-	if (net->ipv6.ip6_fib_timer->expires == 0)
++	if (!timer_pending(net->ipv6.ip6_fib_timer))
+ 		mod_timer(net->ipv6.ip6_fib_timer, jiffies +
+ 			  net->ipv6.sysctl.ip6_rt_gc_interval);
+ }
+diff --git a/net/netfilter/xt_time.c b/net/netfilter/xt_time.c
+index ed76baa..9f32859 100644
+--- a/net/netfilter/xt_time.c
++++ b/net/netfilter/xt_time.c
+@@ -173,7 +173,7 @@ time_mt(const struct sk_buff *skb, const struct net_device *in,
+ 		__net_timestamp((struct sk_buff *)skb);
+ 
+ 	stamp = ktime_to_ns(skb->tstamp);
+-	do_div(stamp, NSEC_PER_SEC);
++	stamp = div_s64(stamp, NSEC_PER_SEC);
+ 
+ 	if (info->flags & XT_TIME_LOCAL_TZ)
+ 		/* Adjust for local timezone */
+diff --git a/scripts/Makefile.modpost b/scripts/Makefile.modpost
+index 17092d6..9ee9783 100644
+--- a/scripts/Makefile.modpost
++++ b/scripts/Makefile.modpost
+@@ -101,6 +101,7 @@ quiet_cmd_kernel-mod = MODPOST $@
+       cmd_kernel-mod = $(modpost) $@
+ 
+ vmlinux.o: FORCE
++	@rm -fr $(kernelmarkersfile)
+ 	$(call cmd,kernel-mod)
+ 
+ # Declare generated files as targets for modpost
+diff --git a/scripts/mod/modpost.c b/scripts/mod/modpost.c
+index a07f91a..8f038e6 100644
+--- a/scripts/mod/modpost.c
++++ b/scripts/mod/modpost.c
+@@ -1992,7 +1992,8 @@ static void read_markers(const char *fname)
+ 			mod->skip = 1;
+ 		}
+ 
+-		add_marker(mod, marker, fmt);
++		if (!mod->skip)
++			add_marker(mod, marker, fmt);
+ 	}
+ 	return;
+ fail:
+diff --git a/sound/core/seq/oss/seq_oss_synth.c b/sound/core/seq/oss/seq_oss_synth.c
+index 558dadb..e024e45 100644
+--- a/sound/core/seq/oss/seq_oss_synth.c
++++ b/sound/core/seq/oss/seq_oss_synth.c
+@@ -604,6 +604,9 @@ snd_seq_oss_synth_make_info(struct seq_oss_devinfo *dp, int dev, struct synth_in
+ {
+ 	struct seq_oss_synth *rec;
+ 
++	if (dev < 0 || dev >= dp->max_synthdev)
++		return -ENXIO;
++
+ 	if (dp->synths[dev].is_midi) {
+ 		struct midi_info minf;
+ 		snd_seq_oss_midi_make_info(dp, dp->synths[dev].midi_mapped, &minf);
+diff --git a/sound/pci/emu10k1/emu10k1_main.c b/sound/pci/emu10k1/emu10k1_main.c
+index 548c9cc..2f283ea 100644
+--- a/sound/pci/emu10k1/emu10k1_main.c
++++ b/sound/pci/emu10k1/emu10k1_main.c
+@@ -1528,6 +1528,7 @@ static struct snd_emu_chip_details emu_chip_details[] = {
+ 	 .ca0151_chip = 1,
+ 	 .spk71 = 1,
+ 	 .spdif_bug = 1,
++	 .invert_shared_spdif = 1,	/* digital/analog switch swapped */
+ 	 .adc_1361t = 1,  /* 24 bit capture instead of 16bit. Fixes ALSA bug#324 */
+ 	 .ac97_chip = 1} ,
+ 	{.vendor = 0x1102, .device = 0x0004, .revision = 0x04,
+diff --git a/sound/pci/emu10k1/emumixer.c b/sound/pci/emu10k1/emumixer.c
+index fd22120..9f77692 100644
+--- a/sound/pci/emu10k1/emumixer.c
++++ b/sound/pci/emu10k1/emumixer.c
+@@ -1578,6 +1578,10 @@ static int snd_emu10k1_shared_spdif_get(struct snd_kcontrol *kcontrol,
+ 		ucontrol->value.integer.value[0] = inl(emu->port + A_IOCFG) & A_IOCFG_GPOUT0 ? 1 : 0;
+ 	else
+ 		ucontrol->value.integer.value[0] = inl(emu->port + HCFG) & HCFG_GPOUT0 ? 1 : 0;
++	if (emu->card_capabilities->invert_shared_spdif)
++		ucontrol->value.integer.value[0] =
++			!ucontrol->value.integer.value[0];
++
+ 	return 0;
+ }
+ 
+@@ -1586,15 +1590,18 @@ static int snd_emu10k1_shared_spdif_put(struct snd_kcontrol *kcontrol,
+ {
+ 	unsigned long flags;
+ 	struct snd_emu10k1 *emu = snd_kcontrol_chip(kcontrol);
+-	unsigned int reg, val;
++	unsigned int reg, val, sw;
+ 	int change = 0;
+ 
++	sw = ucontrol->value.integer.value[0];
++	if (emu->card_capabilities->invert_shared_spdif)
++		sw = !sw;
+ 	spin_lock_irqsave(&emu->reg_lock, flags);
+ 	if ( emu->card_capabilities->i2c_adc) {
+ 		/* Do nothing for Audigy 2 ZS Notebook */
+ 	} else if (emu->audigy) {
+ 		reg = inl(emu->port + A_IOCFG);
+-		val = ucontrol->value.integer.value[0] ? A_IOCFG_GPOUT0 : 0;
++		val = sw ? A_IOCFG_GPOUT0 : 0;
+ 		change = (reg & A_IOCFG_GPOUT0) != val;
+ 		if (change) {
+ 			reg &= ~A_IOCFG_GPOUT0;
+@@ -1603,7 +1610,7 @@ static int snd_emu10k1_shared_spdif_put(struct snd_kcontrol *kcontrol,
+ 		}
+ 	}
+ 	reg = inl(emu->port + HCFG);
+-	val = ucontrol->value.integer.value[0] ? HCFG_GPOUT0 : 0;
++	val = sw ? HCFG_GPOUT0 : 0;
+ 	change |= (reg & HCFG_GPOUT0) != val;
+ 	if (change) {
+ 		reg &= ~HCFG_GPOUT0;
+diff --git a/sound/pci/hda/hda_intel.c b/sound/pci/hda/hda_intel.c
+index b3a618e..6ba7ac0 100644
+--- a/sound/pci/hda/hda_intel.c
++++ b/sound/pci/hda/hda_intel.c
+@@ -285,6 +285,7 @@ struct azx_dev {
+ 	u32 *posbuf;		/* position buffer pointer */
+ 
+ 	unsigned int bufsize;	/* size of the play buffer in bytes */
++	unsigned int period_bytes; /* size of the period in bytes */
+ 	unsigned int frags;	/* number for period in the play buffer */
+ 	unsigned int fifo_size;	/* FIFO size */
+ 
+@@ -301,11 +302,10 @@ struct azx_dev {
+ 					 */
+ 	unsigned char stream_tag;	/* assigned stream */
+ 	unsigned char index;		/* stream index */
+-	/* for sanity check of position buffer */
+-	unsigned int period_intr;
+ 
+ 	unsigned int opened :1;
+ 	unsigned int running :1;
++	unsigned int irq_pending: 1;
+ };
+ 
+ /* CORB/RIRB */
+@@ -369,6 +369,9 @@ struct azx {
+ 
+ 	/* for debugging */
+ 	unsigned int last_cmd;	/* last issued command (to sync) */
++
++	/* for pending irqs */
++	struct work_struct irq_pending_work;
+ };
+ 
+ /* driver types */
+@@ -908,6 +911,8 @@ static void azx_init_pci(struct azx *chip)
+ }
+ 
+ 
++static int azx_position_ok(struct azx *chip, struct azx_dev *azx_dev);
++
+ /*
+  * interrupt handler
+  */
+@@ -930,11 +935,18 @@ static irqreturn_t azx_interrupt(int irq, void *dev_id)
+ 		azx_dev = &chip->azx_dev[i];
+ 		if (status & azx_dev->sd_int_sta_mask) {
+ 			azx_sd_writeb(azx_dev, SD_STS, SD_INT_MASK);
+-			if (azx_dev->substream && azx_dev->running) {
+-				azx_dev->period_intr++;
++			if (!azx_dev->substream || !azx_dev->running)
++				continue;
++			/* check whether this IRQ is really acceptable */
++			if (azx_position_ok(chip, azx_dev)) {
++				azx_dev->irq_pending = 0;
+ 				spin_unlock(&chip->reg_lock);
+ 				snd_pcm_period_elapsed(azx_dev->substream);
+ 				spin_lock(&chip->reg_lock);
++			} else {
++				/* bogus IRQ, process it later */
++				azx_dev->irq_pending = 1;
++				schedule_work(&chip->irq_pending_work);
+ 			}
+ 		}
+ 	}
+@@ -973,6 +985,7 @@ static int azx_setup_periods(struct snd_pcm_substream *substream,
+ 	azx_sd_writel(azx_dev, SD_BDLPU, 0);
+ 
+ 	period_bytes = snd_pcm_lib_period_bytes(substream);
++	azx_dev->period_bytes = period_bytes;
+ 	periods = azx_dev->bufsize / period_bytes;
+ 
+ 	/* program the initial BDL entries */
+@@ -1421,27 +1434,16 @@ static int azx_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
+ 	return 0;
+ }
+ 
+-static snd_pcm_uframes_t azx_pcm_pointer(struct snd_pcm_substream *substream)
++static unsigned int azx_get_position(struct azx *chip,
++				     struct azx_dev *azx_dev)
+ {
+-	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
+-	struct azx *chip = apcm->chip;
+-	struct azx_dev *azx_dev = get_azx_dev(substream);
+ 	unsigned int pos;
+ 
+ 	if (chip->position_fix == POS_FIX_POSBUF ||
+ 	    chip->position_fix == POS_FIX_AUTO) {
+ 		/* use the position buffer */
+ 		pos = le32_to_cpu(*azx_dev->posbuf);
+-		if (chip->position_fix == POS_FIX_AUTO &&
+-		    azx_dev->period_intr == 1 && !pos) {
+-			printk(KERN_WARNING
+-			       "hda-intel: Invalid position buffer, "
+-			       "using LPIB read method instead.\n");
+-			chip->position_fix = POS_FIX_NONE;
+-			goto read_lpib;
+-		}
+ 	} else {
+-	read_lpib:
+ 		/* read LPIB */
+ 		pos = azx_sd_readl(azx_dev, SD_LPIB);
+ 		if (chip->position_fix == POS_FIX_FIFO)
+@@ -1449,7 +1451,90 @@ static snd_pcm_uframes_t azx_pcm_pointer(struct snd_pcm_substream *substream)
+ 	}
+ 	if (pos >= azx_dev->bufsize)
+ 		pos = 0;
+-	return bytes_to_frames(substream->runtime, pos);
++	return pos;
++}
++
++static snd_pcm_uframes_t azx_pcm_pointer(struct snd_pcm_substream *substream)
++{
++	struct azx_pcm *apcm = snd_pcm_substream_chip(substream);
++	struct azx *chip = apcm->chip;
++	struct azx_dev *azx_dev = get_azx_dev(substream);
++	return bytes_to_frames(substream->runtime,
++			       azx_get_position(chip, azx_dev));
++}
++
++/*
++ * Check whether the current DMA position is acceptable for updating
++ * periods.  Returns non-zero if it's OK.
++ *
++ * Many HD-audio controllers appear pretty inaccurate about
++ * the update-IRQ timing.  The IRQ is issued before actually the
++ * data is processed.  So, we need to process it afterwords in a
++ * workqueue.
++ */
++static int azx_position_ok(struct azx *chip, struct azx_dev *azx_dev)
++{
++	unsigned int pos;
++
++	pos = azx_get_position(chip, azx_dev);
++	if (chip->position_fix == POS_FIX_AUTO) {
++		if (!pos) {
++			printk(KERN_WARNING
++			       "hda-intel: Invalid position buffer, "
++			       "using LPIB read method instead.\n");
++			chip->position_fix = POS_FIX_NONE;
++			pos = azx_get_position(chip, azx_dev);
++		} else
++			chip->position_fix = POS_FIX_POSBUF;
++	}
++
++	if (pos % azx_dev->period_bytes > azx_dev->period_bytes / 2)
++		return 0; /* NG - it's below the period boundary */
++	return 1; /* OK, it's fine */
++}
++
++/*
++ * The work for pending PCM period updates.
++ */
++static void azx_irq_pending_work(struct work_struct *work)
++{
++	struct azx *chip = container_of(work, struct azx, irq_pending_work);
++	int i, pending;
++
++	for (;;) {
++		pending = 0;
++		spin_lock_irq(&chip->reg_lock);
++		for (i = 0; i < chip->num_streams; i++) {
++			struct azx_dev *azx_dev = &chip->azx_dev[i];
++			if (!azx_dev->irq_pending ||
++			    !azx_dev->substream ||
++			    !azx_dev->running)
++				continue;
++			if (azx_position_ok(chip, azx_dev)) {
++				azx_dev->irq_pending = 0;
++				spin_unlock(&chip->reg_lock);
++				snd_pcm_period_elapsed(azx_dev->substream);
++				spin_lock(&chip->reg_lock);
++			} else
++				pending++;
++		}
++		spin_unlock_irq(&chip->reg_lock);
++		if (!pending)
++			return;
++		cond_resched();
++	}
++}
++
++/* clear irq_pending flags and assure no on-going workq */
++static void azx_clear_irq_pending(struct azx *chip)
++{
++	int i;
++
++	spin_lock_irq(&chip->reg_lock);
++	for (i = 0; i < chip->num_streams; i++)
++		chip->azx_dev[i].irq_pending = 0;
++	spin_unlock_irq(&chip->reg_lock);
++	flush_scheduled_work();
+ }
+ 
+ static struct snd_pcm_ops azx_pcm_ops = {
+@@ -1676,6 +1761,7 @@ static int azx_suspend(struct pci_dev *pci, pm_message_t state)
+ 	int i;
+ 
+ 	snd_power_change_state(card, SNDRV_CTL_POWER_D3hot);
++	azx_clear_irq_pending(chip);
+ 	for (i = 0; i < AZX_MAX_PCMS; i++)
+ 		snd_pcm_suspend_all(chip->pcm[i]);
+ 	if (chip->initialized)
+@@ -1732,6 +1818,7 @@ static int azx_free(struct azx *chip)
+ 	int i;
+ 
+ 	if (chip->initialized) {
++		azx_clear_irq_pending(chip);
+ 		for (i = 0; i < chip->num_streams; i++)
+ 			azx_stream_stop(chip, &chip->azx_dev[i]);
+ 		azx_stop_chip(chip);
+@@ -1857,6 +1944,7 @@ static int __devinit azx_create(struct snd_card *card, struct pci_dev *pci,
+ 	chip->irq = -1;
+ 	chip->driver_type = driver_type;
+ 	chip->msi = enable_msi;
++	INIT_WORK(&chip->irq_pending_work, azx_irq_pending_work);
+ 
+ 	chip->position_fix = check_position_fix(chip, position_fix[dev]);
+ 	check_probe_mask(chip, dev);
+diff --git a/sound/pci/hda/patch_analog.c b/sound/pci/hda/patch_analog.c
+index a99e86d..b5f655d 100644
+--- a/sound/pci/hda/patch_analog.c
++++ b/sound/pci/hda/patch_analog.c
+@@ -1618,6 +1618,7 @@ static const char *ad1981_models[AD1981_MODELS] = {
+ 
+ static struct snd_pci_quirk ad1981_cfg_tbl[] = {
+ 	SND_PCI_QUIRK(0x1014, 0x0597, "Lenovo Z60", AD1981_THINKPAD),
++	SND_PCI_QUIRK(0x1014, 0x05b7, "Lenovo Z60m", AD1981_THINKPAD),
+ 	/* All HP models */
+ 	SND_PCI_QUIRK(0x103c, 0, "HP nx", AD1981_HP),
+ 	SND_PCI_QUIRK(0x1179, 0x0001, "Toshiba U205", AD1981_TOSHIBA),
+@@ -2623,7 +2624,7 @@ static int ad1988_auto_create_extra_out(struct hda_codec *codec, hda_nid_t pin,
+ {
+ 	struct ad198x_spec *spec = codec->spec;
+ 	hda_nid_t nid;
+-	int idx, err;
++	int i, idx, err;
+ 	char name[32];
+ 
+ 	if (! pin)
+@@ -2631,16 +2632,26 @@ static int ad1988_auto_create_extra_out(struct hda_codec *codec, hda_nid_t pin,
+ 
+ 	idx = ad1988_pin_idx(pin);
+ 	nid = ad1988_idx_to_dac(codec, idx);
+-	/* specify the DAC as the extra output */
+-	if (! spec->multiout.hp_nid)
+-		spec->multiout.hp_nid = nid;
+-	else
+-		spec->multiout.extra_out_nid[0] = nid;
+-	/* control HP volume/switch on the output mixer amp */
+-	sprintf(name, "%s Playback Volume", pfx);
+-	if ((err = add_control(spec, AD_CTL_WIDGET_VOL, name,
+-			       HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT))) < 0)
+-		return err;
++	/* check whether the corresponding DAC was already taken */
++	for (i = 0; i < spec->autocfg.line_outs; i++) {
++		hda_nid_t pin = spec->autocfg.line_out_pins[i];
++		hda_nid_t dac = ad1988_idx_to_dac(codec, ad1988_pin_idx(pin));
++		if (dac == nid)
++			break;
++	}
++	if (i >= spec->autocfg.line_outs) {
++		/* specify the DAC as the extra output */
++		if (!spec->multiout.hp_nid)
++			spec->multiout.hp_nid = nid;
++		else
++			spec->multiout.extra_out_nid[0] = nid;
++		/* control HP volume/switch on the output mixer amp */
++		sprintf(name, "%s Playback Volume", pfx);
++		err = add_control(spec, AD_CTL_WIDGET_VOL, name,
++				  HDA_COMPOSE_AMP_VAL(nid, 3, 0, HDA_OUTPUT));
++		if (err < 0)
++			return err;
++	}
+ 	nid = ad1988_mixer_nids[idx];
+ 	sprintf(name, "%s Playback Switch", pfx);
+ 	if ((err = add_control(spec, AD_CTL_BIND_MUTE, name,
+diff --git a/sound/pci/trident/trident_main.c b/sound/pci/trident/trident_main.c
+index bbcee2c..a69b420 100644
+--- a/sound/pci/trident/trident_main.c
++++ b/sound/pci/trident/trident_main.c
+@@ -1590,7 +1590,10 @@ static int snd_trident_trigger(struct snd_pcm_substream *substream,
+ 	if (spdif_flag) {
+ 		if (trident->device != TRIDENT_DEVICE_ID_SI7018) {
+ 			outl(trident->spdif_pcm_bits, TRID_REG(trident, NX_SPCSTATUS));
+-			outb(trident->spdif_pcm_ctrl, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
++			val = trident->spdif_pcm_ctrl;
++			if (!go)
++				val &= ~(0x28);
++			outb(val, TRID_REG(trident, NX_SPCTRL_SPCSO + 3));
+ 		} else {
+ 			outl(trident->spdif_pcm_bits, TRID_REG(trident, SI_SPDIF_CS));
+ 			val = inl(TRID_REG(trident, SI_SERIAL_INTF_CTRL)) | SPDIF_EN;
+diff --git a/virt/kvm/kvm_main.c b/virt/kvm/kvm_main.c
+index 2d29e26..0262847 100644
+--- a/virt/kvm/kvm_main.c
++++ b/virt/kvm/kvm_main.c
+@@ -377,6 +377,9 @@ int __kvm_set_memory_region(struct kvm *kvm,
+ 	if (mem->slot >= kvm->nmemslots)
+ 		kvm->nmemslots = mem->slot + 1;
+ 
++	if (!npages)
++		kvm_arch_flush_shadow(kvm);
++
+ 	*memslot = new;
+ 
+ 	r = kvm_arch_set_memory_region(kvm, mem, old, user_alloc);

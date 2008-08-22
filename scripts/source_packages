@@ -8,7 +8,6 @@ exmap-modules-source
 fglrx-kernel-src
 gspca-source
 iscsitarget-source
-ivtv-source
 kqemu-source
 linux-uvc-source
 linux-wlan-ng-source

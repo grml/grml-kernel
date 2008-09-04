@@ -9,7 +9,6 @@ fglrx-kernel-src
 gspca-source
 iscsitarget-source
 kqemu-source
-linux-uvc-source
 linux-wlan-ng-source
 loop-aes-source
 lzma-source

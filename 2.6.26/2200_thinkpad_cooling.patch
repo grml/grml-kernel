@@ -1,0 +1,28 @@
+Fix signed parameter in ACPI frequency notifier.
+
+  static unsigned int ignore_ppc = -1;
+...
+       if (event == CPUFREQ_START && ignore_ppc <= 0) {
+               ignore_ppc = 0;
+...
+
+Signed-off-by: Milan Broz <mb...@redhat.com>
+---
+ drivers/acpi/processor_perflib.c |    4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+Index: linux-2.6.26.y/drivers/acpi/processor_perflib.c
+===================================================================
+--- linux-2.6.26.y.orig/drivers/acpi/processor_perflib.c	2008-08-12 17:20:07.000000000 +0200
++++ linux-2.6.26.y/drivers/acpi/processor_perflib.c	2008-08-13 09:32:38.000000000 +0200
+@@ -70,8 +70,8 @@ static DEFINE_MUTEX(performance_mutex);
+  *  0 -> cpufreq low level drivers initialized -> consider _PPC values
+  *  1 -> ignore _PPC totally -> forced by user through boot param
+  */
+-static unsigned int ignore_ppc = -1;
+-module_param(ignore_ppc, uint, 0644);
++static int ignore_ppc = -1;
++module_param(ignore_ppc, int, 0644);
+ MODULE_PARM_DESC(ignore_ppc, "If the frequency of your machine gets wrongly" \
+ 		 "limited by BIOS, this should help");
+ 

@@ -1,5 +1,5 @@
 --------------------------------------------------------------------------
-Latest change: Thu Jul 31 09:09:13 CEST 2008 [mika]
+Latest change: Tue Sep 16 11:34:29 UTC 2008
 --------------------------------------------------------------------------
 
 README
@@ -46,6 +46,10 @@ Individual Patch Descriptions:
 Patch:  1000_2.6.26.5
 From:   http://kernel.org/
 Desc:   stable series patch
+
+Patch:  2200_thinkpad_cooling.patch
+From:   Linux Kernel Mailing List - Subject: 2.6.27-rc1: critical thermal shutdown on thinkpad x60 (bisected)
+Desc:   Fix signed parameter in ACPI frequency notifier
 
 Patch:  2700_sound_hda_ich9.patch
 From:   Debian's svn

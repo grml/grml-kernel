@@ -14,6 +14,7 @@ loop-aes
 lzma
 madwifi
 ndiswrapper
+netfilter-extensions
 nvidia
 openafs
 open-vm

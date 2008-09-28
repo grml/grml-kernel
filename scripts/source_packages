@@ -14,6 +14,7 @@ loop-aes-source
 lzma-source
 madwifi-source
 ndiswrapper-source
+netfilter-extensions-source
 nvidia-kernel-source
 openafs-modules-source
 open-vm-source

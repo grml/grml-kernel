@@ -47,10 +47,6 @@ Patch:  1000_2.6.26.6
 From:   http://kernel.org/
 Desc:   stable series patch
 
-Patch:  2200_thinkpad_cooling.patch
-From:   Linux Kernel Mailing List - Subject: 2.6.27-rc1: critical thermal shutdown on thinkpad x60 (bisected)
-Desc:   Fix signed parameter in ACPI frequency notifier
-
 Patch:  2700_sound_hda_ich9.patch
 From:   Debian's svn
 Desc:   Add ICH9 controller support (8086:2911)

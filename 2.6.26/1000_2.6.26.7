@@ -1370,6 +1370,16 @@ index 3870f28..855d8da 100644
  
    4) Fragmentation
  
+diff --git a/Documentation/video4linux/CARDLIST.au0828 b/Documentation/video4linux/CARDLIST.au0828
+index 86d1c8e..e441214 100644
+--- a/Documentation/video4linux/CARDLIST.au0828
++++ b/Documentation/video4linux/CARDLIST.au0828
+@@ -1,4 +1,4 @@
+   0 -> Unknown board                            (au0828)
+-  1 -> Hauppauge HVR950Q                        (au0828)        [2040:7200,2040:7210,2040:7217,2040:721b,2040:721f,2040:7280,0fd9:0008]
++  1 -> Hauppauge HVR950Q                        (au0828)        [2040:7200,2040:7210,2040:7217,2040:721b,2040:721e,2040:721f,2040:7280,0fd9:0008]
+   2 -> Hauppauge HVR850                         (au0828)        [2040:7240]
+   3 -> DViCO FusionHDTV USB                     (au0828)        [0fe9:d620]
 diff --git a/Documentation/video4linux/cx18.txt b/Documentation/video4linux/cx18.txt
 index 6842c26..63f3aef 100644
 --- a/Documentation/video4linux/cx18.txt
@@ -1393,7 +1403,7 @@ index 6842c26..63f3aef 100644
 -Drivers/Driver18/hcw18mlC.rom -> v4l-cx23418-dig.fw
 +Untar and copy the .fw files to your firmware directory.
 diff --git a/Makefile b/Makefile
-index e3c5eb6..0250a37 100644
+index e3c5eb6..ac8e8a1 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,7 +1,7 @@
@@ -1401,7 +1411,7 @@ index e3c5eb6..0250a37 100644
  PATCHLEVEL = 6
  SUBLEVEL = 26
 -EXTRAVERSION =
-+EXTRAVERSION = .6
++EXTRAVERSION = .7
  NAME = Rotary Wombat
  
  # *DOCUMENTATION*
@@ -2673,7 +2683,7 @@ index 36af01f..130711f 100644
  #ifndef CONFIG_64BIT
  	store_gdt((struct desc_ptr *)&header->pmode_gdt);
 diff --git a/arch/x86/kernel/alternative.c b/arch/x86/kernel/alternative.c
-index 65c7857..d5ccf42 100644
+index 65c7857..5e1c92b 100644
 --- a/arch/x86/kernel/alternative.c
 +++ b/arch/x86/kernel/alternative.c
 @@ -1,6 +1,6 @@
@@ -2746,6 +2756,15 @@ index 65c7857..d5ccf42 100644
 +	mutex_unlock(&smp_alt);
  }
  
+ #endif
+@@ -454,7 +454,7 @@ void __init alternative_instructions(void)
+ 					    _text, _etext);
+ 
+ 		/* Only switch to UP mode if we don't immediately boot others */
+-		if (num_possible_cpus() == 1 || setup_max_cpus <= 1)
++		if (num_present_cpus() == 1 || setup_max_cpus <= 1)
+ 			alternatives_smp_switch(0);
+ 	}
  #endif
 diff --git a/arch/x86/kernel/apic_32.c b/arch/x86/kernel/apic_32.c
 index 4b99b1b..c17fdb0 100644
@@ -3040,6 +3059,20 @@ index 95e80e5..eb9ddd8 100644
  
  	ret = init_fpu(target);
  	if (ret)
+diff --git a/arch/x86/kernel/io_apic_32.c b/arch/x86/kernel/io_apic_32.c
+index 4dc8600..ad745cd 100644
+--- a/arch/x86/kernel/io_apic_32.c
++++ b/arch/x86/kernel/io_apic_32.c
+@@ -2264,6 +2264,9 @@ void __init setup_IO_APIC(void)
+ 	for (i = FIRST_SYSTEM_VECTOR; i < NR_VECTORS; i++)
+ 		set_bit(i, used_vectors);
+ 
++	/* Mark FIRST_DEVICE_VECTOR which is assigned to IRQ0 as used. */
++	set_bit(FIRST_DEVICE_VECTOR, used_vectors);
++
+ 	enable_IO_APIC();
+ 
+ 	if (acpi_ioapic)
 diff --git a/arch/x86/kernel/io_delay.c b/arch/x86/kernel/io_delay.c
 index 5921e5f..720d260 100644
 --- a/arch/x86/kernel/io_delay.c
@@ -3111,6 +3144,25 @@ index ba370dc..58325a6 100644
  	if (!strcmp(str, "poll")) {
  		printk("using polling idle threads.\n");
  		pm_idle = poll_idle;
+diff --git a/arch/x86/kernel/process_64.c b/arch/x86/kernel/process_64.c
+index c6eb5c9..a803de3 100644
+--- a/arch/x86/kernel/process_64.c
++++ b/arch/x86/kernel/process_64.c
+@@ -740,12 +740,12 @@ unsigned long get_wchan(struct task_struct *p)
+ 	if (!p || p == current || p->state==TASK_RUNNING)
+ 		return 0; 
+ 	stack = (unsigned long)task_stack_page(p);
+-	if (p->thread.sp < stack || p->thread.sp > stack+THREAD_SIZE)
++	if (p->thread.sp < stack || p->thread.sp >= stack+THREAD_SIZE)
+ 		return 0;
+ 	fp = *(u64 *)(p->thread.sp);
+ 	do { 
+ 		if (fp < (unsigned long)stack ||
+-		    fp > (unsigned long)stack+THREAD_SIZE)
++		    fp >= (unsigned long)stack+THREAD_SIZE)
+ 			return 0; 
+ 		ip = *(u64 *)(fp+8);
+ 		if (!in_sched_functions(ip))
 diff --git a/arch/x86/kernel/ptrace.c b/arch/x86/kernel/ptrace.c
 index a7835f2..77040b6 100644
 --- a/arch/x86/kernel/ptrace.c
@@ -3791,6 +3843,19 @@ index 819dad9..7b27710 100644
  		if (next > end)
  			next = end;
  		last_map_addr = phys_pud_init(pud, __pa(start), __pa(next));
+diff --git a/arch/x86/mm/ioremap.c b/arch/x86/mm/ioremap.c
+index d1b8671..035752d 100644
+--- a/arch/x86/mm/ioremap.c
++++ b/arch/x86/mm/ioremap.c
+@@ -582,7 +582,7 @@ void __init *early_ioremap(unsigned long phys_addr, unsigned long size)
+ 	 */
+ 	offset = phys_addr & ~PAGE_MASK;
+ 	phys_addr &= PAGE_MASK;
+-	size = PAGE_ALIGN(last_addr) - phys_addr;
++	size = PAGE_ALIGN(last_addr + 1) - phys_addr;
+ 
+ 	/*
+ 	 * Mappings have to fit in the FIX_BTMAP area.
 diff --git a/arch/x86/mm/pageattr.c b/arch/x86/mm/pageattr.c
 index 60bcb5b..b384297 100644
 --- a/arch/x86/mm/pageattr.c
@@ -4112,6 +4177,101 @@ index d80b2d1..6f4a5e1 100644
  	if (ignore_ppc)
  		return 0;
  
+diff --git a/drivers/acpi/video.c b/drivers/acpi/video.c
+index d089c45..004da4d 100644
+--- a/drivers/acpi/video.c
++++ b/drivers/acpi/video.c
+@@ -720,7 +720,7 @@ static void acpi_video_device_find_cap(struct acpi_video_device *device)
+ 
+ 	kfree(obj);
+ 
+-	if (device->cap._BCL && device->cap._BCM && device->cap._BQC && max_level > 0){
++	if (device->cap._BCL && device->cap._BCM && max_level > 0) {
+ 		int result;
+ 		static int count = 0;
+ 		char *name;
+@@ -732,7 +732,17 @@ static void acpi_video_device_find_cap(struct acpi_video_device *device)
+ 		device->backlight = backlight_device_register(name,
+ 			NULL, device, &acpi_backlight_ops);
+ 		device->backlight->props.max_brightness = device->brightness->count-3;
+-		device->backlight->props.brightness = acpi_video_get_brightness(device->backlight);
++		/*
++		 * If there exists the _BQC object, the _BQC object will be
++		 * called to get the current backlight brightness. Otherwise
++		 * the brightness will be set to the maximum.
++		 */
++		if (device->cap._BQC)
++			device->backlight->props.brightness =
++				acpi_video_get_brightness(device->backlight);
++		else
++			device->backlight->props.brightness =
++				device->backlight->props.max_brightness;
+ 		backlight_update_status(device->backlight);
+ 		kfree(name);
+ 
+diff --git a/drivers/ata/libata-eh.c b/drivers/ata/libata-eh.c
+index 7894d83..27023e3 100644
+--- a/drivers/ata/libata-eh.c
++++ b/drivers/ata/libata-eh.c
+@@ -2050,18 +2050,12 @@ static int ata_do_reset(struct ata_link *link, ata_reset_fn_t reset,
+ }
+ 
+ static int ata_eh_followup_srst_needed(struct ata_link *link,
+-				       int rc, int classify,
+-				       const unsigned int *classes)
++				       int rc, const unsigned int *classes)
+ {
+ 	if ((link->flags & ATA_LFLAG_NO_SRST) || ata_link_offline(link))
+ 		return 0;
+-	if (rc == -EAGAIN) {
+-		if (classify)
+-			return 1;
+-		rc = 0;
+-	}
+-	if (rc != 0)
+-		return 0;
++	if (rc == -EAGAIN)
++		return 1;
+ 	if (sata_pmp_supported(link->ap) && ata_is_host_link(link))
+ 		return 1;
+ 	return 0;
+@@ -2118,10 +2112,10 @@ int ata_eh_reset(struct ata_link *link, int classify,
+ 	ehc->i.action &= ~ATA_EH_RESET;
+ 	if (hardreset) {
+ 		reset = hardreset;
+-		ehc->i.action = ATA_EH_HARDRESET;
++		ehc->i.action |= ATA_EH_HARDRESET;
+ 	} else if (softreset) {
+ 		reset = softreset;
+-		ehc->i.action = ATA_EH_SOFTRESET;
++		ehc->i.action |= ATA_EH_SOFTRESET;
+ 	}
+ 
+ 	if (prereset) {
+@@ -2174,9 +2168,11 @@ int ata_eh_reset(struct ata_link *link, int classify,
+ 			ehc->i.flags |= ATA_EHI_DID_SOFTRESET;
+ 
+ 		rc = ata_do_reset(link, reset, classes, deadline);
++		if (rc && rc != -EAGAIN)
++			goto fail;
+ 
+ 		if (reset == hardreset &&
+-		    ata_eh_followup_srst_needed(link, rc, classify, classes)) {
++		    ata_eh_followup_srst_needed(link, rc, classes)) {
+ 			/* okay, let's do follow-up softreset */
+ 			reset = softreset;
+ 
+@@ -2191,10 +2187,6 @@ int ata_eh_reset(struct ata_link *link, int classify,
+ 			ata_eh_about_to_do(link, NULL, ATA_EH_RESET);
+ 			rc = ata_do_reset(link, reset, classes, deadline);
+ 		}
+-
+-		/* -EAGAIN can happen if we skipped followup SRST */
+-		if (rc && rc != -EAGAIN)
+-			goto fail;
+ 	} else {
+ 		if (verbose)
+ 			ata_link_printk(link, KERN_INFO, "no reset method "
 diff --git a/drivers/ata/sata_mv.c b/drivers/ata/sata_mv.c
 index ad169ff..80c655f 100644
 --- a/drivers/ata/sata_mv.c
@@ -4157,6 +4317,19 @@ index ad169ff..80c655f 100644
  	return ATA_DEFER_PORT;
  }
  
+diff --git a/drivers/char/drm/i915_dma.c b/drivers/char/drm/i915_dma.c
+index 8897434..a219ae4 100644
+--- a/drivers/char/drm/i915_dma.c
++++ b/drivers/char/drm/i915_dma.c
+@@ -836,7 +836,7 @@ struct drm_ioctl_desc i915_ioctls[] = {
+ 	DRM_IOCTL_DEF(DRM_I915_SET_VBLANK_PIPE,  i915_vblank_pipe_set, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY ),
+ 	DRM_IOCTL_DEF(DRM_I915_GET_VBLANK_PIPE,  i915_vblank_pipe_get, DRM_AUTH ),
+ 	DRM_IOCTL_DEF(DRM_I915_VBLANK_SWAP, i915_vblank_swap, DRM_AUTH),
+-	DRM_IOCTL_DEF(DRM_I915_HWS_ADDR, i915_set_status_page, DRM_AUTH),
++	DRM_IOCTL_DEF(DRM_I915_HWS_ADDR, i915_set_status_page, DRM_AUTH|DRM_MASTER|DRM_ROOT_ONLY),
+ };
+ 
+ int i915_max_ioctl = DRM_ARRAY_SIZE(i915_ioctls);
 diff --git a/drivers/char/hw_random/via-rng.c b/drivers/char/hw_random/via-rng.c
 index f7feae4..128202e 100644
 --- a/drivers/char/hw_random/via-rng.c
@@ -4243,6 +4416,19 @@ index 0cf98bd..71320d2 100644
  	spin_unlock_irqrestore(&r->lock, flags);
  }
  
+diff --git a/drivers/char/tty_io.c b/drivers/char/tty_io.c
+index 7501310..a51374e 100644
+--- a/drivers/char/tty_io.c
++++ b/drivers/char/tty_io.c
+@@ -3474,7 +3474,7 @@ long tty_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
+ 	case TIOCSTI:
+ 		return tiocsti(tty, p);
+ 	case TIOCGWINSZ:
+-		return tiocgwinsz(tty, p);
++		return tiocgwinsz(real_tty, p);
+ 	case TIOCSWINSZ:
+ 		return tiocswinsz(tty, real_tty, p);
+ 	case TIOCCONS:
 diff --git a/drivers/cpufreq/cpufreq.c b/drivers/cpufreq/cpufreq.c
 index 1d41496..0471ef5 100644
 --- a/drivers/cpufreq/cpufreq.c
@@ -4466,6 +4652,94 @@ index 0ec0f43..4e6b052 100644
  static struct platform_driver iop_adma_driver = {
  	.probe		= iop_adma_probe,
  	.remove		= iop_adma_remove,
+diff --git a/drivers/hwmon/it87.c b/drivers/hwmon/it87.c
+index e12c132..48b9f28 100644
+--- a/drivers/hwmon/it87.c
++++ b/drivers/hwmon/it87.c
+@@ -46,6 +46,8 @@
+ #include <linux/err.h>
+ #include <linux/mutex.h>
+ #include <linux/sysfs.h>
++#include <linux/string.h>
++#include <linux/dmi.h>
+ #include <asm/io.h>
+ 
+ #define DRVNAME "it87"
+@@ -235,6 +237,8 @@ struct it87_sio_data {
+ 	enum chips type;
+ 	/* Values read from Super-I/O config space */
+ 	u8 vid_value;
++	/* Values set based on DMI strings */
++	u8 skip_pwm;
+ };
+ 
+ /* For each registered chip, we need to keep some data in memory.
+@@ -952,6 +956,7 @@ static int __init it87_find(unsigned short *address,
+ {
+ 	int err = -ENODEV;
+ 	u16 chip_type;
++	const char *board_vendor, *board_name;
+ 
+ 	superio_enter();
+ 	chip_type = force_id ? force_id : superio_inw(DEVID);
+@@ -1009,6 +1014,25 @@ static int __init it87_find(unsigned short *address,
+ 			pr_info("it87: in7 is VCCH (+5V Stand-By)\n");
+ 	}
+ 
++	sio_data->skip_pwm = 0;
++	/* Disable specific features based on DMI strings */
++	board_vendor = dmi_get_system_info(DMI_BOARD_VENDOR);
++	board_name = dmi_get_system_info(DMI_BOARD_NAME);
++	if (board_vendor && board_name) {
++		if (strcmp(board_vendor, "nVIDIA") == 0
++		 && strcmp(board_name, "FN68PT") == 0) {
++			/* On the Shuttle SN68PT, FAN_CTL2 is apparently not
++			   connected to a fan, but to something else. One user
++			   has reported instant system power-off when changing
++			   the PWM2 duty cycle, so we disable it.
++			   I use the board name string as the trigger in case
++			   the same board is ever used in other systems. */
++			pr_info("it87: Disabling pwm2 due to "
++				"hardware constraints\n");
++			sio_data->skip_pwm = (1 << 1);
++		}
++	}
++
+ exit:
+ 	superio_exit();
+ 	return err;
+@@ -1157,22 +1181,25 @@ static int __devinit it87_probe(struct platform_device *pdev)
+ 		if ((err = device_create_file(dev,
+ 		     &sensor_dev_attr_pwm1_enable.dev_attr))
+ 		 || (err = device_create_file(dev,
+-		     &sensor_dev_attr_pwm2_enable.dev_attr))
+-		 || (err = device_create_file(dev,
+ 		     &sensor_dev_attr_pwm3_enable.dev_attr))
+ 		 || (err = device_create_file(dev,
+ 		     &sensor_dev_attr_pwm1.dev_attr))
+ 		 || (err = device_create_file(dev,
+-		     &sensor_dev_attr_pwm2.dev_attr))
+-		 || (err = device_create_file(dev,
+ 		     &sensor_dev_attr_pwm3.dev_attr))
+ 		 || (err = device_create_file(dev,
+ 		     &dev_attr_pwm1_freq))
+ 		 || (err = device_create_file(dev,
+-		     &dev_attr_pwm2_freq))
+-		 || (err = device_create_file(dev,
+ 		     &dev_attr_pwm3_freq)))
+ 			goto ERROR4;
++		if (!(sio_data->skip_pwm & (1 << 1))) {
++			if ((err = device_create_file(dev,
++			     &sensor_dev_attr_pwm2_enable.dev_attr))
++			 || (err = device_create_file(dev,
++			     &sensor_dev_attr_pwm2.dev_attr))
++			 || (err = device_create_file(dev,
++			     &dev_attr_pwm2_freq)))
++				goto ERROR4;
++		}
+ 	}
+ 
+ 	if (data->type == it8712 || data->type == it8716
 diff --git a/drivers/i2c/Kconfig b/drivers/i2c/Kconfig
 index 9686734..711ca08 100644
 --- a/drivers/i2c/Kconfig
@@ -4816,6 +5090,40 @@ index 5ccb0ae..e00717d 100644
  
  source "drivers/media/video/pvrusb2/Kconfig"
  
+diff --git a/drivers/media/video/au0828/au0828-cards.c b/drivers/media/video/au0828/au0828-cards.c
+index 898e123..4177bf6 100644
+--- a/drivers/media/video/au0828/au0828-cards.c
++++ b/drivers/media/video/au0828/au0828-cards.c
+@@ -83,6 +83,7 @@ static void hauppauge_eeprom(struct au0828_dev *dev, u8 *eeprom_data)
+ 	case 72221: /* WinTV-HVR950q (OEM, IR, ATSC/QAM and basic analog video */
+ 	case 72231: /* WinTV-HVR950q (OEM, IR, ATSC/QAM and basic analog video */
+ 	case 72241: /* WinTV-HVR950q (OEM, No IR, ATSC/QAM and basic analog video */
++	case 72251: /* WinTV-HVR950q (Retail, IR, ATSC/QAM and basic analog video */
+ 	case 72301: /* WinTV-HVR850 (Retail, IR, ATSC and basic analog video */
+ 	case 72500: /* WinTV-HVR950q (OEM, No IR, ATSC/QAM */
+ 		break;
+@@ -187,6 +188,8 @@ struct usb_device_id au0828_usb_id_table [] = {
+ 		.driver_info = AU0828_BOARD_HAUPPAUGE_HVR950Q },
+ 	{ USB_DEVICE(0x2040, 0x721b),
+ 		.driver_info = AU0828_BOARD_HAUPPAUGE_HVR950Q },
++	{ USB_DEVICE(0x2040, 0x721e),
++		.driver_info = AU0828_BOARD_HAUPPAUGE_HVR950Q },
+ 	{ USB_DEVICE(0x2040, 0x721f),
+ 		.driver_info = AU0828_BOARD_HAUPPAUGE_HVR950Q },
+ 	{ USB_DEVICE(0x2040, 0x7280),
+diff --git a/drivers/media/video/bt8xx/bttv-driver.c b/drivers/media/video/bt8xx/bttv-driver.c
+index 0165aac..7bcd328 100644
+--- a/drivers/media/video/bt8xx/bttv-driver.c
++++ b/drivers/media/video/bt8xx/bttv-driver.c
+@@ -3428,7 +3428,7 @@ static int radio_open(struct inode *inode, struct file *file)
+ 	dprintk("bttv: open minor=%d\n",minor);
+ 
+ 	for (i = 0; i < bttv_num; i++) {
+-		if (bttvs[i].radio_dev->minor == minor) {
++		if (bttvs[i].radio_dev && bttvs[i].radio_dev->minor == minor) {
+ 			btv = &bttvs[i];
+ 			break;
+ 		}
 diff --git a/drivers/media/video/cx18/cx18-firmware.c b/drivers/media/video/cx18/cx18-firmware.c
 index 2694ce3..9dda2ca 100644
 --- a/drivers/media/video/cx18/cx18-firmware.c
@@ -5076,6 +5384,19 @@ index 2c19cd0..69f340d 100644
  		dev->name,pci_dev->subsystem_vendor,
  		pci_dev->subsystem_device,saa7134_boards[dev->board].name,
  		dev->board, dev->autodetected ?
+diff --git a/drivers/media/video/tvaudio.c b/drivers/media/video/tvaudio.c
+index c77914d..0ce64e1 100644
+--- a/drivers/media/video/tvaudio.c
++++ b/drivers/media/video/tvaudio.c
+@@ -1805,7 +1805,7 @@ static int chip_command(struct i2c_client *client,
+ 		break;
+ 	case VIDIOC_S_FREQUENCY:
+ 		chip->mode = 0; /* automatic */
+-		if (desc->checkmode) {
++		if (desc->checkmode && desc->setmode) {
+ 			desc->setmode(chip,V4L2_TUNER_MODE_MONO);
+ 			if (chip->prevmode != V4L2_TUNER_MODE_MONO)
+ 				chip->prevmode = -1; /* reset previous mode */
 diff --git a/drivers/media/video/uvc/Kconfig b/drivers/media/video/uvc/Kconfig
 new file mode 100644
 index 0000000..c2d9760
@@ -5099,6 +5420,102 @@ index 0000000..c2d9760
 +	  to report button events.
 +
 +	  If you are in doubt, say Y.
+diff --git a/drivers/media/video/uvc/uvc_ctrl.c b/drivers/media/video/uvc/uvc_ctrl.c
+index f0ee46d..18c9f71 100644
+--- a/drivers/media/video/uvc/uvc_ctrl.c
++++ b/drivers/media/video/uvc/uvc_ctrl.c
+@@ -585,13 +585,18 @@ int uvc_query_v4l2_ctrl(struct uvc_video_device *video,
+ 	struct uvc_control_mapping *mapping;
+ 	struct uvc_menu_info *menu;
+ 	unsigned int i;
+-	__u8 data[8];
++	__u8 *data;
+ 	int ret;
+ 
+ 	ctrl = uvc_find_control(video, v4l2_ctrl->id, &mapping);
+ 	if (ctrl == NULL)
+ 		return -EINVAL;
+ 
++	data = kmalloc(ctrl->info->size, GFP_KERNEL);
++	if (data == NULL)
++		return -ENOMEM;
++
++	memset(v4l2_ctrl, 0, sizeof *v4l2_ctrl);
+ 	v4l2_ctrl->id = mapping->id;
+ 	v4l2_ctrl->type = mapping->v4l2_type;
+ 	strncpy(v4l2_ctrl->name, mapping->name, sizeof v4l2_ctrl->name);
+@@ -603,12 +608,13 @@ int uvc_query_v4l2_ctrl(struct uvc_video_device *video,
+ 	if (ctrl->info->flags & UVC_CONTROL_GET_DEF) {
+ 		if ((ret = uvc_query_ctrl(video->dev, GET_DEF, ctrl->entity->id,
+ 				video->dev->intfnum, ctrl->info->selector,
+-				&data, ctrl->info->size)) < 0)
+-			return ret;
++				data, ctrl->info->size)) < 0)
++			goto out;
+ 		v4l2_ctrl->default_value = uvc_get_le_value(data, mapping);
+ 	}
+ 
+-	if (mapping->v4l2_type == V4L2_CTRL_TYPE_MENU) {
++	switch (mapping->v4l2_type) {
++	case V4L2_CTRL_TYPE_MENU:
+ 		v4l2_ctrl->minimum = 0;
+ 		v4l2_ctrl->maximum = mapping->menu_count - 1;
+ 		v4l2_ctrl->step = 1;
+@@ -621,32 +627,46 @@ int uvc_query_v4l2_ctrl(struct uvc_video_device *video,
+ 			}
+ 		}
+ 
+-		return 0;
++		ret = 0;
++		goto out;
++
++	case V4L2_CTRL_TYPE_BOOLEAN:
++		v4l2_ctrl->minimum = 0;
++		v4l2_ctrl->maximum = 1;
++		v4l2_ctrl->step = 1;
++		ret = 0;
++		goto out;
++
++	default:
++		break;
+ 	}
+ 
+ 	if (ctrl->info->flags & UVC_CONTROL_GET_MIN) {
+ 		if ((ret = uvc_query_ctrl(video->dev, GET_MIN, ctrl->entity->id,
+ 				video->dev->intfnum, ctrl->info->selector,
+-				&data, ctrl->info->size)) < 0)
+-			return ret;
++				data, ctrl->info->size)) < 0)
++			goto out;
+ 		v4l2_ctrl->minimum = uvc_get_le_value(data, mapping);
+ 	}
+ 	if (ctrl->info->flags & UVC_CONTROL_GET_MAX) {
+ 		if ((ret = uvc_query_ctrl(video->dev, GET_MAX, ctrl->entity->id,
+ 				video->dev->intfnum, ctrl->info->selector,
+-				&data, ctrl->info->size)) < 0)
+-			return ret;
++				data, ctrl->info->size)) < 0)
++			goto out;
+ 		v4l2_ctrl->maximum = uvc_get_le_value(data, mapping);
+ 	}
+ 	if (ctrl->info->flags & UVC_CONTROL_GET_RES) {
+ 		if ((ret = uvc_query_ctrl(video->dev, GET_RES, ctrl->entity->id,
+ 				video->dev->intfnum, ctrl->info->selector,
+-				&data, ctrl->info->size)) < 0)
+-			return ret;
++				data, ctrl->info->size)) < 0)
++			goto out;
+ 		v4l2_ctrl->step = uvc_get_le_value(data, mapping);
+ 	}
+ 
+-	return 0;
++	ret = 0;
++out:
++	kfree(data);
++	return ret;
+ }
+ 
+ 
 diff --git a/drivers/media/video/uvc/uvc_driver.c b/drivers/media/video/uvc/uvc_driver.c
 index 60ced58..9d954d2 100644
 --- a/drivers/media/video/uvc/uvc_driver.c
@@ -5179,10 +5596,79 @@ index be9084e..eb2f970 100644
 +	return usb_submit_urb(dev->int_urb, GFP_NOIO);
  }
 diff --git a/drivers/media/video/uvc/uvc_video.c b/drivers/media/video/uvc/uvc_video.c
-index 6faf1fb..817af2e 100644
+index 6faf1fb..9a8a94a 100644
 --- a/drivers/media/video/uvc/uvc_video.c
 +++ b/drivers/media/video/uvc/uvc_video.c
-@@ -554,9 +554,56 @@ static void uvc_video_complete(struct urb *urb)
+@@ -90,17 +90,20 @@ static void uvc_fixup_buffer_size(struct uvc_video_device *video,
+ static int uvc_get_video_ctrl(struct uvc_video_device *video,
+ 	struct uvc_streaming_control *ctrl, int probe, __u8 query)
+ {
+-	__u8 data[34];
+-	__u8 size;
++	__u8 *data;
++	__u16 size;
+ 	int ret;
+ 
+ 	size = video->dev->uvc_version >= 0x0110 ? 34 : 26;
++	data = kmalloc(size, GFP_KERNEL);
++	if (data == NULL)
++		return -ENOMEM;
++
+ 	ret = __uvc_query_ctrl(video->dev, query, 0, video->streaming->intfnum,
+-		probe ? VS_PROBE_CONTROL : VS_COMMIT_CONTROL, &data, size,
++		probe ? VS_PROBE_CONTROL : VS_COMMIT_CONTROL, data, size,
+ 		UVC_CTRL_STREAMING_TIMEOUT);
+-
+ 	if (ret < 0)
+-		return ret;
++		goto out;
+ 
+ 	ctrl->bmHint = le16_to_cpup((__le16 *)&data[0]);
+ 	ctrl->bFormatIndex = data[2];
+@@ -136,17 +139,22 @@ static int uvc_get_video_ctrl(struct uvc_video_device *video,
+ 	 */
+ 	uvc_fixup_buffer_size(video, ctrl);
+ 
+-	return 0;
++out:
++	kfree(data);
++	return ret;
+ }
+ 
+ int uvc_set_video_ctrl(struct uvc_video_device *video,
+ 	struct uvc_streaming_control *ctrl, int probe)
+ {
+-	__u8 data[34];
+-	__u8 size;
++	__u8 *data;
++	__u16 size;
++	int ret;
+ 
+ 	size = video->dev->uvc_version >= 0x0110 ? 34 : 26;
+-	memset(data, 0, sizeof data);
++	data = kzalloc(size, GFP_KERNEL);
++	if (data == NULL)
++		return -ENOMEM;
+ 
+ 	*(__le16 *)&data[0] = cpu_to_le16(ctrl->bmHint);
+ 	data[2] = ctrl->bFormatIndex;
+@@ -174,10 +182,13 @@ int uvc_set_video_ctrl(struct uvc_video_device *video,
+ 		data[33] = ctrl->bMaxVersion;
+ 	}
+ 
+-	return __uvc_query_ctrl(video->dev, SET_CUR, 0,
++	ret = __uvc_query_ctrl(video->dev, SET_CUR, 0,
+ 		video->streaming->intfnum,
+-		probe ? VS_PROBE_CONTROL : VS_COMMIT_CONTROL, &data, size,
++		probe ? VS_PROBE_CONTROL : VS_COMMIT_CONTROL, data, size,
+ 		UVC_CTRL_STREAMING_TIMEOUT);
++
++	kfree(data);
++	return ret;
+ }
+ 
+ int uvc_probe_video(struct uvc_video_device *video,
+@@ -554,9 +565,56 @@ static void uvc_video_complete(struct urb *urb)
  }
  
  /*
@@ -5240,7 +5726,7 @@ index 6faf1fb..817af2e 100644
  {
  	struct urb *urb;
  	unsigned int i;
-@@ -566,19 +613,12 @@ static void uvc_uninit_video(struct uvc_video_device *video)
+@@ -566,19 +624,12 @@ static void uvc_uninit_video(struct uvc_video_device *video)
  			continue;
  
  		usb_kill_urb(urb);
@@ -5263,7 +5749,7 @@ index 6faf1fb..817af2e 100644
  }
  
  /*
-@@ -586,7 +626,7 @@ static void uvc_uninit_video(struct uvc_video_device *video)
+@@ -586,7 +637,7 @@ static void uvc_uninit_video(struct uvc_video_device *video)
   * is given by the endpoint.
   */
  static int uvc_init_video_isoc(struct uvc_video_device *video,
@@ -5272,7 +5758,7 @@ index 6faf1fb..817af2e 100644
  {
  	struct urb *urb;
  	unsigned int npackets, i, j;
-@@ -610,18 +650,13 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
+@@ -610,18 +661,13 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
  
  	size = npackets * psize;
  
@@ -5296,7 +5782,7 @@ index 6faf1fb..817af2e 100644
  			return -ENOMEM;
  		}
  
-@@ -632,6 +667,7 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
+@@ -632,6 +678,7 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
  		urb->transfer_flags = URB_ISO_ASAP | URB_NO_TRANSFER_DMA_MAP;
  		urb->interval = ep->desc.bInterval;
  		urb->transfer_buffer = video->urb_buffer[i];
@@ -5304,7 +5790,7 @@ index 6faf1fb..817af2e 100644
  		urb->complete = uvc_video_complete;
  		urb->number_of_packets = npackets;
  		urb->transfer_buffer_length = size;
-@@ -652,7 +688,7 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
+@@ -652,7 +699,7 @@ static int uvc_init_video_isoc(struct uvc_video_device *video,
   * given by the endpoint.
   */
  static int uvc_init_video_bulk(struct uvc_video_device *video,
@@ -5313,7 +5799,7 @@ index 6faf1fb..817af2e 100644
  {
  	struct urb *urb;
  	unsigned int pipe, i;
-@@ -671,20 +707,15 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
+@@ -671,20 +718,15 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
  	if (size > psize * UVC_MAX_ISO_PACKETS)
  		size = psize * UVC_MAX_ISO_PACKETS;
  
@@ -5339,7 +5825,7 @@ index 6faf1fb..817af2e 100644
  			return -ENOMEM;
  		}
  
-@@ -692,6 +723,7 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
+@@ -692,6 +734,7 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
  			video->urb_buffer[i], size, uvc_video_complete,
  			video);
  		urb->transfer_flags = URB_NO_TRANSFER_DMA_MAP;
@@ -5347,7 +5833,7 @@ index 6faf1fb..817af2e 100644
  
  		video->urb[i] = urb;
  	}
-@@ -702,7 +734,7 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
+@@ -702,7 +745,7 @@ static int uvc_init_video_bulk(struct uvc_video_device *video,
  /*
   * Initialize isochronous/bulk URBs and allocate transfer buffers.
   */
@@ -5356,7 +5842,7 @@ index 6faf1fb..817af2e 100644
  {
  	struct usb_interface *intf = video->streaming->intf;
  	struct usb_host_interface *alts;
-@@ -747,7 +779,7 @@ static int uvc_init_video(struct uvc_video_device *video)
+@@ -747,7 +790,7 @@ static int uvc_init_video(struct uvc_video_device *video)
  		if ((ret = usb_set_interface(video->dev->udev, intfnum, i)) < 0)
  			return ret;
  
@@ -5365,7 +5851,7 @@ index 6faf1fb..817af2e 100644
  	} else {
  		/* Bulk endpoint, proceed to URB initialization. */
  		ep = uvc_find_endpoint(&intf->altsetting[0],
-@@ -755,7 +787,7 @@ static int uvc_init_video(struct uvc_video_device *video)
+@@ -755,7 +798,7 @@ static int uvc_init_video(struct uvc_video_device *video)
  		if (ep == NULL)
  			return -EIO;
  
@@ -5374,7 +5860,7 @@ index 6faf1fb..817af2e 100644
  	}
  
  	if (ret < 0)
-@@ -763,10 +795,10 @@ static int uvc_init_video(struct uvc_video_device *video)
+@@ -763,10 +806,10 @@ static int uvc_init_video(struct uvc_video_device *video)
  
  	/* Submit the URBs. */
  	for (i = 0; i < UVC_URBS; ++i) {
@@ -5387,7 +5873,7 @@ index 6faf1fb..817af2e 100644
  			return ret;
  		}
  	}
-@@ -791,7 +823,7 @@ int uvc_video_suspend(struct uvc_video_device *video)
+@@ -791,7 +834,7 @@ int uvc_video_suspend(struct uvc_video_device *video)
  		return 0;
  
  	video->frozen = 1;
@@ -5396,7 +5882,7 @@ index 6faf1fb..817af2e 100644
  	usb_set_interface(video->dev->udev, video->streaming->intfnum, 0);
  	return 0;
  }
-@@ -818,7 +850,7 @@ int uvc_video_resume(struct uvc_video_device *video)
+@@ -818,7 +861,7 @@ int uvc_video_resume(struct uvc_video_device *video)
  	if (!uvc_queue_streaming(&video->queue))
  		return 0;
  
@@ -5405,7 +5891,7 @@ index 6faf1fb..817af2e 100644
  		uvc_queue_enable(&video->queue, 0);
  
  	return ret;
-@@ -920,7 +952,7 @@ int uvc_video_enable(struct uvc_video_device *video, int enable)
+@@ -920,7 +963,7 @@ int uvc_video_enable(struct uvc_video_device *video, int enable)
  	int ret;
  
  	if (!enable) {
@@ -5414,7 +5900,7 @@ index 6faf1fb..817af2e 100644
  		usb_set_interface(video->dev->udev,
  			video->streaming->intfnum, 0);
  		uvc_queue_enable(&video->queue, 0);
-@@ -930,5 +962,5 @@ int uvc_video_enable(struct uvc_video_device *video, int enable)
+@@ -930,5 +973,5 @@ int uvc_video_enable(struct uvc_video_device *video, int enable)
  	if ((ret = uvc_queue_enable(&video->queue, 1)) < 0)
  		return ret;
  
@@ -5434,6 +5920,19 @@ index a995a78..2444b8a 100644
  
  	__u8 last_fid;
  };
+diff --git a/drivers/media/video/zoran_driver.c b/drivers/media/video/zoran_driver.c
+index 5394d7a..27b7072 100644
+--- a/drivers/media/video/zoran_driver.c
++++ b/drivers/media/video/zoran_driver.c
+@@ -134,7 +134,7 @@ const struct zoran_format zoran_formats[] = {
+ 	}, {
+ 		.name = "16-bit RGB BE",
+ 		ZFMT(-1,
+-		     V4L2_PIX_FMT_RGB565, V4L2_COLORSPACE_SRGB),
++		     V4L2_PIX_FMT_RGB565X, V4L2_COLORSPACE_SRGB),
+ 		.depth = 16,
+ 		.flags = ZORAN_FORMAT_CAPTURE |
+ 			 ZORAN_FORMAT_OVERLAY,
 diff --git a/drivers/misc/acer-wmi.c b/drivers/misc/acer-wmi.c
 index dd13a37..3a3e4c1 100644
 --- a/drivers/misc/acer-wmi.c
@@ -6017,6 +6516,19 @@ index 3e612d0..9bba3ec 100644
  	return err;
  }
  
+diff --git a/drivers/net/wireless/b43legacy/xmit.c b/drivers/net/wireless/b43legacy/xmit.c
+index dcad249..1b71a9f 100644
+--- a/drivers/net/wireless/b43legacy/xmit.c
++++ b/drivers/net/wireless/b43legacy/xmit.c
+@@ -626,7 +626,7 @@ void b43legacy_handle_hwtxstatus(struct b43legacy_wldev *dev,
+ 	tmp = hw->count;
+ 	status.frame_count = (tmp >> 4);
+ 	status.rts_count = (tmp & 0x0F);
+-	tmp = hw->flags;
++	tmp = hw->flags << 1;
+ 	status.supp_reason = ((tmp & 0x1C) >> 2);
+ 	status.pm_indicated = !!(tmp & 0x80);
+ 	status.intermediate = !!(tmp & 0x40);
 diff --git a/drivers/net/wireless/rt2x00/rt2x00.h b/drivers/net/wireless/rt2x00/rt2x00.h
 index b4bf1e0..10c92bd 100644
 --- a/drivers/net/wireless/rt2x00/rt2x00.h
@@ -6154,6 +6666,132 @@ index 9223ada..d49d1c6 100644
  
  	printk(KERN_INFO "%s: hwaddr %s, rtl8187 V%d + %s\n",
  	       wiphy_name(dev->wiphy), print_mac(mac, dev->wiphy->perm_addr),
+diff --git a/drivers/pci/pci-acpi.c b/drivers/pci/pci-acpi.c
+index 9d6fc8e..c2dc92b 100644
+--- a/drivers/pci/pci-acpi.c
++++ b/drivers/pci/pci-acpi.c
+@@ -11,6 +11,7 @@
+ #include <linux/init.h>
+ #include <linux/pci.h>
+ #include <linux/module.h>
++#include <linux/pci-aspm.h>
+ #include <acpi/acpi.h>
+ #include <acpi/acnamesp.h>
+ #include <acpi/acresrc.h>
+@@ -394,6 +395,12 @@ static int __init acpi_pci_init(void)
+ 		printk(KERN_INFO"ACPI FADT declares the system doesn't support MSI, so disable it\n");
+ 		pci_no_msi();
+ 	}
++
++	if (acpi_gbl_FADT.boot_flags & BAF_PCIE_ASPM_CONTROL) {
++		printk(KERN_INFO"ACPI FADT declares the system doesn't support PCIe ASPM, so disable it\n");
++		pcie_no_aspm();
++	}
++
+ 	ret = register_acpi_bus_type(&acpi_pci_bus);
+ 	if (ret)
+ 		return 0;
+diff --git a/drivers/pci/pci-sysfs.c b/drivers/pci/pci-sysfs.c
+index 9c71858..96c4750 100644
+--- a/drivers/pci/pci-sysfs.c
++++ b/drivers/pci/pci-sysfs.c
+@@ -16,6 +16,7 @@
+ 
+ 
+ #include <linux/kernel.h>
++#include <linux/sched.h>
+ #include <linux/pci.h>
+ #include <linux/stat.h>
+ #include <linux/topology.h>
+@@ -484,6 +485,21 @@ pci_mmap_legacy_mem(struct kobject *kobj, struct bin_attribute *attr,
+ #endif /* HAVE_PCI_LEGACY */
+ 
+ #ifdef HAVE_PCI_MMAP
++
++static int pci_mmap_fits(struct pci_dev *pdev, int resno, struct vm_area_struct *vma)
++{
++	unsigned long nr, start, size;
++
++	nr = (vma->vm_end - vma->vm_start) >> PAGE_SHIFT;
++	start = vma->vm_pgoff;
++	size = pci_resource_len(pdev, resno) >> PAGE_SHIFT;
++	if (start < size && size - start >= nr)
++		return 1;
++	printk(KERN_WARNING "WARNING: process \"%s\" tried to map 0x%08lx-0x%08lx on %s BAR %d (size 0x%08lx)\n",
++		current->comm, start, start+nr, pci_name(pdev), resno, size);
++	return 0;
++}
++
+ /**
+  * pci_mmap_resource - map a PCI resource into user memory space
+  * @kobj: kobject for mapping
+@@ -510,6 +526,9 @@ pci_mmap_resource(struct kobject *kobj, struct bin_attribute *attr,
+ 	if (i >= PCI_ROM_RESOURCE)
+ 		return -ENODEV;
+ 
++	if (!pci_mmap_fits(pdev, i, vma))
++		return -EINVAL;
++
+ 	/* pci_mmap_page_range() expects the same kind of entry as coming
+ 	 * from /proc/bus/pci/ which is a "user visible" value. If this is
+ 	 * different from the resource itself, arch will do necessary fixup.
+diff --git a/drivers/pci/pcie/aspm.c b/drivers/pci/pcie/aspm.c
+index f824955..7046052 100644
+--- a/drivers/pci/pcie/aspm.c
++++ b/drivers/pci/pcie/aspm.c
+@@ -510,6 +510,7 @@ static int pcie_aspm_sanity_check(struct pci_dev *pdev)
+ {
+ 	struct pci_dev *child_dev;
+ 	int child_pos;
++	u32 reg32;
+ 
+ 	/*
+ 	 * Some functions in a slot might not all be PCIE functions, very
+@@ -519,6 +520,18 @@ static int pcie_aspm_sanity_check(struct pci_dev *pdev)
+ 		child_pos = pci_find_capability(child_dev, PCI_CAP_ID_EXP);
+ 		if (!child_pos)
+ 			return -EINVAL;
++
++		/*
++		 * Disable ASPM for pre-1.1 PCIe device, we follow MS to use
++		 * RBER bit to determine if a function is 1.1 version device
++		 */
++		pci_read_config_dword(child_dev, child_pos + PCI_EXP_DEVCAP,
++			&reg32);
++		if (!(reg32 & PCI_EXP_DEVCAP_RBER)) {
++			printk("Pre-1.1 PCIe device detected, "
++				"disable ASPM for %s\n", pci_name(pdev));
++			return -EINVAL;
++		}
+ 	}
+ 	return 0;
+ }
+@@ -808,6 +821,11 @@ static int __init pcie_aspm_disable(char *str)
+ 
+ __setup("pcie_noaspm", pcie_aspm_disable);
+ 
++void pcie_no_aspm(void)
++{
++	aspm_disabled = 1;
++}
++
+ #ifdef CONFIG_ACPI
+ #include <acpi/acpi_bus.h>
+ #include <linux/pci-acpi.h>
+diff --git a/drivers/pci/probe.c b/drivers/pci/probe.c
+index 3706ce7..4f90250 100644
+--- a/drivers/pci/probe.c
++++ b/drivers/pci/probe.c
+@@ -1047,7 +1047,8 @@ int pci_scan_slot(struct pci_bus *bus, int devfn)
+ 		}
+ 	}
+ 
+-	if (bus->self)
++	/* only one slot has pcie device */
++	if (bus->self && nr)
+ 		pcie_aspm_init_link_state(bus->self);
+ 
+ 	return nr;
 diff --git a/drivers/pci/quirks.c b/drivers/pci/quirks.c
 index 338a3f9..c14de8e 100644
 --- a/drivers/pci/quirks.c
@@ -7413,6 +8051,21 @@ index 3ca27cb..aa95f83 100644
  	    rinfo->family != CHIP_FAMILY_RV350)
  		OUTREG(RBBM_SOFT_RESET, rbbm_soft_reset);
  
+diff --git a/drivers/video/console/fbcon.c b/drivers/video/console/fbcon.c
+index 97aff8d..e27f6bd 100644
+--- a/drivers/video/console/fbcon.c
++++ b/drivers/video/console/fbcon.c
+@@ -2990,8 +2990,8 @@ static void fbcon_set_all_vcs(struct fb_info *info)
+ 		p = &fb_display[vc->vc_num];
+ 		set_blitting_type(vc, info);
+ 		var_to_display(p, &info->var, info);
+-		cols = FBCON_SWAP(p->rotate, info->var.xres, info->var.yres);
+-		rows = FBCON_SWAP(p->rotate, info->var.yres, info->var.xres);
++		cols = FBCON_SWAP(ops->rotate, info->var.xres, info->var.yres);
++		rows = FBCON_SWAP(ops->rotate, info->var.yres, info->var.xres);
+ 		cols /= vc->vc_font.width;
+ 		rows /= vc->vc_font.height;
+ 		vc_resize(vc, cols, rows);
 diff --git a/drivers/video/console/fbcon.h b/drivers/video/console/fbcon.h
 index 0135e03..e3437c4 100644
 --- a/drivers/video/console/fbcon.h
@@ -7914,6 +8567,40 @@ index 86b4d5f..6203609 100644
  out_mount_failed:
  	if (cifs_sb) {
  #ifdef CONFIG_CIFS_DFS_UPCALL
+diff --git a/fs/cifs/cifsglob.h b/fs/cifs/cifsglob.h
+index 9cfcf32..646b04f 100644
+--- a/fs/cifs/cifsglob.h
++++ b/fs/cifs/cifsglob.h
+@@ -308,6 +308,7 @@ struct cifs_search_info {
+ 	__u32 resume_key;
+ 	char *ntwrk_buf_start;
+ 	char *srch_entries_start;
++	char *last_entry;
+ 	char *presume_name;
+ 	unsigned int resume_name_len;
+ 	bool endOfSearch:1;
+diff --git a/fs/cifs/cifssmb.c b/fs/cifs/cifssmb.c
+index 4511b70..0f7286c 100644
+--- a/fs/cifs/cifssmb.c
++++ b/fs/cifs/cifssmb.c
+@@ -3638,6 +3638,8 @@ findFirstRetry:
+ 					le16_to_cpu(parms->SearchCount);
+ 			psrch_inf->index_of_last_entry = 2 /* skip . and .. */ +
+ 				psrch_inf->entries_in_buffer;
++			psrch_inf->last_entry = psrch_inf->srch_entries_start +
++					le16_to_cpu(parms->LastNameOffset);
+ 			*pnetfid = parms->SearchHandle;
+ 		} else {
+ 			cifs_buf_release(pSMB);
+@@ -3753,6 +3755,8 @@ int CIFSFindNext(const int xid, struct cifsTconInfo *tcon,
+ 						le16_to_cpu(parms->SearchCount);
+ 			psrch_inf->index_of_last_entry +=
+ 				psrch_inf->entries_in_buffer;
++			psrch_inf->last_entry = psrch_inf->srch_entries_start +
++					le16_to_cpu(parms->LastNameOffset);
+ /*  cFYI(1,("fnxt2 entries in buf %d index_of_last %d",
+ 	    psrch_inf->entries_in_buffer, psrch_inf->index_of_last_entry)); */
+ 
 diff --git a/fs/cifs/file.c b/fs/cifs/file.c
 index 0aac824..8da903b 100644
 --- a/fs/cifs/file.c
@@ -7941,6 +8628,159 @@ index 2e904bd..227c553 100644
  		_FreeXid(xid);
  		iget_failed(inode);
  		return ERR_PTR(rc);
+diff --git a/fs/cifs/readdir.c b/fs/cifs/readdir.c
+index 83f3069..85ea3c6 100644
+--- a/fs/cifs/readdir.c
++++ b/fs/cifs/readdir.c
+@@ -640,6 +640,70 @@ static int is_dir_changed(struct file *file)
+ 
+ }
+ 
++static int cifs_save_resume_key(const char *current_entry,
++	struct cifsFileInfo *cifsFile)
++{
++	int rc = 0;
++	unsigned int len = 0;
++	__u16 level;
++	char *filename;
++
++	if ((cifsFile == NULL) || (current_entry == NULL))
++		return -EINVAL;
++
++	level = cifsFile->srch_inf.info_level;
++
++	if (level == SMB_FIND_FILE_UNIX) {
++		FILE_UNIX_INFO *pFindData = (FILE_UNIX_INFO *)current_entry;
++
++		filename = &pFindData->FileName[0];
++		if (cifsFile->srch_inf.unicode) {
++			len = cifs_unicode_bytelen(filename);
++		} else {
++			/* BB should we make this strnlen of PATH_MAX? */
++			len = strnlen(filename, PATH_MAX);
++		}
++		cifsFile->srch_inf.resume_key = pFindData->ResumeKey;
++	} else if (level == SMB_FIND_FILE_DIRECTORY_INFO) {
++		FILE_DIRECTORY_INFO *pFindData =
++			(FILE_DIRECTORY_INFO *)current_entry;
++		filename = &pFindData->FileName[0];
++		len = le32_to_cpu(pFindData->FileNameLength);
++		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
++	} else if (level == SMB_FIND_FILE_FULL_DIRECTORY_INFO) {
++		FILE_FULL_DIRECTORY_INFO *pFindData =
++			(FILE_FULL_DIRECTORY_INFO *)current_entry;
++		filename = &pFindData->FileName[0];
++		len = le32_to_cpu(pFindData->FileNameLength);
++		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
++	} else if (level == SMB_FIND_FILE_ID_FULL_DIR_INFO) {
++		SEARCH_ID_FULL_DIR_INFO *pFindData =
++			(SEARCH_ID_FULL_DIR_INFO *)current_entry;
++		filename = &pFindData->FileName[0];
++		len = le32_to_cpu(pFindData->FileNameLength);
++		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
++	} else if (level == SMB_FIND_FILE_BOTH_DIRECTORY_INFO) {
++		FILE_BOTH_DIRECTORY_INFO *pFindData =
++			(FILE_BOTH_DIRECTORY_INFO *)current_entry;
++		filename = &pFindData->FileName[0];
++		len = le32_to_cpu(pFindData->FileNameLength);
++		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
++	} else if (level == SMB_FIND_FILE_INFO_STANDARD) {
++		FIND_FILE_STANDARD_INFO *pFindData =
++			(FIND_FILE_STANDARD_INFO *)current_entry;
++		filename = &pFindData->FileName[0];
++		/* one byte length, no name conversion */
++		len = (unsigned int)pFindData->FileNameLength;
++		cifsFile->srch_inf.resume_key = pFindData->ResumeKey;
++	} else {
++		cFYI(1, ("Unknown findfirst level %d", level));
++		return -EINVAL;
++	}
++	cifsFile->srch_inf.resume_name_len = len;
++	cifsFile->srch_inf.presume_name = filename;
++	return rc;
++}
++
+ /* find the corresponding entry in the search */
+ /* Note that the SMB server returns search entries for . and .. which
+    complicates logic here if we choose to parse for them and we do not
+@@ -702,6 +766,7 @@ static int find_cifs_entry(const int xid, struct cifsTconInfo *pTcon,
+ 	while ((index_to_find >= cifsFile->srch_inf.index_of_last_entry) &&
+ 	      (rc == 0) && !cifsFile->srch_inf.endOfSearch) {
+ 		cFYI(1, ("calling findnext2"));
++		cifs_save_resume_key(cifsFile->srch_inf.last_entry, cifsFile);
+ 		rc = CIFSFindNext(xid, pTcon, cifsFile->netfid,
+ 				  &cifsFile->srch_inf);
+ 		if (rc)
+@@ -918,69 +983,6 @@ static int cifs_filldir(char *pfindEntry, struct file *file,
+ 	return rc;
+ }
+ 
+-static int cifs_save_resume_key(const char *current_entry,
+-	struct cifsFileInfo *cifsFile)
+-{
+-	int rc = 0;
+-	unsigned int len = 0;
+-	__u16 level;
+-	char *filename;
+-
+-	if ((cifsFile == NULL) || (current_entry == NULL))
+-		return -EINVAL;
+-
+-	level = cifsFile->srch_inf.info_level;
+-
+-	if (level == SMB_FIND_FILE_UNIX) {
+-		FILE_UNIX_INFO *pFindData = (FILE_UNIX_INFO *)current_entry;
+-
+-		filename = &pFindData->FileName[0];
+-		if (cifsFile->srch_inf.unicode) {
+-			len = cifs_unicode_bytelen(filename);
+-		} else {
+-			/* BB should we make this strnlen of PATH_MAX? */
+-			len = strnlen(filename, PATH_MAX);
+-		}
+-		cifsFile->srch_inf.resume_key = pFindData->ResumeKey;
+-	} else if (level == SMB_FIND_FILE_DIRECTORY_INFO) {
+-		FILE_DIRECTORY_INFO *pFindData =
+-			(FILE_DIRECTORY_INFO *)current_entry;
+-		filename = &pFindData->FileName[0];
+-		len = le32_to_cpu(pFindData->FileNameLength);
+-		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
+-	} else if (level == SMB_FIND_FILE_FULL_DIRECTORY_INFO) {
+-		FILE_FULL_DIRECTORY_INFO *pFindData =
+-			(FILE_FULL_DIRECTORY_INFO *)current_entry;
+-		filename = &pFindData->FileName[0];
+-		len = le32_to_cpu(pFindData->FileNameLength);
+-		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
+-	} else if (level == SMB_FIND_FILE_ID_FULL_DIR_INFO) {
+-		SEARCH_ID_FULL_DIR_INFO *pFindData =
+-			(SEARCH_ID_FULL_DIR_INFO *)current_entry;
+-		filename = &pFindData->FileName[0];
+-		len = le32_to_cpu(pFindData->FileNameLength);
+-		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
+-	} else if (level == SMB_FIND_FILE_BOTH_DIRECTORY_INFO) {
+-		FILE_BOTH_DIRECTORY_INFO *pFindData =
+-			(FILE_BOTH_DIRECTORY_INFO *)current_entry;
+-		filename = &pFindData->FileName[0];
+-		len = le32_to_cpu(pFindData->FileNameLength);
+-		cifsFile->srch_inf.resume_key = pFindData->FileIndex;
+-	} else if (level == SMB_FIND_FILE_INFO_STANDARD) {
+-		FIND_FILE_STANDARD_INFO *pFindData =
+-			(FIND_FILE_STANDARD_INFO *)current_entry;
+-		filename = &pFindData->FileName[0];
+-		/* one byte length, no name conversion */
+-		len = (unsigned int)pFindData->FileNameLength;
+-		cifsFile->srch_inf.resume_key = pFindData->ResumeKey;
+-	} else {
+-		cFYI(1, ("Unknown findfirst level %d", level));
+-		return -EINVAL;
+-	}
+-	cifsFile->srch_inf.resume_name_len = len;
+-	cifsFile->srch_inf.presume_name = filename;
+-	return rc;
+-}
+ 
+ int cifs_readdir(struct file *file, void *direntry, filldir_t filldir)
+ {
 diff --git a/fs/cramfs/inode.c b/fs/cramfs/inode.c
 index 0c3b618..f40423e 100644
 --- a/fs/cramfs/inode.c
@@ -8670,6 +9510,32 @@ index 3f13d49..35e5c6e 100644
  	flush_dcache_page(page);
  
  	unlock_page(page);
+diff --git a/fs/splice.c b/fs/splice.c
+index aa5f6f6..df75dcc 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -889,6 +889,9 @@ static long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
+ 	if (unlikely(!(out->f_mode & FMODE_WRITE)))
+ 		return -EBADF;
+ 
++	if (unlikely(out->f_flags & O_APPEND))
++		return -EINVAL;
++
+ 	ret = rw_verify_area(WRITE, out, ppos, len);
+ 	if (unlikely(ret < 0))
+ 		return ret;
+diff --git a/include/acpi/actbl.h b/include/acpi/actbl.h
+index 1ebbe88..13a3d9a 100644
+--- a/include/acpi/actbl.h
++++ b/include/acpi/actbl.h
+@@ -277,6 +277,7 @@ enum acpi_prefered_pm_profiles {
+ #define BAF_LEGACY_DEVICES              0x0001
+ #define BAF_8042_KEYBOARD_CONTROLLER    0x0002
+ #define BAF_MSI_NOT_SUPPORTED           0x0008
++#define BAF_PCIE_ASPM_CONTROL           0x0010
+ 
+ #define FADT2_REVISION_ID               3
+ #define FADT2_MINUS_REVISION_ID         2
 diff --git a/include/asm-arm/bitops.h b/include/asm-arm/bitops.h
 index 5c60bfc..9a1db20 100644
 --- a/include/asm-arm/bitops.h
@@ -9021,6 +9887,19 @@ index 71d70d1..27af0b8 100644
  unifdef-y += pktcdvd.h
  unifdef-y += pmu.h
  unifdef-y += poll.h
+diff --git a/include/linux/ata.h b/include/linux/ata.h
+index 1c622e2..636589b 100644
+--- a/include/linux/ata.h
++++ b/include/linux/ata.h
+@@ -682,7 +682,7 @@ static inline int ata_ok(u8 status)
+ static inline int lba_28_ok(u64 block, u32 n_block)
+ {
+ 	/* check the ending block number */
+-	return ((block + n_block - 1) < ((u64)1 << 28)) && (n_block <= 256);
++	return ((block + n_block) < ((u64)1 << 28)) && (n_block <= 256);
+ }
+ 
+ static inline int lba_48_ok(u64 block, u32 n_block)
 diff --git a/include/linux/clockchips.h b/include/linux/clockchips.h
 index c33b0dc..ed3a5d4 100644
 --- a/include/linux/clockchips.h
@@ -9161,6 +10040,41 @@ index e798959..90010dd 100644
  #include <linux/skbuff.h>	/* for struct sk_buff_head */
  
  #ifdef CONFIG_IPV6_MROUTE
+diff --git a/include/linux/pci-aspm.h b/include/linux/pci-aspm.h
+index a1a1e61..91ba0b3 100644
+--- a/include/linux/pci-aspm.h
++++ b/include/linux/pci-aspm.h
+@@ -27,6 +27,7 @@ extern void pcie_aspm_init_link_state(struct pci_dev *pdev);
+ extern void pcie_aspm_exit_link_state(struct pci_dev *pdev);
+ extern void pcie_aspm_pm_state_change(struct pci_dev *pdev);
+ extern void pci_disable_link_state(struct pci_dev *pdev, int state);
++extern void pcie_no_aspm(void);
+ #else
+ static inline void pcie_aspm_init_link_state(struct pci_dev *pdev)
+ {
+@@ -40,6 +41,10 @@ static inline void pcie_aspm_pm_state_change(struct pci_dev *pdev)
+ static inline void pci_disable_link_state(struct pci_dev *pdev, int state)
+ {
+ }
++
++static inline void pcie_no_aspm(void)
++{
++}
+ #endif
+ 
+ #ifdef CONFIG_PCIEASPM_DEBUG /* this depends on CONFIG_PCIEASPM */
+diff --git a/include/linux/pci_regs.h b/include/linux/pci_regs.h
+index c0c1223..81045aa 100644
+--- a/include/linux/pci_regs.h
++++ b/include/linux/pci_regs.h
+@@ -373,6 +373,7 @@
+ #define  PCI_EXP_DEVCAP_ATN_BUT	0x1000	/* Attention Button Present */
+ #define  PCI_EXP_DEVCAP_ATN_IND	0x2000	/* Attention Indicator Present */
+ #define  PCI_EXP_DEVCAP_PWR_IND	0x4000	/* Power Indicator Present */
++#define  PCI_EXP_DEVCAP_RBER	0x8000	/* Role-Based Error Reporting */
+ #define  PCI_EXP_DEVCAP_PWR_VAL	0x3fc0000 /* Slot Power Limit Value */
+ #define  PCI_EXP_DEVCAP_PWR_SCL	0xc000000 /* Slot Power Limit Scale */
+ #define PCI_EXP_DEVCTL		8	/* Device Control */
 diff --git a/include/linux/pim.h b/include/linux/pim.h
 index 236ffd3..1ba0661 100644
 --- a/include/linux/pim.h
@@ -9459,6 +10373,19 @@ index b5a9fe1..39e7596 100644
  		for (i = 0; multi[i].func; i++)
  			multi[i].func(multi[i].probe_private, call_private, fmt,
  				&args);
+diff --git a/kernel/module.c b/kernel/module.c
+index 5f80478..f12c92c 100644
+--- a/kernel/module.c
++++ b/kernel/module.c
+@@ -1143,7 +1143,7 @@ static void free_notes_attrs(struct module_notes_attrs *notes_attrs,
+ 		while (i-- > 0)
+ 			sysfs_remove_bin_file(notes_attrs->dir,
+ 					      &notes_attrs->attrs[i]);
+-		kobject_del(notes_attrs->dir);
++		kobject_put(notes_attrs->dir);
+ 	}
+ 	kfree(notes_attrs);
+ }
 diff --git a/kernel/posix-timers.c b/kernel/posix-timers.c
 index dbd8398..0ffaeb0 100644
 --- a/kernel/posix-timers.c
@@ -9627,6 +10554,27 @@ index 4e2f603..0a50ee4 100644
   * This function gets called by the timer code, with HZ frequency.
   * We call it with interrupts disabled.
   *
+diff --git a/kernel/sched_rt.c b/kernel/sched_rt.c
+index 0f3c191..957e238 100644
+--- a/kernel/sched_rt.c
++++ b/kernel/sched_rt.c
+@@ -96,12 +96,12 @@ static void dequeue_rt_entity(struct sched_rt_entity *rt_se);
+ 
+ static void sched_rt_rq_enqueue(struct rt_rq *rt_rq)
+ {
++	struct task_struct *curr = rq_of_rt_rq(rt_rq)->curr;
+ 	struct sched_rt_entity *rt_se = rt_rq->rt_se;
+ 
+-	if (rt_se && !on_rt_rq(rt_se) && rt_rq->rt_nr_running) {
+-		struct task_struct *curr = rq_of_rt_rq(rt_rq)->curr;
+-
+-		enqueue_rt_entity(rt_se);
++	if (rt_rq->rt_nr_running) {
++		if (rt_se && !on_rt_rq(rt_se))
++			enqueue_rt_entity(rt_se);
+ 		if (rt_rq->highest_prio < curr->prio)
+ 			resched_task(curr);
+ 	}
 diff --git a/kernel/signal.c b/kernel/signal.c
 index 6c0958e..c5bf0c0 100644
 --- a/kernel/signal.c

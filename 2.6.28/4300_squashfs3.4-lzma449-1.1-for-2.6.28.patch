@@ -1,7 +1,7 @@
-diff -Nurp /tmp/linux-2.6.26.3/fs/Kconfig linux-2.6.26.3/fs/Kconfig
---- /tmp/linux-2.6.26.3/fs/Kconfig	2008-08-21 02:11:37.000000000 +0800
-+++ linux-2.6.26.3/fs/Kconfig	2008-09-10 10:27:45.000000000 +0800
-@@ -1395,6 +1395,56 @@ config CRAMFS
+diff -urN linux-2.6.28/fs/Kconfig linux-2.6.28.patched/fs/Kconfig
+--- linux-2.6.28/fs/Kconfig	2008-12-24 23:26:37.000000000 +0000
++++ linux-2.6.28.patched/fs/Kconfig	2008-12-29 09:06:27.000000000 +0000
+@@ -931,6 +931,56 @@
  
  	  If unsure, say N.
  
@@ -58,10 +58,10 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/Kconfig linux-2.6.26.3/fs/Kconfig
  config VXFS_FS
  	tristate "FreeVxFS file system support (VERITAS VxFS(TM) compatible)"
  	depends on BLOCK
-diff -Nurp /tmp/linux-2.6.26.3/fs/Makefile linux-2.6.26.3/fs/Makefile
---- /tmp/linux-2.6.26.3/fs/Makefile	2008-08-21 02:11:37.000000000 +0800
-+++ linux-2.6.26.3/fs/Makefile	2008-09-10 10:27:45.000000000 +0800
-@@ -73,6 +73,7 @@ obj-$(CONFIG_JBD)		+= jbd/
+diff -urN linux-2.6.28/fs/Makefile linux-2.6.28.patched/fs/Makefile
+--- linux-2.6.28/fs/Makefile	2008-12-24 23:26:37.000000000 +0000
++++ linux-2.6.28.patched/fs/Makefile	2008-12-29 09:06:27.000000000 +0000
+@@ -76,6 +76,7 @@
  obj-$(CONFIG_JBD2)		+= jbd2/
  obj-$(CONFIG_EXT2_FS)		+= ext2/
  obj-$(CONFIG_CRAMFS)		+= cramfs/
@@ -69,10 +69,10 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/Makefile linux-2.6.26.3/fs/Makefile
  obj-y				+= ramfs/
  obj-$(CONFIG_HUGETLBFS)		+= hugetlbfs/
  obj-$(CONFIG_CODA_FS)		+= coda/
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/inode.c linux-2.6.26.3/fs/squashfs/inode.c
---- /tmp/linux-2.6.26.3/fs/squashfs/inode.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/inode.c	2008-09-10 19:27:35.000000000 +0800
-@@ -0,0 +1,2292 @@
+diff -urN linux-2.6.28/fs/squashfs/inode.c linux-2.6.28.patched/fs/squashfs/inode.c
+--- linux-2.6.28/fs/squashfs/inode.c	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/inode.c	2008-12-29 09:07:11.000000000 +0000
+@@ -0,0 +1,2276 @@
 +/*
 + * Squashfs - a compressed read only filesystem for Linux
 + *
@@ -753,30 +753,14 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/inode.c linux-2.6.26.3/fs/squashfs/in
 +	unsigned int inode_number)
 +{
 +	squashfs_inode_t inode;
-+	struct inode *i;
-+	struct dentry *dentry;
++	struct dentry *dentry = ERR_PTR(-ENOENT);
 +
 +	TRACE("Entered squashfs_export_iget\n");
 +
 +	inode = squashfs_inode_lookup(s, inode_number);
-+	if(inode == SQUASHFS_INVALID_BLK) {
-+		dentry = ERR_PTR(-ENOENT);
-+		goto failure;
-+	}
++	if(inode != SQUASHFS_INVALID_BLK)
++		dentry = d_obtain_alias(squashfs_iget(s, inode, inode_number));
 +
-+	i = squashfs_iget(s, inode, inode_number);
-+	if(i == NULL) {
-+		dentry = ERR_PTR(-EACCES);
-+		goto failure;
-+	}
-+
-+	dentry = d_alloc_anon(i);
-+	if (dentry == NULL) {
-+		iput(i);
-+		dentry = ERR_PTR(-ENOMEM);
-+	}
-+
-+failure:
 +	return dentry;
 +}
 +
@@ -2365,9 +2349,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/inode.c linux-2.6.26.3/fs/squashfs/in
 +MODULE_DESCRIPTION("squashfs 3.4, a compressed read-only filesystem, and LZMA suppport for slax.org");
 +MODULE_AUTHOR("Phillip Lougher <phillip@lougher.demon.co.uk>, and LZMA suppport for slax.org by jro");
 +MODULE_LICENSE("GPL");
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/LzmaDecode.c linux-2.6.26.3/fs/squashfs/LzmaDecode.c
---- /tmp/linux-2.6.26.3/fs/squashfs/LzmaDecode.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/LzmaDecode.c	2008-09-10 19:18:56.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/LzmaDecode.c linux-2.6.28.patched/fs/squashfs/LzmaDecode.c
+--- linux-2.6.28/fs/squashfs/LzmaDecode.c	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/LzmaDecode.c	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,584 @@
 +/*
 +  LzmaDecode.c
@@ -2953,9 +2937,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/LzmaDecode.c linux-2.6.26.3/fs/squash
 +  *outSizeProcessed = nowPos;
 +  return LZMA_RESULT_OK;
 +}
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/LzmaDecode.h linux-2.6.26.3/fs/squashfs/LzmaDecode.h
---- /tmp/linux-2.6.26.3/fs/squashfs/LzmaDecode.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/LzmaDecode.h	2008-09-10 19:18:56.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/LzmaDecode.h linux-2.6.28.patched/fs/squashfs/LzmaDecode.h
+--- linux-2.6.28/fs/squashfs/LzmaDecode.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/LzmaDecode.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,113 @@
 +/* 
 +  LzmaDecode.h
@@ -3070,9 +3054,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/LzmaDecode.h linux-2.6.26.3/fs/squash
 +    unsigned char *outStream, SizeT outSize, SizeT *outSizeProcessed);
 +
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/LzmaTypes.h linux-2.6.26.3/fs/squashfs/LzmaTypes.h
---- /tmp/linux-2.6.26.3/fs/squashfs/LzmaTypes.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/LzmaTypes.h	2008-09-10 19:18:56.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/LzmaTypes.h linux-2.6.28.patched/fs/squashfs/LzmaTypes.h
+--- linux-2.6.28/fs/squashfs/LzmaTypes.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/LzmaTypes.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,45 @@
 +/* 
 +LzmaTypes.h 
@@ -3119,9 +3103,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/LzmaTypes.h linux-2.6.26.3/fs/squashf
 +#endif
 +
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/Makefile linux-2.6.26.3/fs/squashfs/Makefile
---- /tmp/linux-2.6.26.3/fs/squashfs/Makefile	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/Makefile	2008-09-10 19:20:04.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/Makefile linux-2.6.28.patched/fs/squashfs/Makefile
+--- linux-2.6.28/fs/squashfs/Makefile	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/Makefile	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,12 @@
 +#
 +# Makefile for the linux squashfs routines.
@@ -3135,9 +3119,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/Makefile linux-2.6.26.3/fs/squashfs/M
 +squashfs-y += inode.o
 +squashfs-y += squashfs2_0.o
 +
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/module.c linux-2.6.26.3/fs/squashfs/module.c
---- /tmp/linux-2.6.26.3/fs/squashfs/module.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/module.c	2008-09-10 19:18:58.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/module.c linux-2.6.28.patched/fs/squashfs/module.c
+--- linux-2.6.28/fs/squashfs/module.c	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/module.c	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,36 @@
 +
 +/*
@@ -3175,9 +3159,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/module.c linux-2.6.26.3/fs/squashfs/m
 +MODULE_VERSION("$Id: module.c,v 1.1 2007-11-05 05:43:36 jro Exp $");
 +MODULE_DESCRIPTION("LZMA uncompress. "
 +		   "A tiny wrapper for LzmaDecode.c in LZMA SDK from www.7-zip.org.");
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/sqlzma.h linux-2.6.26.3/fs/squashfs/sqlzma.h
---- /tmp/linux-2.6.26.3/fs/squashfs/sqlzma.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/sqlzma.h	2008-09-10 19:19:02.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/sqlzma.h linux-2.6.28.patched/fs/squashfs/sqlzma.h
+--- linux-2.6.28/fs/squashfs/sqlzma.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/sqlzma.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,84 @@
 +/*
 + * Copyright (C) 2006-2008 Junjiro Okajima
@@ -3263,9 +3247,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/sqlzma.h linux-2.6.26.3/fs/squashfs/s
 +};
 +#endif
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/sqmagic.h linux-2.6.26.3/fs/squashfs/sqmagic.h
---- /tmp/linux-2.6.26.3/fs/squashfs/sqmagic.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/sqmagic.h	2008-09-10 19:19:02.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/sqmagic.h linux-2.6.28.patched/fs/squashfs/sqmagic.h
+--- linux-2.6.28/fs/squashfs/sqmagic.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/sqmagic.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,17 @@
 +/*
 + * Copyright (C) 2006 Junjiro Okajima
@@ -3284,9 +3268,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/sqmagic.h linux-2.6.26.3/fs/squashfs/
 +#define SQUASHFS_MAGIC_LZMA_SWAP	0x73687371
 +
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/squashfs2_0.c linux-2.6.26.3/fs/squashfs/squashfs2_0.c
---- /tmp/linux-2.6.26.3/fs/squashfs/squashfs2_0.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/squashfs2_0.c	2008-09-10 10:27:45.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/squashfs2_0.c linux-2.6.28.patched/fs/squashfs/squashfs2_0.c
+--- linux-2.6.28/fs/squashfs/squashfs2_0.c	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/squashfs2_0.c	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,740 @@
 +/*
 + * Squashfs - a compressed read only filesystem for Linux
@@ -4028,9 +4012,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/squashfs2_0.c linux-2.6.26.3/fs/squas
 +
 +	return 1;
 +}
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/squashfs.h linux-2.6.26.3/fs/squashfs/squashfs.h
---- /tmp/linux-2.6.26.3/fs/squashfs/squashfs.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/squashfs.h	2008-09-10 10:27:45.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/squashfs.h linux-2.6.28.patched/fs/squashfs/squashfs.h
+--- linux-2.6.28/fs/squashfs/squashfs.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/squashfs.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,86 @@
 +/*
 + * Squashfs - a compressed read only filesystem for Linux
@@ -4118,9 +4102,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/squashfs.h linux-2.6.26.3/fs/squashfs
 +	return 0;
 +}
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/uncomp.c linux-2.6.26.3/fs/squashfs/uncomp.c
---- /tmp/linux-2.6.26.3/fs/squashfs/uncomp.c	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/fs/squashfs/uncomp.c	2008-09-10 19:19:15.000000000 +0800
+diff -urN linux-2.6.28/fs/squashfs/uncomp.c linux-2.6.28.patched/fs/squashfs/uncomp.c
+--- linux-2.6.28/fs/squashfs/uncomp.c	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/fs/squashfs/uncomp.c	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,223 @@
 +/*
 + * Copyright (C) 2006-2008 Junjiro Okajima
@@ -4345,9 +4329,9 @@ diff -Nurp /tmp/linux-2.6.26.3/fs/squashfs/uncomp.c linux-2.6.26.3/fs/squashfs/u
 +		   "Some functions for squashfs to support LZMA and "
 +		   "a tiny wrapper for LzmaDecode.c in LZMA SDK from www.7-zip.org.");
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/include/linux/squashfs_fs.h linux-2.6.26.3/include/linux/squashfs_fs.h
---- /tmp/linux-2.6.26.3/include/linux/squashfs_fs.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/include/linux/squashfs_fs.h	2008-09-10 19:17:28.000000000 +0800
+diff -urN linux-2.6.28/include/linux/squashfs_fs.h linux-2.6.28.patched/include/linux/squashfs_fs.h
+--- linux-2.6.28/include/linux/squashfs_fs.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/include/linux/squashfs_fs.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,935 @@
 +#ifndef SQUASHFS_FS
 +#define SQUASHFS_FS
@@ -5284,9 +5268,9 @@ diff -Nurp /tmp/linux-2.6.26.3/include/linux/squashfs_fs.h linux-2.6.26.3/includ
 +
 +#endif
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/include/linux/squashfs_fs_i.h linux-2.6.26.3/include/linux/squashfs_fs_i.h
---- /tmp/linux-2.6.26.3/include/linux/squashfs_fs_i.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/include/linux/squashfs_fs_i.h	2008-09-10 10:27:45.000000000 +0800
+diff -urN linux-2.6.28/include/linux/squashfs_fs_i.h linux-2.6.28.patched/include/linux/squashfs_fs_i.h
+--- linux-2.6.28/include/linux/squashfs_fs_i.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/include/linux/squashfs_fs_i.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,45 @@
 +#ifndef SQUASHFS_FS_I
 +#define SQUASHFS_FS_I
@@ -5333,9 +5317,9 @@ diff -Nurp /tmp/linux-2.6.26.3/include/linux/squashfs_fs_i.h linux-2.6.26.3/incl
 +	struct inode	vfs_inode;
 +};
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/include/linux/squashfs_fs_sb.h linux-2.6.26.3/include/linux/squashfs_fs_sb.h
---- /tmp/linux-2.6.26.3/include/linux/squashfs_fs_sb.h	1970-01-01 08:00:00.000000000 +0800
-+++ linux-2.6.26.3/include/linux/squashfs_fs_sb.h	2008-09-10 19:17:29.000000000 +0800
+diff -urN linux-2.6.28/include/linux/squashfs_fs_sb.h linux-2.6.28.patched/include/linux/squashfs_fs_sb.h
+--- linux-2.6.28/include/linux/squashfs_fs_sb.h	1970-01-01 00:00:00.000000000 +0000
++++ linux-2.6.28.patched/include/linux/squashfs_fs_sb.h	2008-12-29 09:06:27.000000000 +0000
 @@ -0,0 +1,79 @@
 +#ifndef SQUASHFS_FS_SB
 +#define SQUASHFS_FS_SB
@@ -5416,9 +5400,9 @@ diff -Nurp /tmp/linux-2.6.26.3/include/linux/squashfs_fs_sb.h linux-2.6.26.3/inc
 +	int			(*read_fragment_index_table)(struct super_block *s);
 +};
 +#endif
-diff -Nurp /tmp/linux-2.6.26.3/init/do_mounts_rd.c linux-2.6.26.3/init/do_mounts_rd.c
---- /tmp/linux-2.6.26.3/init/do_mounts_rd.c	2008-08-21 02:11:37.000000000 +0800
-+++ linux-2.6.26.3/init/do_mounts_rd.c	2008-09-10 10:27:45.000000000 +0800
+diff -urN linux-2.6.28/init/do_mounts_rd.c linux-2.6.28.patched/init/do_mounts_rd.c
+--- linux-2.6.28/init/do_mounts_rd.c	2008-12-24 23:26:37.000000000 +0000
++++ linux-2.6.28.patched/init/do_mounts_rd.c	2008-12-29 09:06:27.000000000 +0000
 @@ -5,6 +5,7 @@
  #include <linux/ext2_fs.h>
  #include <linux/romfs_fs.h>
@@ -5427,7 +5411,7 @@ diff -Nurp /tmp/linux-2.6.26.3/init/do_mounts_rd.c linux-2.6.26.3/init/do_mounts
  #include <linux/initrd.h>
  #include <linux/string.h>
  
-@@ -39,6 +40,7 @@ static int __init crd_load(int in_fd, in
+@@ -37,6 +38,7 @@
   * numbers could not be found.
   *
   * We currently check for the following magic numbers:
@@ -5435,7 +5419,7 @@ diff -Nurp /tmp/linux-2.6.26.3/init/do_mounts_rd.c linux-2.6.26.3/init/do_mounts
   * 	minix
   * 	ext2
   *	romfs
-@@ -53,6 +55,7 @@ identify_ramdisk_image(int fd, int start
+@@ -51,6 +53,7 @@
  	struct ext2_super_block *ext2sb;
  	struct romfs_super_block *romfsb;
  	struct cramfs_super *cramfsb;
@@ -5443,7 +5427,7 @@ diff -Nurp /tmp/linux-2.6.26.3/init/do_mounts_rd.c linux-2.6.26.3/init/do_mounts
  	int nblocks = -1;
  	unsigned char *buf;
  
-@@ -64,6 +67,7 @@ identify_ramdisk_image(int fd, int start
+@@ -62,6 +65,7 @@
  	ext2sb = (struct ext2_super_block *) buf;
  	romfsb = (struct romfs_super_block *) buf;
  	cramfsb = (struct cramfs_super *) buf;
@@ -5451,7 +5435,7 @@ diff -Nurp /tmp/linux-2.6.26.3/init/do_mounts_rd.c linux-2.6.26.3/init/do_mounts
  	memset(buf, 0xe5, size);
  
  	/*
-@@ -101,6 +105,18 @@ identify_ramdisk_image(int fd, int start
+@@ -99,6 +103,18 @@
  		goto done;
  	}
  

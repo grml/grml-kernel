@@ -47,16 +47,24 @@ Patch:  1000_2.6.28.X [to be done]
 From:   http://kernel.org/
 Desc:   stable series patch
 
-Patch:  4300_squashfs3.4-lzma449-1.1.patch
-From:   based on http://www.squashfs-lzma.org/ && http://www.slax.org/forum.php?action=view&parentID=21024
+Patch:  4200_vesa_fallback_on_fail.patch
+From:   https://svn.pardus.org.tr/pardus/playground/ozan/kernel/kernel-next/files/pardus/vesa_fallback_on_fail.patch
+Desc:   Fall back to vesa-mode instead of hitting undefined video mode number
+
+Patch:  4300_squashfs-lzma.patch
+From:   based on http://www.squashfs-lzma.org/ && http://137.110.115.18/helium-sources/2.6.28-helium0/broken-out/03_squashfs+lzma-2.6.28-das.patch
 Desc:   Support for squashfs with lzma compression
 
 Patch:  5000_grml-version.patch
-From:   http://git.grml.org/?p=grml-kernel
+From:   http://git.grml.org/?p=grml-kernel.git
 Desc:   adjust kernel version for the grml-system (add -grml)
 
 Patch:  5001_grml_logo.patch
-From:   http://git.grml.org/?p=grml-kernel
+From:   http://git.grml.org/?p=grml-kernel.git
 Desc:   grml-logo in framebuffer
+
+Patch:  5002_grml_buildhost.patch
+From:   http://git.grml.org/?p=grml-kernel.git
+Desc:   use "grml" instead of buildserver's dnsdomainname as build information
 
 ##############################################################################################

@@ -19,6 +19,10 @@ echo "        set \$KERNELVERSION for specifying kernel version"
 echo "        set \$BUILD_PACKAGES for specifying packages to be build"
 echo "        set \$SOURCE_PACKAGES for specifying source packages"
 
+[ -n "$KMAINT" ] || KMAINT="grml.org team"
+[ -n "$KEMAIL" ] || KEMAIL="kernel@grml.org" 
+[ -n "$KPKG_MAINTAINER" ] || KPKG_MAINTAINER="grml.org team"
+
 if [ -z "$KERNELVERSION" ] ; then
    KERNELVERSION="$(uname -r)"
    echo "No \$KERNELVERSION given, assuming $KERNELVERSION"

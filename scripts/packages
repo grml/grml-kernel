@@ -2,7 +2,6 @@ acx100
 aufs
 drbd8
 fglrx
-gspca
 iscsitarget
 kqemu
 linux-wlan-ng

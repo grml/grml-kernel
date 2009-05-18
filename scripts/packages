@@ -9,7 +9,6 @@ loop-aes
 lzma
 madwifi
 ndiswrapper
-netfilter-extensions
 nvidia
 openafs
 open-vm
@@ -23,4 +22,5 @@ sysprof
 tp-smapi
 virtualbox-ose
 virtualbox-ose-guest
+xtables-addons
 zaptel

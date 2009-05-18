@@ -9,7 +9,6 @@ loop-aes-source
 lzma-source
 madwifi-source
 ndiswrapper-source
-netfilter-extensions-source
 nvidia-kernel-source
 openafs-modules-source
 open-vm-source
@@ -23,4 +22,5 @@ sysprof-module-source
 tp-smapi-source
 virtualbox-ose-guest-source
 virtualbox-ose-source
+xtables-addons-source
 zaptel-source

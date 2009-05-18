@@ -1,7 +1,7 @@
 acx100-source
 aufs-source
 drbd8-source
-fglrx-kernel-src
+fglrx-source
 iscsitarget-source
 kqemu-source
 linux-wlan-ng-source

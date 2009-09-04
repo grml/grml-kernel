@@ -1,0 +1,22 @@
+--- a/scripts/mkcompile_h
++++ b/scripts/mkcompile_h
+@@ -60,16 +60,10 @@ UTS_TRUNCATE="sed -e s/\(.\{1,$UTS_LEN\}
+   echo \#define UTS_VERSION \"`echo $UTS_VERSION | $UTS_TRUNCATE`\"
+ 
+   echo \#define LINUX_COMPILE_TIME \"`date +%T`\"
+-  echo \#define LINUX_COMPILE_BY \"`whoami`\"
+-  echo \#define LINUX_COMPILE_HOST \"`hostname | $UTS_TRUNCATE`\"
+ 
+-  if [ -x /bin/dnsdomainname ]; then
+-    echo \#define LINUX_COMPILE_DOMAIN \"`dnsdomainname | $UTS_TRUNCATE`\"
+-  elif [ -x /bin/domainname ]; then
+-    echo \#define LINUX_COMPILE_DOMAIN \"`domainname | $UTS_TRUNCATE`\"
+-  else
+-    echo \#define LINUX_COMPILE_DOMAIN
+-  fi
++  echo \#define LINUX_COMPILE_BY \"grml.org\"
++  echo \#define LINUX_COMPILE_HOST \"buildserver\"
++  echo \#define LINUX_COMPILE_DOMAIN \"grml.org\"
+ 
+   echo \#define LINUX_COMPILER \"`$CC -v 2>&1 | tail -n 1`\"
+ ) > .tmpcompile

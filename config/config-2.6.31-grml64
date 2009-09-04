@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.31-grml64
-# Thu Sep  3 23:07:10 2009
+# Fri Sep  4 16:39:27 2009
 #
 CONFIG_64BIT=y
 # CONFIG_X86_32 is not set
@@ -4157,19 +4157,6 @@ CONFIG_UFS_FS=m
 CONFIG_EXOFS_FS=m
 # CONFIG_EXOFS_DEBUG is not set
 CONFIG_NILFS2_FS=m
-CONFIG_AUFS_FS=y
-CONFIG_AUFS_BRANCH_MAX_127=y
-# CONFIG_AUFS_BRANCH_MAX_511 is not set
-# CONFIG_AUFS_BRANCH_MAX_1023 is not set
-# CONFIG_AUFS_BRANCH_MAX_32767 is not set
-# CONFIG_AUFS_HINOTIFY is not set
-# CONFIG_AUFS_EXPORT is not set
-# CONFIG_AUFS_RDU is not set
-# CONFIG_AUFS_SHWH is not set
-# CONFIG_AUFS_BR_RAMFS is not set
-# CONFIG_AUFS_BR_FUSE is not set
-# CONFIG_AUFS_DEBUG is not set
-CONFIG_AUFS_BDEV_LOOP=y
 CONFIG_NETWORK_FILESYSTEMS=y
 CONFIG_NFS_FS=m
 CONFIG_NFS_V3=y

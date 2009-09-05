@@ -1,5 +1,7 @@
 # just some random notes about current settings for QA
 
+PATA as modules only?
+
 IOMMU
     AMD IOMMU support (AMD_IOMMU) [N/y/?] n -- should be y
     Enable DMA Remapping Devices by default (DMAR_DEFAULT_ON) [Y/n/?] (NEW) n -- intel_iommy=on

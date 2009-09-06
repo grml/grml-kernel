@@ -1,6 +1,10 @@
 # just some random notes about current settings for QA
 
 PATA as modules only?
+    - done, pata is already removed
+
+switch to new firewire stack but build the old stack too
+    http://ieee1394.wiki.kernel.org/index.php/Juju_Migration
 
 IOMMU
     AMD IOMMU support (AMD_IOMMU) [N/y/?] n -- should be y

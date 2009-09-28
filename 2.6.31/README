@@ -52,7 +52,7 @@ From:   https://svn.pardus.org.tr/pardus/playground/ozan/kernel/kernel-next/file
 Desc:   Fall back to vesa-mode instead of hitting undefined video mode number
 
 Patch:  4300_squashfs_pcomp.patch
-From:   based on https://dev.openwrt.org/browser/trunk/target/linux/generic-2.6/patches-2.6.31/051-squashfs_pcomp.patch
+From:   https://dev.openwrt.org/browser/trunk/target/linux/generic-2.6/patches-2.6.31/051-squashfs_pcomp.patch
 Desc:   Use pcomp api within squashfs to enable easy multiple compression algorithms
 
 Patch:  4301_pcomp_lzma_support.patch

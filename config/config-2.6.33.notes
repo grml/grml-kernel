@@ -1,0 +1,8 @@
+missing features:
+    namespace support
+    control groups
+
+enabled features:
+    the whole crap (ak staging ;)
+    ext4 security lables
+    fips200 flag is useless

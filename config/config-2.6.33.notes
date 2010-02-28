@@ -1,7 +1,7 @@
 # missing features:
     x namespace support
     x control groups
-    amd64: smt scheduling
+    x amd64: smt scheduling
     amd64: NUMA
 
 # enabled features:

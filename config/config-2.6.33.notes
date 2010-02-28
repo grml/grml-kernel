@@ -2,7 +2,7 @@
     x namespace support
     x control groups
     x amd64: smt scheduling
-    amd64: NUMA
+    x amd64: NUMA
 
 # enabled features:
     x the whole crap (ak staging ;)

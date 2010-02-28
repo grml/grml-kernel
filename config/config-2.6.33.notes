@@ -1,8 +1,46 @@
-missing features:
-    namespace support
-    control groups
+# missing features:
+    x namespace support
+    x control groups
+    amd64: smt scheduling
+    amd64: NUMA
 
-enabled features:
-    the whole crap (ak staging ;)
-    ext4 security lables
-    fips200 flag is useless
+# enabled features:
+    x the whole crap (ak staging ;)
+    x ext4 security lables
+    x fips200 flag is useless
+
+
+# grml-kdiff commands
+
+# to create a common base between grml and grml64
+grml-kdiff base config-2.6.33-grml config-2.6.33-grml64 >base
+
+# whats new in 2.6.33-grml64
+grml-kdiff diff config-2.6.33-grml64 config-2.6.31-grml64 >grml64
+
+# whats new in 2.6.33-grml
+grml-kdiff diff config-2.6.33-grml config-2.6.31-grml >grml
+
+###
+## config differences between grml and grml64:
+###
+
+# what grml64 has and grml not
+% grml-kdiff diff grml64 base
+CONFIG_ACPI_HOTPLUG_MEMORY=m
+CONFIG_ARCH_ENABLE_MEMORY_HOTREMOVE=y
+CONFIG_ARCH_MEMORY_PROBE=y
+CONFIG_ARCH_PROC_KCORE_TEXT=y
+CONFIG_COMPAT_NETLINK_MESSAGES=y
+CONFIG_CRYPTO_GHASH_CLMUL_NI_INTEL=m
+# CONFIG_HWPOISON_INJECT is not set
+CONFIG_MEMORY_HOTPLUG=y
+CONFIG_MEMORY_HOTPLUG_SPARSE=y
+# CONFIG_MEMORY_HOTREMOVE is not set
+CONFIG_MIGRATION=y
+
+# what grml has and grml64 not
+% grml-kdiff diff grml base
+CONFIG_CAN_SJA1000_ISA=m
+CONFIG_RADIO_MIROPCM20=m
+# CONFIG_X86_MRST is not set

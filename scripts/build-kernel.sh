@@ -4,7 +4,6 @@
 # Authors:       grml-team (grml.org), (c) Michael Prokop <mika@grml.org>
 # Bug-Reports:   see http://grml.org/bugs/
 # License:       This file is licensed under the GPL v2 or any later version.
-# Latest change: Son Nov 25 19:34:51 CET 2007 [mika]
 ################################################################################
 
 if [ -z "$REVISION" ] ; then
@@ -18,7 +17,7 @@ fi
 # make sure we have a clean tree:
 make-kpkg clean
 
-make-kpkg --revision "$REVISION" --us --uc --rootcmd fakeroot \
+make-kpkg --revision "$REVISION" --us --uc --initrd --rootcmd fakeroot \
 kernel-image kernel-headers kernel-doc kernel-source
 
 ## END OF FILE #################################################################

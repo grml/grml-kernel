@@ -1,26 +1,17 @@
-acx100
-aufs
-drbd8
+# aufs
 fglrx
 iscsitarget
-kqemu
-linux-wlan-ng
 loop-aes
-lzma
+# lzma
 madwifi
 ndiswrapper
 nvidia
 openafs
-open-vm
-qc-usb
-rt2400
-rt73
-sl-modem
+# open-vm
 speakup
-squashfs
+# squashfs
 sysprof
 tp-smapi
 virtualbox-ose
 virtualbox-ose-guest
 xtables-addons
-zaptel

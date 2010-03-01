@@ -1,26 +1,17 @@
-acx100-source
-aufs-source
-drbd8-source
+# aufs-source
 fglrx-source
 iscsitarget-source
-kqemu-source
-linux-wlan-ng-source
 loop-aes-source
-lzma-source
+# lzma-source
 madwifi-source
 ndiswrapper-source
 nvidia-kernel-source
 openafs-modules-source
-open-vm-source
-qc-usb-source
-rt2400-source
-rt73-source
-sl-modem-source
+# open-vm-source
 speakup-source
-squashfs-source
+# squashfs-source
 sysprof-module-source
 tp-smapi-source
 virtualbox-ose-guest-source
 virtualbox-ose-source
 xtables-addons-source
-zaptel-source

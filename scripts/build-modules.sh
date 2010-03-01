@@ -4,7 +4,6 @@
 # Authors:       grml-team (grml.org), (c) Michael Prokop <mika@grml.org>
 # Bug-Reports:   see http://grml.org/bugs/
 # License:       This file is licensed under the GPL v2 or any later version.
-# Latest change: Son Nov 25 19:31:12 CET 2007 [mika]
 ################################################################################
 
 if [ "$(id -u)" != 0 ] ;then
@@ -57,11 +56,11 @@ if ! [ -r "$SOURCE_PACKAGES" ] ; then
 fi
 
 echo "Checking for present source packages as defined in ${SOURCE_PACKAGES}..."
-for package in $(cat "$SOURCE_PACKAGES") ; do
+for package in $(grep -v '^#' "$SOURCE_PACKAGES" | sort -u) ; do
     dpkg --list $package 1>/dev/null 2>&1 || echo "Warning: no source package for $package present"
 done
 
-for package in $(cat "$BUILD_PACKAGES") ; do
+for package in $(grep -v '^#' "$BUILD_PACKAGES" | sort -u) ; do
     KERNELDIRS=$KERNELDIRS m-a $MA_OPTIONS -k $KERNELVERSION build $package || FAILED="$FAILED $package"
 done
 
@@ -69,28 +68,5 @@ echo "--------------------------------------------------------------------------
 echo "The following packages failed to build:"
 echo "$FAILED"
 echo "--------------------------------------------------------------------------"
-
-echo "--------------------------------------------------------------------------"
-echo "Information:"
-echo "Source packages for grml-kerneladdons and truecrypt are not available yet."
-echo "So do not forget to build them manually. :)"
-echo "--------------------------------------------------------------------------"
-
-## Instructions for grml-kerneladdons:
-# download tar.gz of grml-kerneladdons via:
-# http://deb.grml.org/pool/main/g/grml-kerneladdons-2.6.23/
-# make sure /usr/src/linux is the according symlink to /usr/src/linux-headers-2.6.23-grml
-# touch /usr/src/linux-headers-2.6.23-grml/include/linux/config.h (fix acerhk)
-# and finally build it using 'dpkg-buildpackage -rfakeroot'
-
-## Instructions for truecrypt:
-# dget http://deb.grml.org/pool/main/t/truecrypt-2.6.23-grml/truecrypt-2.6.23-grml_4.3a-3.dsc
-# unp truecrypt-2.6.23-grml_4.3a.orig.tar.gz
-# unp truecrypt-2.6.23-grml_4.3a-3.diff.gz
-# mv truecrypt-4.3a-source-code truecrypt-2.6.23-grml-4.3a
-# cd truecrypt-2.6.23-grml-4.3a
-# patch -p1 < ../truecrypt-2.6.23-grml_4.3a-3.diff
-# chmod 755 debian/rules
-# and finally build it using 'dpkg-buildpackage -rfakeroot'
 
 ## END OF FILE #################################################################

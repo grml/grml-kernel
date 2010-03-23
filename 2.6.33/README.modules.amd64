@@ -1,0 +1,29 @@
+Desired=Unknown/Install/Remove/Purge/Hold
+| Status=Not/Inst/Cfg-files/Unpacked/Failed-cfg/Half-inst/trig-aWait/Trig-pend
+|/ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
+||/ Name                            Version                       Description
++++-===============================-=============================-========================================================================
+ii  fglrx-source                    1:10-2-2                      kernel module source for the non-free AMD/ATI r6xx - r7xx display driver
+ii  iscsitarget-source              0.4.17+svn307-1.1             iSCSI Enterprise Target kernel module source
+ii  loop-aes-source                 3.2h-1                        source for loop-AES encryption modules
+ii  madwifi-source                  1:0.9.4+r3772.20080716-1      source for the Multiband Atheros Driver for WiFi
+ii  ndiswrapper-source              1.56-1                        Source for the ndiswrapper Linux kernel module
+ii  nvidia-kernel-source            190.53-2                      NVIDIA binary kernel module source
+ii  openafs-modules-source          1.4.12+dfsg-2                 AFS distributed filesystem kernel module source
+ii  speakup-source                  3.1.4.dfsg.1-1                Source of the speakup kernel modules
+ii  sysprof-module-source           1.0.12-1                      Source for the sysprof module
+ii  tp-smapi-source                 0.40-7                        ThinkPad hardware/firmware access modules source
+ii  virtualbox-ose-guest-source     3.1.4-dfsg-2                  x86 virtualization solution - guest addition module source
+ii  virtualbox-ose-source           3.1.4-dfsg-2                  x86 virtualization solution - kernel module source
+ii  xtables-addons-source           1.23-1                        Extensions targets and matches for iptables [modules sources]
+Desired=Unknown/Install/Remove/Purge/Hold
+| Status=Not/Inst/Cfg-files/Unpacked/Failed-cfg/Half-inst/trig-aWait/Trig-pend
+|/ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
+||/ Name                            Version                       Description
++++-===============================-=============================-============================================
+ii  gcc                             4:4.4.3-1                     The GNU C compiler
+gcc (Debian 4.4.3-4) 4.4.3
+Copyright (C) 2009 Free Software Foundation, Inc.
+This is free software; see the source for copying conditions.  There is NO
+warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+

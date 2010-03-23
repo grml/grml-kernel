@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
-# Linux kernel version: 2.6.33
-# Mon Mar  1 17:14:59 2010
+# Linux kernel version: 2.6.33-grml64
+# Tue Mar 23 00:45:49 2010
 #
 CONFIG_64BIT=y
 # CONFIG_X86_32 is not set
@@ -4261,7 +4261,6 @@ CONFIG_R8187SE=m
 CONFIG_RTL8192SU=m
 CONFIG_RTL8192U=m
 CONFIG_RTL8192E=m
-CONFIG_INPUT_MIMIO=m
 CONFIG_TRANZPORT=m
 
 #

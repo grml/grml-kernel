@@ -12,8 +12,8 @@ ii  openafs-modules-source          1.4.12+dfsg-2                 AFS distribute
 ii  speakup-source                  3.1.4.dfsg.1-1                Source of the speakup kernel modules
 ii  sysprof-module-source           1.0.12-1                      Source for the sysprof module
 ii  tp-smapi-source                 0.40-7                        ThinkPad hardware/firmware access modules source
-ii  virtualbox-ose-guest-source     3.1.4-dfsg-2                  x86 virtualization solution - guest addition module source
-ii  virtualbox-ose-source           3.1.4-dfsg-2                  x86 virtualization solution - kernel module source
+ii  virtualbox-ose-guest-source     3.1.4-dfsg-3                  x86 virtualization solution - guest addition module source
+ii  virtualbox-ose-source           3.1.4-dfsg-3                  x86 virtualization solution - kernel module source
 ii  xtables-addons-source           1.23-1                        Extensions targets and matches for iptables [modules sources]
 Desired=Unknown/Install/Remove/Purge/Hold
 | Status=Not/Inst/Cfg-files/Unpacked/Failed-cfg/Half-inst/trig-aWait/Trig-pend

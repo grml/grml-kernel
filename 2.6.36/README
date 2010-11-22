@@ -1,0 +1,70 @@
+--------------------------------------------------------------------------
+Latest change: Wed Nov 17 14:05:57 UTC 2010
+--------------------------------------------------------------------------
+
+README
+--------------------------------------------------------------------------
+
+This patchset is for the latest linux kernel provided by grml.org.
+It is based on genpatches, ubuntu-2.6.git, debian patches and work by the
+Grml-team.
+
+Patchset Numbering Scheme
+--------------------------------------------------------------------------
+
+FIXES
+1000-1400       linux-stable
+1400-1500       linux-stable queue
+1500-1700       security
+1700-1800       architecture-related
+1800-1900       mm/scheduling/misc
+1900-2000       filesystems
+2000-2100       networking core
+2100-2200       storage core
+2200-2300       power management (ACPI, APM)
+2300-2400       bus (USB, IEEE1394, PCI, PCMCIA, ...)
+2400-2500       network drivers
+2500-2600       storage drivers
+2600-2700       input
+2700-2900       media (graphics, sound, tv)
+2900-3000       other
+3000-4000       reserved
+
+FEATURES
+4000-4100       network
+4100-4200       storage
+4200-4300       graphics
+4300-4400       filesystem
+4400-4500       other
+
+GRML
+5000-5100       grml-specific
+
+Individual Patch Descriptions:
+--------------------------------------------------------------------------
+
+Patch:  1000_2.6.36.1
+From:   http://kernel.org/
+Desc:   stable series patch
+
+Patch:  4200_vesa_fallback_on_fail.patch
+From:   https://svn.pardus.org.tr/pardus/playground/ozan/kernel/kernel-next/files/pardus/vesa_fallback_on_fail.patch
+Desc:   Fall back to vesa-mode instead of hitting undefined video mode number
+
+Patch:  4300_squashfs_lzma.patch
+From:   TODO
+Desc:   Support lzma through pcomp in squashfs
+
+Patch:  4305_aufs2_for_2.6.36.patch
+From:   based on http://git.c3sl.ufpr.br/pub/scm/aufs/aufs2-standalone.git
+Desc:   Support for aufs filesystem (version 2-standalone.tree-36-rcN-20100823)
+
+Patch:  {x86,amd64}/5000_grml-version.patch
+From:   http://git.grml.org/?p=grml-kernel.git
+Desc:   adjust kernel version for the Grml-system (add -grml[64])
+
+Patch:  5001_grml_logo.patch
+From:   http://git.grml.org/?p=grml-kernel.git
+Desc:   Grml-logo in framebuffer
+
+##############################################################################################

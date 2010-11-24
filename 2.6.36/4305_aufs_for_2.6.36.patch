@@ -1,6 +1,6 @@
-From 0fc324f5a0af3874023913bab9918e20a7be6989 Mon Sep 17 00:00:00 2001
-From: Michael Prokop <mika@grml.org>
-Date: Mon, 22 Nov 2010 21:03:10 +0000
+From 03d2de515c04772f081c2775a82554089c9e12ab Mon Sep 17 00:00:00 2001
+From: Michael <mika@grml.org>
+Date: Wed, 24 Nov 2010 11:58:11 +0000
 Subject: aufs for 2.6.36
 
 Based on 
@@ -12,6 +12,8 @@ http://www.mail-archive.com/aufs-users@lists.sourceforge.net/msg02919/a.patch.bz
 ---
  Documentation/ABI/testing/debugfs-aufs |   37 +
  Documentation/ABI/testing/sysfs-aufs   |   24 +
+ fs/Kconfig                             |    1 +
+ fs/Makefile                            |    1 +
  fs/aufs/Kconfig                        |  173 ++++
  fs/aufs/Makefile                       |   37 +
  fs/aufs/aufs.h                         |   61 ++
@@ -80,8 +82,23 @@ http://www.mail-archive.com/aufs-users@lists.sourceforge.net/msg02919/a.patch.bz
  fs/aufs/wkq.c                          |  226 +++++
  fs/aufs/wkq.h                          |   88 ++
  fs/aufs/xino.c                         | 1263 +++++++++++++++++++++++++
+ fs/file_table.c                        |    2 +
+ fs/inode.c                             |    1 +
+ fs/namei.c                             |    7 +-
+ fs/namespace.c                         |    1 +
+ fs/notify/group.c                      |    3 +
+ fs/notify/mark.c                       |    4 +
+ fs/open.c                              |    1 +
+ fs/splice.c                            |   12 +-
+ fs/statfs.c                            |    1 +
+ include/linux/Kbuild                   |    1 +
  include/linux/aufs_type.h              |  198 ++++
- 71 files changed, 26693 insertions(+), 0 deletions(-)
+ include/linux/namei.h                  |    3 +
+ include/linux/splice.h                 |    6 +
+ security/commoncap.c                   |    1 +
+ security/device_cgroup.c               |    1 +
+ security/security.c                    |   13 +
+ 88 files changed, 26745 insertions(+), 7 deletions(-)
  create mode 100644 Documentation/ABI/testing/debugfs-aufs
  create mode 100644 Documentation/ABI/testing/sysfs-aufs
  create mode 100644 fs/aufs/Kconfig
@@ -227,6 +244,27 @@ index 0000000..7af6dc0
 +		even if it is the default path.
 +		When the aufs mount option 'noxino' is specified, it
 +		will be empty. About XINO files, see the aufs manual.
+diff --git a/fs/Kconfig b/fs/Kconfig
+index 3d18530..8f582e1 100644
+--- a/fs/Kconfig
++++ b/fs/Kconfig
+@@ -189,6 +189,7 @@ source "fs/romfs/Kconfig"
+ source "fs/sysv/Kconfig"
+ source "fs/ufs/Kconfig"
+ source "fs/exofs/Kconfig"
++source "fs/aufs/Kconfig"
+ 
+ endif # MISC_FILESYSTEMS
+ 
+diff --git a/fs/Makefile b/fs/Makefile
+index e6ec1d3..b0d795a 100644
+--- a/fs/Makefile
++++ b/fs/Makefile
+@@ -126,3 +126,4 @@ obj-$(CONFIG_BTRFS_FS)		+= btrfs/
+ obj-$(CONFIG_GFS2_FS)           += gfs2/
+ obj-$(CONFIG_EXOFS_FS)          += exofs/
+ obj-$(CONFIG_CEPH_FS)		+= ceph/
++obj-$(CONFIG_AUFS_FS)           += aufs/
 diff --git a/fs/aufs/Kconfig b/fs/aufs/Kconfig
 new file mode 100644
 index 0000000..54ecd33
@@ -27069,6 +27107,221 @@ index 0000000..095d4db
 +out:
 +	return err;
 +}
+diff --git a/fs/file_table.c b/fs/file_table.c
+index a04bdd8..de12cc4 100644
+--- a/fs/file_table.c
++++ b/fs/file_table.c
+@@ -394,6 +394,8 @@ void file_sb_list_del(struct file *file)
+ 	}
+ }
+ 
++EXPORT_SYMBOL_GPL(file_sb_list_del);
++
+ #ifdef CONFIG_SMP
+ 
+ /*
+diff --git a/fs/inode.c b/fs/inode.c
+index 8646433..168e77b 100644
+--- a/fs/inode.c
++++ b/fs/inode.c
+@@ -83,6 +83,7 @@ static struct hlist_head *inode_hashtable __read_mostly;
+  * the i_state of an inode while it is in use..
+  */
+ DEFINE_SPINLOCK(inode_lock);
++EXPORT_SYMBOL_GPL(inode_lock);
+ 
+ /*
+  * iprune_sem provides exclusion between the kswapd or try_to_free_pages
+diff --git a/fs/namei.c b/fs/namei.c
+index 24896e8..2472cf4 100644
+--- a/fs/namei.c
++++ b/fs/namei.c
+@@ -347,6 +347,7 @@ int deny_write_access(struct file * file)
+ 
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(deny_write_access);
+ 
+ /**
+  * path_get - get a reference to a path
+@@ -1159,7 +1160,7 @@ out:
+  * needs parent already locked. Doesn't follow mounts.
+  * SMP-safe.
+  */
+-static struct dentry *lookup_hash(struct nameidata *nd)
++struct dentry *lookup_hash(struct nameidata *nd)
+ {
+ 	int err;
+ 
+@@ -1168,8 +1169,9 @@ static struct dentry *lookup_hash(struct nameidata *nd)
+ 		return ERR_PTR(err);
+ 	return __lookup_hash(&nd->last, nd->path.dentry, nd);
+ }
++EXPORT_SYMBOL_GPL(lookup_hash);
+ 
+-static int __lookup_one_len(const char *name, struct qstr *this,
++int __lookup_one_len(const char *name, struct qstr *this,
+ 		struct dentry *base, int len)
+ {
+ 	unsigned long hash;
+@@ -1190,6 +1192,7 @@ static int __lookup_one_len(const char *name, struct qstr *this,
+ 	this->hash = end_name_hash(hash);
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(__lookup_one_len);
+ 
+ /**
+  * lookup_one_len - filesystem helper to lookup single pathname component
+diff --git a/fs/namespace.c b/fs/namespace.c
+index a72eaab..b57a0d9 100644
+--- a/fs/namespace.c
++++ b/fs/namespace.c
+@@ -1322,6 +1322,7 @@ int iterate_mounts(int (*f)(struct vfsmount *, void *), void *arg,
+ 	}
+ 	return 0;
+ }
++EXPORT_SYMBOL_GPL(iterate_mounts);
+ 
+ static void cleanup_group_ids(struct vfsmount *mnt, struct vfsmount *end)
+ {
+diff --git a/fs/notify/group.c b/fs/notify/group.c
+index d309f38..b71137d 100644
+--- a/fs/notify/group.c
++++ b/fs/notify/group.c
+@@ -22,6 +22,7 @@
+ #include <linux/srcu.h>
+ #include <linux/rculist.h>
+ #include <linux/wait.h>
++#include <linux/module.h>
+ 
+ #include <linux/fsnotify_backend.h>
+ #include "fsnotify.h"
+@@ -70,6 +71,7 @@ void fsnotify_put_group(struct fsnotify_group *group)
+ 	if (atomic_dec_and_test(&group->refcnt))
+ 		fsnotify_destroy_group(group);
+ }
++EXPORT_SYMBOL_GPL(fsnotify_put_group);
+ 
+ /*
+  * Create a new fsnotify_group and hold a reference for the group returned.
+@@ -102,3 +104,4 @@ struct fsnotify_group *fsnotify_alloc_group(const struct fsnotify_ops *ops)
+ 
+ 	return group;
+ }
++EXPORT_SYMBOL_GPL(fsnotify_alloc_group);
+diff --git a/fs/notify/mark.c b/fs/notify/mark.c
+index 325185e..9e69004 100644
+--- a/fs/notify/mark.c
++++ b/fs/notify/mark.c
+@@ -113,6 +113,7 @@ void fsnotify_put_mark(struct fsnotify_mark *mark)
+ 	if (atomic_dec_and_test(&mark->refcnt))
+ 		mark->free_mark(mark);
+ }
++EXPORT_SYMBOL_GPL(fsnotify_put_mark);
+ 
+ /*
+  * Any time a mark is getting freed we end up here.
+@@ -190,6 +191,7 @@ void fsnotify_destroy_mark(struct fsnotify_mark *mark)
+ 	if (unlikely(atomic_dec_and_test(&group->num_marks)))
+ 		fsnotify_final_destroy_group(group);
+ }
++EXPORT_SYMBOL_GPL(fsnotify_destroy_mark);
+ 
+ void fsnotify_set_mark_mask_locked(struct fsnotify_mark *mark, __u32 mask)
+ {
+@@ -277,6 +279,7 @@ err:
+ 
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(fsnotify_add_mark);
+ 
+ /*
+  * clear any marks in a group in which mark->flags & flags is true
+@@ -332,6 +335,7 @@ void fsnotify_init_mark(struct fsnotify_mark *mark,
+ 	atomic_set(&mark->refcnt, 1);
+ 	mark->free_mark = free_mark;
+ }
++EXPORT_SYMBOL_GPL(fsnotify_init_mark);
+ 
+ static int fsnotify_mark_destroy(void *ignored)
+ {
+diff --git a/fs/open.c b/fs/open.c
+index d74e198..d8310bc 100644
+--- a/fs/open.c
++++ b/fs/open.c
+@@ -60,6 +60,7 @@ int do_truncate(struct dentry *dentry, loff_t length, unsigned int time_attrs,
+ 	mutex_unlock(&dentry->d_inode->i_mutex);
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(do_truncate);
+ 
+ static long do_sys_truncate(const char __user *pathname, loff_t length)
+ {
+diff --git a/fs/splice.c b/fs/splice.c
+index 8f1dfae..9146f5a 100644
+--- a/fs/splice.c
++++ b/fs/splice.c
+@@ -1092,8 +1092,8 @@ EXPORT_SYMBOL(generic_splice_sendpage);
+ /*
+  * Attempt to initiate a splice from pipe to file.
+  */
+-static long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
+-			   loff_t *ppos, size_t len, unsigned int flags)
++long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
++		    loff_t *ppos, size_t len, unsigned int flags)
+ {
+ 	ssize_t (*splice_write)(struct pipe_inode_info *, struct file *,
+ 				loff_t *, size_t, unsigned int);
+@@ -1116,13 +1116,14 @@ static long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
+ 
+ 	return splice_write(pipe, out, ppos, len, flags);
+ }
++EXPORT_SYMBOL_GPL(do_splice_from);
+ 
+ /*
+  * Attempt to initiate a splice from a file to a pipe.
+  */
+-static long do_splice_to(struct file *in, loff_t *ppos,
+-			 struct pipe_inode_info *pipe, size_t len,
+-			 unsigned int flags)
++long do_splice_to(struct file *in, loff_t *ppos,
++		  struct pipe_inode_info *pipe, size_t len,
++		  unsigned int flags)
+ {
+ 	ssize_t (*splice_read)(struct file *, loff_t *,
+ 			       struct pipe_inode_info *, size_t, unsigned int);
+@@ -1142,6 +1143,7 @@ static long do_splice_to(struct file *in, loff_t *ppos,
+ 
+ 	return splice_read(in, ppos, pipe, len, flags);
+ }
++EXPORT_SYMBOL_GPL(do_splice_to);
+ 
+ /**
+  * splice_direct_to_actor - splices data directly between two non-pipes
+diff --git a/fs/statfs.c b/fs/statfs.c
+index 30ea8c8..dbd6080 100644
+--- a/fs/statfs.c
++++ b/fs/statfs.c
+@@ -61,6 +61,7 @@ int statfs_by_dentry(struct dentry *dentry, struct kstatfs *buf)
+ 		buf->f_frsize = buf->f_bsize;
+ 	return retval;
+ }
++EXPORT_SYMBOL_GPL(statfs_by_dentry);
+ 
+ int vfs_statfs(struct path *path, struct kstatfs *buf)
+ {
+diff --git a/include/linux/Kbuild b/include/linux/Kbuild
+index 4e8ea8c..b8fc201 100644
+--- a/include/linux/Kbuild
++++ b/include/linux/Kbuild
+@@ -60,6 +60,7 @@ header-y += atmppp.h
+ header-y += atmsap.h
+ header-y += atmsvc.h
+ header-y += audit.h
++header-y += aufs_type.h
+ header-y += auto_fs.h
+ header-y += auto_fs4.h
+ header-y += auxvec.h
 diff --git a/include/linux/aufs_type.h b/include/linux/aufs_type.h
 new file mode 100644
 index 0000000..554ca67
@@ -27273,6 +27526,164 @@ index 0000000..554ca67
 +#define AUFS_CTL_WBR_FD		_IO(AuCtlType, AuCtl_WBR_FD)
 +
 +#endif /* __AUFS_TYPE_H__ */
+diff --git a/include/linux/namei.h b/include/linux/namei.h
+index 05b441d..91bc74e 100644
+--- a/include/linux/namei.h
++++ b/include/linux/namei.h
+@@ -73,6 +73,9 @@ extern int vfs_path_lookup(struct dentry *, struct vfsmount *,
+ extern struct file *lookup_instantiate_filp(struct nameidata *nd, struct dentry *dentry,
+ 		int (*open)(struct inode *, struct file *));
+ 
++extern struct dentry *lookup_hash(struct nameidata *nd);
++extern int __lookup_one_len(const char *name, struct qstr *this,
++			    struct dentry *base, int len);
+ extern struct dentry *lookup_one_len(const char *, struct dentry *, int);
+ 
+ extern int follow_down(struct path *);
+diff --git a/include/linux/splice.h b/include/linux/splice.h
+index 997c3b4..be9a153 100644
+--- a/include/linux/splice.h
++++ b/include/linux/splice.h
+@@ -89,4 +89,10 @@ extern int splice_grow_spd(struct pipe_inode_info *, struct splice_pipe_desc *);
+ extern void splice_shrink_spd(struct pipe_inode_info *,
+ 				struct splice_pipe_desc *);
+ 
++extern long do_splice_from(struct pipe_inode_info *pipe, struct file *out,
++			   loff_t *ppos, size_t len, unsigned int flags);
++extern long do_splice_to(struct file *in, loff_t *ppos,
++			 struct pipe_inode_info *pipe, size_t len,
++			 unsigned int flags);
++
+ #endif
+diff --git a/security/commoncap.c b/security/commoncap.c
+index 9d172e6..ab3c2b9 100644
+--- a/security/commoncap.c
++++ b/security/commoncap.c
+@@ -951,3 +951,4 @@ int cap_file_mmap(struct file *file, unsigned long reqprot,
+ 	}
+ 	return ret;
+ }
++EXPORT_SYMBOL_GPL(cap_file_mmap);
+diff --git a/security/device_cgroup.c b/security/device_cgroup.c
+index 8d9c48f..31b30f8 100644
+--- a/security/device_cgroup.c
++++ b/security/device_cgroup.c
+@@ -515,6 +515,7 @@ found:
+ 
+ 	return -EPERM;
+ }
++EXPORT_SYMBOL_GPL(devcgroup_inode_permission);
+ 
+ int devcgroup_inode_mknod(int mode, dev_t dev)
+ {
+diff --git a/security/security.c b/security/security.c
+index c53949f..0f0b5a4 100644
+--- a/security/security.c
++++ b/security/security.c
+@@ -376,6 +376,7 @@ int security_path_mkdir(struct path *dir, struct dentry *dentry, int mode)
+ 		return 0;
+ 	return security_ops->path_mkdir(dir, dentry, mode);
+ }
++EXPORT_SYMBOL_GPL(security_path_mkdir);
+ 
+ int security_path_rmdir(struct path *dir, struct dentry *dentry)
+ {
+@@ -383,6 +384,7 @@ int security_path_rmdir(struct path *dir, struct dentry *dentry)
+ 		return 0;
+ 	return security_ops->path_rmdir(dir, dentry);
+ }
++EXPORT_SYMBOL_GPL(security_path_rmdir);
+ 
+ int security_path_unlink(struct path *dir, struct dentry *dentry)
+ {
+@@ -390,6 +392,7 @@ int security_path_unlink(struct path *dir, struct dentry *dentry)
+ 		return 0;
+ 	return security_ops->path_unlink(dir, dentry);
+ }
++EXPORT_SYMBOL_GPL(security_path_unlink);
+ 
+ int security_path_symlink(struct path *dir, struct dentry *dentry,
+ 			  const char *old_name)
+@@ -398,6 +401,7 @@ int security_path_symlink(struct path *dir, struct dentry *dentry,
+ 		return 0;
+ 	return security_ops->path_symlink(dir, dentry, old_name);
+ }
++EXPORT_SYMBOL_GPL(security_path_symlink);
+ 
+ int security_path_link(struct dentry *old_dentry, struct path *new_dir,
+ 		       struct dentry *new_dentry)
+@@ -406,6 +410,7 @@ int security_path_link(struct dentry *old_dentry, struct path *new_dir,
+ 		return 0;
+ 	return security_ops->path_link(old_dentry, new_dir, new_dentry);
+ }
++EXPORT_SYMBOL_GPL(security_path_link);
+ 
+ int security_path_rename(struct path *old_dir, struct dentry *old_dentry,
+ 			 struct path *new_dir, struct dentry *new_dentry)
+@@ -416,6 +421,7 @@ int security_path_rename(struct path *old_dir, struct dentry *old_dentry,
+ 	return security_ops->path_rename(old_dir, old_dentry, new_dir,
+ 					 new_dentry);
+ }
++EXPORT_SYMBOL_GPL(security_path_rename);
+ 
+ int security_path_truncate(struct path *path)
+ {
+@@ -423,6 +429,7 @@ int security_path_truncate(struct path *path)
+ 		return 0;
+ 	return security_ops->path_truncate(path);
+ }
++EXPORT_SYMBOL_GPL(security_path_truncate);
+ 
+ int security_path_chmod(struct dentry *dentry, struct vfsmount *mnt,
+ 			mode_t mode)
+@@ -431,6 +438,7 @@ int security_path_chmod(struct dentry *dentry, struct vfsmount *mnt,
+ 		return 0;
+ 	return security_ops->path_chmod(dentry, mnt, mode);
+ }
++EXPORT_SYMBOL_GPL(security_path_chmod);
+ 
+ int security_path_chown(struct path *path, uid_t uid, gid_t gid)
+ {
+@@ -438,6 +446,7 @@ int security_path_chown(struct path *path, uid_t uid, gid_t gid)
+ 		return 0;
+ 	return security_ops->path_chown(path, uid, gid);
+ }
++EXPORT_SYMBOL_GPL(security_path_chown);
+ 
+ int security_path_chroot(struct path *path)
+ {
+@@ -514,6 +523,7 @@ int security_inode_readlink(struct dentry *dentry)
+ 		return 0;
+ 	return security_ops->inode_readlink(dentry);
+ }
++EXPORT_SYMBOL_GPL(security_inode_readlink);
+ 
+ int security_inode_follow_link(struct dentry *dentry, struct nameidata *nd)
+ {
+@@ -528,6 +538,7 @@ int security_inode_permission(struct inode *inode, int mask)
+ 		return 0;
+ 	return security_ops->inode_permission(inode, mask);
+ }
++EXPORT_SYMBOL_GPL(security_inode_permission);
+ 
+ int security_inode_setattr(struct dentry *dentry, struct iattr *attr)
+ {
+@@ -627,6 +638,7 @@ int security_file_permission(struct file *file, int mask)
+ 
+ 	return fsnotify_perm(file, mask);
+ }
++EXPORT_SYMBOL_GPL(security_file_permission);
+ 
+ int security_file_alloc(struct file *file)
+ {
+@@ -654,6 +666,7 @@ int security_file_mmap(struct file *file, unsigned long reqprot,
+ 		return ret;
+ 	return ima_file_mmap(file, prot);
+ }
++EXPORT_SYMBOL_GPL(security_file_mmap);
+ 
+ int security_file_mprotect(struct vm_area_struct *vma, unsigned long reqprot,
+ 			    unsigned long prot)
 -- 
 1.7.2.3
 

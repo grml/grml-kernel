@@ -1,7 +1,7 @@
 #
 # Automatically generated make config: don't edit
 # Linux kernel version: 2.6.36-grml64
-# Wed Nov 17 14:27:21 2010
+# Mon Dec 13 12:58:07 2010
 #
 CONFIG_64BIT=y
 # CONFIG_X86_32 is not set
@@ -1209,7 +1209,7 @@ CONFIG_CAIF_NETDEV=m
 #
 # Generic Driver Options
 #
-# CONFIG_UEVENT_HELPER_PATH is not set
+CONFIG_UEVENT_HELPER_PATH=""
 CONFIG_DEVTMPFS=y
 CONFIG_DEVTMPFS_MOUNT=y
 CONFIG_STANDALONE=y

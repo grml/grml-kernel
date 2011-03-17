@@ -51,6 +51,10 @@ Patch:  1700_xen_fix_wrong_size_directive.patch
 From:   http://git.kernel.org/?p=linux/kernel/git/x86/linux-2.6-tip.git;a=commitdiff;h=371c394af27ab7d1e58a66bc19d9f1f3ac1f67b4
 Desc:   fix Xen guest build failure with binutils 2.21.0.20110302-2
 
+Patch:  1701_x86-fix-binutils-2.21-symbol-related-build-failure.patch
+From:   Grml team
+Desc:   fix KVM guest build failure with binutils 2.21.0.20110302-2
+
 Patch:  4200_vesa_fallback_on_fail.patch
 From:   https://svn.pardus.org.tr/pardus/playground/ozan/kernel/kernel-next/files/pardus/vesa_fallback_on_fail.patch
 Desc:   Fall back to vesa-mode instead of hitting undefined video mode number

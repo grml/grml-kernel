@@ -1,14 +1,9 @@
-# aufs-source
 fglrx-source
 iscsitarget-source
 loop-aes-source
-# lzma-source
 ndiswrapper-source
 nvidia-kernel-source
 openafs-modules-source
-# open-vm-source
-speakup-source
-# squashfs-source
 sysprof-module-source
 tp-smapi-source
 virtualbox-ose-guest-source

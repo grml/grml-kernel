@@ -1,14 +1,10 @@
-# aufs
 fglrx
 iscsitarget
 loop-aes
-# lzma
 ndiswrapper
 nvidia
 openafs
 # open-vm
-speakup
-# squashfs
 sysprof
 tp-smapi
 virtualbox-ose

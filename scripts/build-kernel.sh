@@ -6,18 +6,15 @@
 # License:       This file is licensed under the GPL v2 or any later version.
 ################################################################################
 
-if [ -z "$REVISION" ] ; then
-   REVISION="grml.01"
+if [ -z "$KVERS" ] ; then
+  echo "Usage example: KVERS=2.6.38-grml.00 $0" >&2
+  exit 1
 fi
-
-# TODO: patch the kernel accordingly; currently I'm doing something like
-# for p in ~/grml/hg/grml-kernel/2.6.23/[0-9]* ;     patch -p1 < $p || echo $p >> /tmp/error
-# for p in ~/grml/hg/grml-kernel/2.6.23/x86/[0-9]* ; patch -p1 < $p || echo $p >> /tmp/error
 
 # make sure we have a clean tree:
 make-kpkg clean
 
-make-kpkg --revision "$REVISION" --us --uc --initrd --rootcmd fakeroot \
-kernel-image kernel-headers kernel-doc kernel-source
+make-kpkg --revision "$KVERS" --us --uc --initrd --rootcmd fakeroot \
+  kernel-image kernel-headers kernel-doc kernel-source
 
 ## END OF FILE #################################################################

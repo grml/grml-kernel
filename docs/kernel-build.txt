@@ -1,0 +1,24 @@
+Instructions how to rebuild the Grml kernel
+===========================================
+
+Install relevant software:
+
+  apt-get install build-essential gcc gcc-4.5 kernel-package make libncurses5-dev
+
+Then make sure gcc points to the according gcc version.
+
+Assuming you have grml-kernel.git checkout in directory grml-kernel,
+set environment variables (adjust if necessary):
+
+  KVERS="2.6.38"
+  GRMLKVERS="$KVERS-0grml.01"
+  ARCH=$(dpkg --print-architecture)
+
+Assuming you downloaded and verified the upstream kernel source then run:
+
+  tar jxf linux-${KVERS}.tar.bz2
+  cd linux-${KVERS}
+  for patch in ../grml-kernel/${KVERS}/[0-9]* ; patch -p1 < $patch
+  patch -p1 < ../grml-kernel/${KVERS}/${ARCH}/5000_grml-kernelversion.patch
+  cp ../grml-kernel/config/config-2.6.38-grml64 .config
+  KVERS="$GRMLKVERS" ../grml-kernel/scripts/build-kernel.sh

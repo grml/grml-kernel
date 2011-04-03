@@ -1,28 +1,28 @@
-Build infrastructure documentation - Thu Mar 17 13:38:33 UTC 2011
+Build infrastructure documentation - Sun Apr  3 13:32:02 UTC 2011
 Desired=Unknown/Install/Remove/Purge/Hold
 | Status=Not/Inst/Conf-files/Unpacked/halF-conf/Half-inst/trig-aWait/Trig-pend
 |/ Err?=(none)/Reinst-required (Status,Err: uppercase=bad)
 ||/ Name                                     Version                       Description
 +++-========================================-=============================-======================================================================
-ii  binutils                                 2.21.0.20110302-2             The GNU assembler, linker and binary utilities
+ii  binutils                                 2.21.0.20110327-2             The GNU assembler, linker and binary utilities
 un  binutils-doc                             <none>                        (no description available)
 un  binutils-gold                            <none>                        (no description available)
 un  binutils-multiarch                       <none>                        (no description available)
-ii  cpp                                      4:4.5.2-2                     The GNU C preprocessor (cpp)
+ii  cpp                                      4:4.5.2-5                     The GNU C preprocessor (cpp)
 ii  cpp-4.1                                  4.1.2-29                      The GNU C preprocessor
 ii  cpp-4.3                                  4.3.5-5                       The GNU C preprocessor
-ii  cpp-4.4                                  4.4.5-14                      The GNU C preprocessor
-ii  cpp-4.5                                  4.5.2-6                       The GNU C preprocessor
+ii  cpp-4.4                                  4.4.5-15                      The GNU C preprocessor
+ii  cpp-4.5                                  4.5.2-8                       The GNU C preprocessor
 un  cpp-doc                                  <none>                        (no description available)
-ii  g++                                      4:4.5.2-2                     The GNU C++ compiler
+ii  g++                                      4:4.5.2-5                     The GNU C++ compiler
 un  g++-4.3                                  <none>                        (no description available)
 un  g++-4.3-multilib                         <none>                        (no description available)
-ii  g++-4.4                                  4.4.5-14                      The GNU C++ compiler
+ii  g++-4.4                                  4.4.5-15                      The GNU C++ compiler
 un  g++-4.4-multilib                         <none>                        (no description available)
-ii  g++-4.5                                  4.5.2-6                       The GNU C++ compiler
+ii  g++-4.5                                  4.5.2-8                       The GNU C++ compiler
 un  g++-4.5-multilib                         <none>                        (no description available)
 un  g++-multilib                             <none>                        (no description available)
-ii  gcc                                      4:4.5.2-2                     The GNU C compiler
+ii  gcc                                      4:4.5.2-5                     The GNU C compiler
 ii  gcc-4.1                                  4.1.2-29                      The GNU C compiler
 ii  gcc-4.1-base                             4.1.2-29                      The GNU Compiler Collection (base package)
 un  gcc-4.1-doc                              <none>                        (no description available)
@@ -34,23 +34,24 @@ ii  gcc-4.3-base                             4.3.5-5                       The G
 un  gcc-4.3-doc                              <none>                        (no description available)
 un  gcc-4.3-locales                          <none>                        (no description available)
 un  gcc-4.3-multilib                         <none>                        (no description available)
-ii  gcc-4.4                                  4.4.5-14                      The GNU C compiler
-ii  gcc-4.4-base                             4.4.5-14                      The GNU Compiler Collection (base package)
+ii  gcc-4.4                                  4.4.5-15                      The GNU C compiler
+ii  gcc-4.4-base                             4.4.5-15                      The GNU Compiler Collection (base package)
 un  gcc-4.4-doc                              <none>                        (no description available)
 un  gcc-4.4-locales                          <none>                        (no description available)
 un  gcc-4.4-multilib                         <none>                        (no description available)
-ii  gcc-4.5                                  4.5.2-6                       The GNU C compiler
-ii  gcc-4.5-base                             4.5.2-6                       The GNU Compiler Collection (base package)
+ii  gcc-4.5                                  4.5.2-8                       The GNU C compiler
+ii  gcc-4.5-base                             4.5.2-8                       The GNU Compiler Collection (base package)
 un  gcc-4.5-doc                              <none>                        (no description available)
 un  gcc-4.5-locales                          <none>                        (no description available)
 un  gcc-4.5-multilib                         <none>                        (no description available)
+ii  gcc-4.6-base                             4.6.0-2                       The GNU Compiler Collection (base package)
 un  gcc-doc                                  <none>                        (no description available)
 un  gcc-multilib                             <none>                        (no description available)
 ii  libc6                                    2.11.2-13                     Embedded GNU C Library: Shared libraries
 ii  libc6-dev                                2.11.2-13                     Embedded GNU C Library: Development Libraries and Header Files
 un  libc6.1                                  <none>                        (no description available)
 un  libc6.1-dev                              <none>                        (no description available)
-ii  libgcc1                                  1:4.5.2-6                     GCC support library
+ii  libgcc1                                  1:4.6.0-2                     GCC support library
 un  libgcc1-dbg                              <none>                        (no description available)
 un  libstdc++-dev                            <none>                        (no description available)
 un  libstdc++2.10-dev                        <none>                        (no description available)
@@ -58,19 +59,19 @@ un  libstdc++2.8-dev                         <none>                        (no d
 un  libstdc++2.9-dev                         <none>                        (no description available)
 un  libstdc++2.9-glibc2.1-dev                <none>                        (no description available)
 un  libstdc++3.0-dev                         <none>                        (no description available)
-ii  libstdc++6                               4.5.2-6                       The GNU Standard C++ Library v3
+ii  libstdc++6                               4.6.0-2                       The GNU Standard C++ Library v3
 un  libstdc++6-4.3-dbg                       <none>                        (no description available)
 un  libstdc++6-4.3-dev                       <none>                        (no description available)
 un  libstdc++6-4.3-doc                       <none>                        (no description available)
 un  libstdc++6-4.4-dbg                       <none>                        (no description available)
-ii  libstdc++6-4.4-dev                       4.4.5-14                      The GNU Standard C++ Library v3 (development files)
+ii  libstdc++6-4.4-dev                       4.4.5-15                      The GNU Standard C++ Library v3 (development files)
 un  libstdc++6-4.4-doc                       <none>                        (no description available)
 un  libstdc++6-4.5-dbg                       <none>                        (no description available)
-ii  libstdc++6-4.5-dev                       4.5.2-6                       The GNU Standard C++ Library v3 (development files)
+ii  libstdc++6-4.5-dev                       4.5.2-8                       The GNU Standard C++ Library v3 (development files)
 un  libstdc++6-4.5-doc                       <none>                        (no description available)
 
 # gcc version:
-gcc (Debian 4.5.2-6) 4.5.2
+gcc (Debian 4.5.2-8) 4.5.2
 Copyright (C) 2010 Free Software Foundation, Inc.
 This is free software; see the source for copying conditions.  There is NO
 warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.

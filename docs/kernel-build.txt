@@ -28,3 +28,10 @@ Finally build all external modules, like (please adjust KERNELVERSION for
 
   KERNELDIRS=/path_to/linux-${KVERS} KERNELVERSION=${KVERS}-grml64 BUILD_PACKAGES=/path_to/grml-kernel/scripts/packages SOURCE_PACKAGES=/path_to/grml-kernel/scripts/source_packages /path_to/grml-kernel/scripts/build-modules.sh
 
+If you're the maintainer providing the official kernel builds don't forget to
+record the documentation of the kernel build environment through running:
+
+  cd grml-kernel/${KVERS}
+  ../scripts/document-buildenv.sh
+
+and then commit any modified/added files to the git repository.

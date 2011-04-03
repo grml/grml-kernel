@@ -22,3 +22,9 @@ Assuming you downloaded and verified the upstream kernel source then run:
   patch -p1 < ../grml-kernel/${KVERS}/${ARCH}/5000_grml-kernelversion.patch
   cp ../grml-kernel/config/config-2.6.38-grml64 .config
   KVERS="$GRMLKVERS" ../grml-kernel/scripts/build-kernel.sh
+
+Finally build all external modules, like (please adjust KERNELVERSION for
+32bit (-grml) and 64bit (-grml64)):
+
+  KERNELDIRS=/path_to/linux-${KVERS} KERNELVERSION=${KVERS}-grml64 BUILD_PACKAGES=/path_to/grml-kernel/scripts/packages SOURCE_PACKAGES=/path_to/grml-kernel/scripts/source_packages /path_to/grml-kernel/scripts/build-modules.sh
+

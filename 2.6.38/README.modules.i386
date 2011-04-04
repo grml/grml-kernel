@@ -5,12 +5,11 @@ Desired=Unknown/Install/Remove/Purge/Hold
 +++-=============================================-=============================-===========================================================================
 ii  fglrx-source                                  1:10-10-1                     kernel module source for the non-free AMD/ATI r6xx - r7xx display driver
 ii  iscsitarget-source                            1.4.20.2-4                    iSCSI Enterprise Target kernel module source
-ii  loop-aes-source                               3.5b-1+nmu1                   source for loop-AES encryption modules
 ii  ndiswrapper-source                            1.56+r2729-1                  Source for the ndiswrapper Linux kernel module
 ii  nvidia-kernel-source                          260.19.44-1                   NVIDIA binary kernel module source
-ii  openafs-modules-source                        1.5.77-2                      AFS distributed filesystem kernel module source
+ii  openafs-modules-source                        1.6.0~pre4-1                  AFS distributed filesystem kernel module source
 ii  sysprof-module-source                         1.0.12-4                      Source for the sysprof module
 ii  tp-smapi-source                               0.40-9                        ThinkPad hardware/firmware access modules source
 ii  virtualbox-ose-guest-source                   4.0.4-dfsg-1                  x86 virtualization solution - guest addition module source
 ii  virtualbox-ose-source                         4.0.4-dfsg-1                  x86 virtualization solution - kernel module source
-ii  xtables-addons-source                         1.32-2                        Extensions targets and matches for iptables [modules sources]
+ii  xtables-addons-source                         1.33-1                        Extensions targets and matches for iptables [modules sources]

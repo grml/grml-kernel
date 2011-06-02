@@ -7,6 +7,8 @@ Install relevant software:
 
 Then make sure gcc points to the according gcc version.
 
+Adjust maintainer and email fields in /etc/kernel-pkg.conf.
+
 Assuming you have grml-kernel.git checkout in directory grml-kernel,
 set environment variables (adjust if necessary):
 

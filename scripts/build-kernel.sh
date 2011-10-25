@@ -7,14 +7,19 @@
 ################################################################################
 
 if [ -z "$KVERS" ] ; then
-  echo "Usage example: KVERS=2.6.38-grml.00 $0" >&2
+  echo "Usage: KVERS=3.1.0-grml.00 $0 [<make-kpkg-options>]
+
+Usage example:
+
+  KVERS=3.1.0-grml.00 $0 --overlay-dir ~/kernel/kernel-package-override
+" >&2
   exit 1
 fi
 
 # make sure we have a clean tree:
 make-kpkg clean
 
-make-kpkg --revision "$KVERS" --us --uc --initrd --rootcmd fakeroot \
+make-kpkg --revision "$KVERS" --us --uc --initrd $* --rootcmd fakeroot \
   kernel-image kernel-headers kernel-doc kernel-source
 
 ## END OF FILE #################################################################

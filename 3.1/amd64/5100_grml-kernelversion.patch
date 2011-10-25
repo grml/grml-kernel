@@ -1,0 +1,25 @@
+From 65b60db8639dcdda7ea4d1d68c556413fc1cf1de Mon Sep 17 00:00:00 2001
+From: Michael Prokop <mika@grml.org>
+Date: Tue, 25 Oct 2011 15:54:17 +0200
+Subject: [PATCH] add grml64 as extraversion
+
+---
+ Makefile |    2 +-
+ 1 files changed, 1 insertions(+), 1 deletions(-)
+
+diff --git a/Makefile b/Makefile
+index 07bc925..346495e 100644
+--- a/Makefile
++++ b/Makefile
+@@ -1,7 +1,7 @@
+ VERSION = 3
+ PATCHLEVEL = 1
+ SUBLEVEL = 0
+-EXTRAVERSION =
++EXTRAVERSION = grml64
+ NAME = "Divemaster Edition"
+ 
+ # *DOCUMENTATION*
+-- 
+1.7.7
+

@@ -16,7 +16,7 @@ index 07bc925..be6db82 100644
  PATCHLEVEL = 1
  SUBLEVEL = 0
 -EXTRAVERSION =
-+EXTRAVERSION = grml
++EXTRAVERSION = -grml
  NAME = "Divemaster Edition"
  
  # *DOCUMENTATION*

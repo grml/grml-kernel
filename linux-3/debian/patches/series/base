@@ -1,0 +1,23 @@
++ debian/version.patch
++ debian/kernelvariables.patch
++ debian/doc-build-parallel.patch
+
+# Patches and source files from aufs3 repository, imported with
+# debian/patches/features/all/aufs3/gen-patch.
++ features/all/aufs3/aufs3-base.patch
++ features/all/aufs3/aufs3-standalone.patch
++ features/all/aufs3/aufs3-kbuild.patch
++ features/all/aufs3/aufs3-add.patch
+# mark as staging/crap
++ features/all/aufs3/mark-as-staging.patch
+
++ grml/grml_logo.patch
++ grml/vesa_fallback_on_kms_failure.patch
+
++ debian/sysrq-mask.patch
++ debian/module-bug-Add-TAINT_OOT_MODULE-flag.patch
+
+#+ bugfix/x86/Skip-looking-for-ioapic-overrides-when-ioapics-are-not-present.patch
+#+ bugfix/all/dm-Deal-with-merge_bvec_fn-in-component-devices-bett.patch
++ features/all/Kbuild-kconfig-Verbose-version-of-listnewconfig.patch
+

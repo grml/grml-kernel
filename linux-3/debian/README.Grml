@@ -1,0 +1,22 @@
+To build this, obtain:
+
+  linux-3.1.tar.gz from kernel.org
+  (check signature!)
+
+  obtain grml-kernel.git (this repository)
+
+then, unpack:
+  tar xfz linux-3.1.tar.gz
+  cp -a grml-kernel/linux-3/debian linux-3.1/
+
+then, prepare debian/control:
+  fakeroot ./debian/rules debian/control
+  (this will fail, as the message says, this is normal)
+
+then, build normally.
+  # export DEBIAN_KERNEL_JOBS=8 # if you can spare some CPU cycles
+  dpkg-buildpackage
+
+Also read debian/README.source for Debian's build-from-source
+documentation, which also explains the patch system, etc.
+

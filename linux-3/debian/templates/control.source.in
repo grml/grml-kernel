@@ -4,5 +4,5 @@ Maintainer: Grml Team <team@grml.org>
 Standards-Version: 3.9.2
 Build-Depends: debhelper (>> 7), cpio, module-init-tools, python (>= 2.6.6-3~), lzma [armel], kernel-wedge (>= 2.81)
 Build-Depends-Indep: bzip2, xmlto
-Vcs-Svn: git://git.grml.org/grml-kernel.git
+Vcs-Git: git://git.grml.org/grml-kernel.git
 Vcs-Browser: http://git.grml.org/?p=grml-kernel.git;a=tree;f=linux-3

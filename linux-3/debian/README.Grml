@@ -9,11 +9,18 @@ then, unpack:
   tar xfz linux-3.1.tar.gz
   cp -a grml-kernel/linux-3/debian linux-3.1/
 
+then, prepare orig.tar.gz:
+  cp linux-3.1.tar.gz linux-2.6_3.1.0.orig.tar.gz
+
 then, prepare debian/control:
-  fakeroot ./debian/rules debian/control
+  cd linux-3.1 && fakeroot ./debian/rules debian/control
   (this will fail, as the message says, this is normal)
 
-then, build normally.
+To build for an official upload:
+  dpkg-buildpackage -S -us -uc
+  cowbuilder ...
+
+For test purposes, just:
   # export DEBIAN_KERNEL_JOBS=8 # if you can spare some CPU cycles
   dpkg-buildpackage
 

@@ -153,14 +153,14 @@ index 6185d05..e608038 100644
  L:	ath9k-devel@lists.ath9k.org
  W:	http://wireless.kernel.org/en/users/Drivers/ath9k
 diff --git a/Makefile b/Makefile
-index 07bc925..d614254 100644
+index 07bc925..7f8a93b 100644
 --- a/Makefile
 +++ b/Makefile
 @@ -1,6 +1,6 @@
  VERSION = 3
  PATCHLEVEL = 1
 -SUBLEVEL = 0
-+SUBLEVEL = 3
++SUBLEVEL = 4
  EXTRAVERSION =
  NAME = "Divemaster Edition"
  
@@ -8116,7 +8116,7 @@ index 1102ce6..1d1caa6 100644
  
  	/* optional debug port, normally in the first BAR */
 diff --git a/drivers/usb/host/ehci-sched.c b/drivers/usb/host/ehci-sched.c
-index 2abf854..afef3df 100644
+index 2abf854..29bec34 100644
 --- a/drivers/usb/host/ehci-sched.c
 +++ b/drivers/usb/host/ehci-sched.c
 @@ -36,6 +36,27 @@
@@ -8165,36 +8165,7 @@ index 2abf854..afef3df 100644
  
  	/* Typical case: reuse current schedule, stream is still active.
  	 * Hopefully there are no gaps from the host falling behind
-@@ -1459,10 +1480,15 @@ iso_stream_schedule (
- 
- 		/* NOTE:  assumes URB_ISO_ASAP, to limit complexity/bugs */
- 
--		/* find a uframe slot with enough bandwidth */
--		next = start + period;
--		for (; start < next; start++) {
--
-+		/* find a uframe slot with enough bandwidth.
-+		 * Early uframes are more precious because full-speed
-+		 * iso IN transfers can't use late uframes,
-+		 * and therefore they should be allocated last.
-+		 */
-+		next = start;
-+		start += period;
-+		do {
-+			start--;
- 			/* check schedule: enough space? */
- 			if (stream->highspeed) {
- 				if (itd_slot_ok(ehci, mod, start,
-@@ -1475,7 +1501,7 @@ iso_stream_schedule (
- 						start, sched, period))
- 					break;
- 			}
--		}
-+		} while (start > next);
- 
- 		/* no room in the schedule */
- 		if (start == next) {
-@@ -2276,7 +2302,7 @@ scan_periodic (struct ehci_hcd *ehci)
+@@ -2276,7 +2297,7 @@ scan_periodic (struct ehci_hcd *ehci)
  	 */
  	now_uframe = ehci->next_uframe;
  	if (HC_IS_RUNNING(ehci_to_hcd(ehci)->state)) {
@@ -8203,7 +8174,7 @@ index 2abf854..afef3df 100644
  		clock_frame = (clock >> 3) & (ehci->periodic_size - 1);
  	} else  {
  		clock = now_uframe + mod - 1;
-@@ -2455,8 +2481,7 @@ restart:
+@@ -2455,8 +2476,7 @@ restart:
  					|| ehci->periodic_sched == 0)
  				break;
  			ehci->next_uframe = now_uframe;

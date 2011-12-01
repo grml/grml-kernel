@@ -12,7 +12,7 @@ linux-2.6 (3.1.0-2+grml.1) grml-testing; urgency=low
 linux-2.6 (3.1.0-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.1.0.
-  * Note that Grml builds are very vanilla.
+  * Grml builds target unmodified linux sources, not DFSG sources.
   * Based on Debian kernel/dists/trunk/linux-2.6/debian rev 18236
     * Removed: arch configs for everything not x86,amd64
     * Removed: almost all Debian patches except:
@@ -30,5 +30,6 @@ linux-2.6 (3.1.0-1+grml.1) grml-testing; urgency=low
   * Re-add Grml patches:
        grml_logo.patch
        grml/vesa_fallback_on_kms_failure.patch
+  * Add Grml override config.
 
  -- Christian Hofstaedtler <ch@grml.org>  Mon, 07 Nov 2011 20:36:49 +0100

@@ -1,4 +1,8 @@
-This is the Debian GNU/Linux prepackaged version of the Linux kernel.
+This is the Grml Live Linux prepackaged version of the Linux kernel.
+It is based on the Debian GNU/Linux prepackaged version, but the Linux
+kernel sources have been replaced with the pristine sources as shipped
+by Linux upstream. (Along with this, many other changes have been made,
+please see the changelog.)
 
 It was downloaded from http://ftp.kernel.org/pub/linux/kernel/.
 

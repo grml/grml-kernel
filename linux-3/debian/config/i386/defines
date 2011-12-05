@@ -1,13 +1,7 @@
 [base]
 flavours:
- 686-pae
+ 486
 kernel-arch: x86
-
-[description]
-part-long-pae: This kernel requires PAE (Physical Address Extension).
- This feature is supported by the Intel Pentium Pro/II/III/4/4M/D, Xeon,
- Core and Atom; AMD Geode NX, Athlon (K7), Duron, Opteron, Sempron,
- Turion or Phenom; Transmeta Efficeon; VIA C7; and some other processors.
 
 [image]
 bootloaders: grub-pc extlinux lilo
@@ -15,16 +9,12 @@ configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
 
-[686-pae_description]
-hardware: modern PCs
-hardware-long: PCs with one or more processors supporting PAE
-parts: pae
+[486_description]
+hardware: older PCs
+hardware-long: PCs with a single processor not supporting PAE
+parts: up
 
-[686-pae_image]
+[486_image]
 configs:
  kernelarch-x86/config-arch-32
-recommends: libc6-i686
-
-[686-pae_image-dbg]
-enabled: true
 

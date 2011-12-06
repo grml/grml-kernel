@@ -1,3 +1,15 @@
+linux-2.6 (3.1.0-2+grml.2) grml-testing; urgency=low
+
+  * Retroactively update changelog to clearly state our changes
+    from Debian
+  * Mention that we build against upstream source
+    * Update copyright file to state what this is
+  * Actually install firmware with the kernel image
+  * Swap i386 config: build 486 variant instead of 686-pae
+  * Disabled dbg build on amd64
+
+ -- Christian Hofstaedtler <ch@grml.org>  Tue, 06 Dec 2011 01:43:28 +0100
+
 linux-2.6 (3.1.0-2+grml.1) grml-testing; urgency=low
 
   [ Michael Prokop ]

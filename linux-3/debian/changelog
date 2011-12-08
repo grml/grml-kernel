@@ -1,3 +1,10 @@
+linux-2.6 (3.1.0-2+grml.3) grml-testing; urgency=low
+
+  * Stop setting =y for HID devices (grml specific)
+  * No longer set CONFIG_EXPERT, fixes missing vendor HID drivers
+
+ -- Christian Hofstaedtler <ch@grml.org>  Thu, 08 Dec 2011 23:03:23 +0100
+
 linux-2.6 (3.1.0-2+grml.2) grml-testing; urgency=low
 
   * Retroactively update changelog to clearly state our changes

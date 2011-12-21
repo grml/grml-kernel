@@ -1,3 +1,11 @@
+linux-2.6 (3.1.0-3+grml.1) grml-testing; urgency=low
+
+  * Update to stable release 3.1.6
+  * Add selected Elantech touchpad fixes from 3.2
+  * Bump ABI version
+
+ -- Christian Hofstaedtler <ch@grml.org>  Thu, 22 Dec 2011 00:41:33 +0100
+
 linux-2.6 (3.1.0-2+grml.3) grml-testing; urgency=low
 
   * Stop setting =y for HID devices (grml specific)

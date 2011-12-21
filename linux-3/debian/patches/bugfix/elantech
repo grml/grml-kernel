@@ -1,0 +1,3315 @@
+commit 1155961946f2c6ac0f2db2bc6318ec01c79fb3fa
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:22:19 2011 -0700
+
+    Input: elantech - correct x, y value range for v2 hardware
+    
+    x, y values are actually 12-bit long. Also update protocol document to
+    reflect the change.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/Documentation/input/elantech.txt b/Documentation/input/elantech.txt
+index db798af..bce9941 100644
+--- a/Documentation/input/elantech.txt
++++ b/Documentation/input/elantech.txt
+@@ -389,14 +389,14 @@ byte 0:
+ byte 1:
+ 
+    bit   7   6   5   4   3   2   1   0
+-	 p7  p6  p5  p4  .  x10 x9  x8
++	 p7  p6  p5  p4 x11 x10 x9  x8
+ 
+ byte 2:
+ 
+    bit   7   6   5   4   3   2   1   0
+ 	 x7  x6  x5  x4  x3  x2  x1  x0
+ 
+-         x10..x0 = absolute x value (horizontal)
++         x11..x0 = absolute x value (horizontal)
+ 
+ byte 3:
+ 
+@@ -420,7 +420,7 @@ byte 3:
+ byte 4:
+ 
+    bit   7   6   5   4   3   2   1   0
+-        p3  p1  p2  p0   .   .  y9  y8
++        p3  p1  p2  p0  y11 y10 y9  y8
+ 
+ 	 p7..p0 = pressure (not EF113)
+ 
+@@ -429,7 +429,7 @@ byte 5:
+    bit   7   6   5   4   3   2   1   0
+         y7  y6  y5  y4  y3  y2  y1  y0
+ 
+-         y9..y0 = absolute y value (vertical)
++         y11..y0 = absolute y value (vertical)
+ 
+ 
+ 4.2.2 Two finger touch
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index 3250356..da161da 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -290,15 +290,15 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		/* pass through... */
+ 	case 1:
+ 		/*
+-		 * byte 1:  .   .   .   .   .  x10 x9  x8
++		 * byte 1:  .   .   .   .  x11 x10 x9  x8
+ 		 * byte 2: x7  x6  x5  x4  x4  x2  x1  x0
+ 		 */
+-		x1 = ((packet[1] & 0x07) << 8) | packet[2];
++		x1 = ((packet[1] & 0x0f) << 8) | packet[2];
+ 		/*
+-		 * byte 4:  .   .   .   .   .   .  y9  y8
++		 * byte 4:  .   .   .   .  y11 y10 y9  y8
+ 		 * byte 5: y7  y6  y5  y4  y3  y2  y1  y0
+ 		 */
+-		y1 = ETP_YMAX_V2 - (((packet[4] & 0x03) << 8) | packet[5]);
++		y1 = ETP_YMAX_V2 - (((packet[4] & 0x0f) << 8) | packet[5]);
+ 
+ 		input_report_abs(dev, ABS_X, x1);
+ 		input_report_abs(dev, ABS_Y, y1);
+commit 461a791765da501f73e3d5957788267101e800d2
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:22:58 2011 -0700
+
+    Input: elantech - get rid of ETP_2FT_* in elantech.h
+    
+    For two finger touches the coordinate of each finger gets reported
+    separately but with reduced resolution.
+    
+    With this change, we now have the same range for ST and MT data and
+    scale MT data because it has lower resolution to match ST.
+    
+    Suggested-by: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index da161da..cd8e2e5 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -273,11 +273,11 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 	struct elantech_data *etd = psmouse->private;
+ 	struct input_dev *dev = psmouse->dev;
+ 	unsigned char *packet = psmouse->packet;
+-	unsigned int fingers, x1 = 0, y1 = 0, x2 = 0, y2 = 0, width = 0, pres = 0;
++	unsigned int fingers, x1 = 0, y1 = 0, x2 = 0, y2 = 0;
++	unsigned int width = 0, pres = 0;
+ 
+ 	/* byte 0: n1  n0   .   .   .   .   R   L */
+ 	fingers = (packet[0] & 0xc0) >> 6;
+-	input_report_key(dev, BTN_TOUCH, fingers != 0);
+ 
+ 	switch (fingers) {
+ 	case 3:
+@@ -300,9 +300,6 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		 */
+ 		y1 = ETP_YMAX_V2 - (((packet[4] & 0x0f) << 8) | packet[5]);
+ 
+-		input_report_abs(dev, ABS_X, x1);
+-		input_report_abs(dev, ABS_Y, y1);
+-
+ 		pres = (packet[1] & 0xf0) | ((packet[4] & 0xf0) >> 4);
+ 		width = ((packet[0] & 0x30) >> 2) | ((packet[3] & 0x30) >> 4);
+ 		break;
+@@ -314,22 +311,18 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		 * byte 0:  .   .  ay8 ax8  .   .   .   .
+ 		 * byte 1: ax7 ax6 ax5 ax4 ax3 ax2 ax1 ax0
+ 		 */
+-		x1 = ((packet[0] & 0x10) << 4) | packet[1];
++		x1 = (((packet[0] & 0x10) << 4) | packet[1]) << 2;
+ 		/* byte 2: ay7 ay6 ay5 ay4 ay3 ay2 ay1 ay0 */
+-		y1 = ETP_2FT_YMAX - (((packet[0] & 0x20) << 3) | packet[2]);
++		y1 = ETP_YMAX_V2 -
++			((((packet[0] & 0x20) << 3) | packet[2]) << 2);
+ 		/*
+ 		 * byte 3:  .   .  by8 bx8  .   .   .   .
+ 		 * byte 4: bx7 bx6 bx5 bx4 bx3 bx2 bx1 bx0
+ 		 */
+-		x2 = ((packet[3] & 0x10) << 4) | packet[4];
++		x2 = (((packet[3] & 0x10) << 4) | packet[4]) << 2;
+ 		/* byte 5: by7 by8 by5 by4 by3 by2 by1 by0 */
+-		y2 = ETP_2FT_YMAX - (((packet[3] & 0x20) << 3) | packet[5]);
+-		/*
+-		 * For compatibility with the X Synaptics driver scale up
+-		 * one coordinate and report as ordinary mouse movent
+-		 */
+-		input_report_abs(dev, ABS_X, x1 << 2);
+-		input_report_abs(dev, ABS_Y, y1 << 2);
++		y2 = ETP_YMAX_V2 -
++			((((packet[3] & 0x20) << 3) | packet[5]) << 2);
+ 
+ 		/* Unknown so just report sensible values */
+ 		pres = 127;
+@@ -337,6 +330,11 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		break;
+ 	}
+ 
++	input_report_key(dev, BTN_TOUCH, fingers != 0);
++	if (fingers != 0) {
++		input_report_abs(dev, ABS_X, x1);
++		input_report_abs(dev, ABS_Y, y1);
++	}
+ 	elantech_report_semi_mt_data(dev, fingers, x1, y1, x2, y2);
+ 	input_report_key(dev, BTN_TOOL_FINGER, fingers == 1);
+ 	input_report_key(dev, BTN_TOOL_DOUBLETAP, fingers == 2);
+diff --git a/drivers/input/mouse/elantech.h b/drivers/input/mouse/elantech.h
+index fabb2b9..1c5894e 100644
+--- a/drivers/input/mouse/elantech.h
++++ b/drivers/input/mouse/elantech.h
+@@ -82,17 +82,6 @@
+ #define ETP_WMIN_V2			0
+ #define ETP_WMAX_V2			15
+ 
+-/*
+- * For two finger touches the coordinate of each finger gets reported
+- * separately but with reduced resolution.
+- */
+-#define ETP_2FT_FUZZ			4
+-
+-#define ETP_2FT_XMIN			(  0 + ETP_2FT_FUZZ)
+-#define ETP_2FT_XMAX			(288 - ETP_2FT_FUZZ)
+-#define ETP_2FT_YMIN			(  0 + ETP_2FT_FUZZ)
+-#define ETP_2FT_YMAX			(192 - ETP_2FT_FUZZ)
+-
+ struct elantech_data {
+ 	unsigned char reg_10;
+ 	unsigned char reg_11;
+commit 230282a77bcec97f4d0a54e50a44caab5eb39d5c
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:26:16 2011 -0700
+
+    Input: elantech - use firmware provided x, y ranges
+    
+    With newer hardware, the touchpad provides range info.
+    Let's use it.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index cd8e2e5..296b6a6 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -223,7 +223,7 @@ static void elantech_report_absolute_v1(struct psmouse *psmouse)
+ 		input_report_abs(dev, ABS_X,
+ 			((packet[1] & 0x0c) << 6) | packet[2]);
+ 		input_report_abs(dev, ABS_Y,
+-			ETP_YMAX_V1 - (((packet[1] & 0x03) << 8) | packet[3]));
++			etd->y_max - (((packet[1] & 0x03) << 8) | packet[3]));
+ 	}
+ 
+ 	input_report_key(dev, BTN_TOOL_FINGER, fingers == 1);
+@@ -233,7 +233,7 @@ static void elantech_report_absolute_v1(struct psmouse *psmouse)
+ 	input_report_key(dev, BTN_RIGHT, packet[0] & 0x02);
+ 
+ 	if (etd->fw_version < 0x020000 &&
+-	    (etd->capabilities & ETP_CAP_HAS_ROCKER)) {
++	    (etd->capabilities[0] & ETP_CAP_HAS_ROCKER)) {
+ 		/* rocker up */
+ 		input_report_key(dev, BTN_FORWARD, packet[0] & 0x40);
+ 		/* rocker down */
+@@ -298,7 +298,7 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		 * byte 4:  .   .   .   .  y11 y10 y9  y8
+ 		 * byte 5: y7  y6  y5  y4  y3  y2  y1  y0
+ 		 */
+-		y1 = ETP_YMAX_V2 - (((packet[4] & 0x0f) << 8) | packet[5]);
++		y1 = etd->y_max - (((packet[4] & 0x0f) << 8) | packet[5]);
+ 
+ 		pres = (packet[1] & 0xf0) | ((packet[4] & 0xf0) >> 4);
+ 		width = ((packet[0] & 0x30) >> 2) | ((packet[3] & 0x30) >> 4);
+@@ -313,7 +313,7 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		 */
+ 		x1 = (((packet[0] & 0x10) << 4) | packet[1]) << 2;
+ 		/* byte 2: ay7 ay6 ay5 ay4 ay3 ay2 ay1 ay0 */
+-		y1 = ETP_YMAX_V2 -
++		y1 = etd->y_max -
+ 			((((packet[0] & 0x20) << 3) | packet[2]) << 2);
+ 		/*
+ 		 * byte 3:  .   .  by8 bx8  .   .   .   .
+@@ -321,7 +321,7 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 		 */
+ 		x2 = (((packet[3] & 0x10) << 4) | packet[4]) << 2;
+ 		/* byte 5: by7 by8 by5 by4 by3 by2 by1 by0 */
+-		y2 = ETP_YMAX_V2 -
++		y2 = etd->y_max -
+ 			((((packet[3] & 0x20) << 3) | packet[5]) << 2);
+ 
+ 		/* Unknown so just report sensible values */
+@@ -468,6 +468,41 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 	return rc;
+ }
+ 
++static void elantech_set_range(struct psmouse *psmouse,
++			       unsigned int *x_min, unsigned int *y_min,
++			       unsigned int *x_max, unsigned int *y_max)
++{
++	struct elantech_data *etd = psmouse->private;
++	int i;
++
++	switch (etd->hw_version) {
++	case 1:
++		*x_min = ETP_XMIN_V1;
++		*y_min = ETP_YMIN_V1;
++		*x_max = ETP_XMAX_V1;
++		*y_max = ETP_YMAX_V1;
++		break;
++
++	case 2:
++		if (etd->fw_version == 0x020800 ||
++		    etd->fw_version == 0x020b00 ||
++		    etd->fw_version == 0x020030) {
++			*x_min = ETP_XMIN_V2;
++			*y_min = ETP_YMIN_V2;
++			*x_max = ETP_XMAX_V2;
++			*y_max = ETP_YMAX_V2;
++		} else {
++			i = (etd->fw_version > 0x020800 &&
++			     etd->fw_version < 0x020900) ? 1 : 2;
++			*x_min = 0;
++			*y_min = 0;
++			*x_max = (etd->capabilities[1] - i) * 64;
++			*y_max = (etd->capabilities[2] - i) * 64;
++		}
++		break;
++	}
++}
++
+ /*
+  * Set the appropriate event bits for the input subsystem
+  */
+@@ -475,6 +510,9 @@ static void elantech_set_input_params(struct psmouse *psmouse)
+ {
+ 	struct input_dev *dev = psmouse->dev;
+ 	struct elantech_data *etd = psmouse->private;
++	unsigned int x_min = 0, y_min = 0, x_max = 0, y_max = 0;
++
++	elantech_set_range(psmouse, &x_min, &y_min, &x_max, &y_max);
+ 
+ 	__set_bit(EV_KEY, dev->evbit);
+ 	__set_bit(EV_ABS, dev->evbit);
+@@ -492,18 +530,18 @@ static void elantech_set_input_params(struct psmouse *psmouse)
+ 	case 1:
+ 		/* Rocker button */
+ 		if (etd->fw_version < 0x020000 &&
+-		    (etd->capabilities & ETP_CAP_HAS_ROCKER)) {
++		    (etd->capabilities[0] & ETP_CAP_HAS_ROCKER)) {
+ 			__set_bit(BTN_FORWARD, dev->keybit);
+ 			__set_bit(BTN_BACK, dev->keybit);
+ 		}
+-		input_set_abs_params(dev, ABS_X, ETP_XMIN_V1, ETP_XMAX_V1, 0, 0);
+-		input_set_abs_params(dev, ABS_Y, ETP_YMIN_V1, ETP_YMAX_V1, 0, 0);
++		input_set_abs_params(dev, ABS_X, x_min, x_max, 0, 0);
++		input_set_abs_params(dev, ABS_Y, y_min, y_max, 0, 0);
+ 		break;
+ 
+ 	case 2:
+ 		__set_bit(BTN_TOOL_QUADTAP, dev->keybit);
+-		input_set_abs_params(dev, ABS_X, ETP_XMIN_V2, ETP_XMAX_V2, 0, 0);
+-		input_set_abs_params(dev, ABS_Y, ETP_YMIN_V2, ETP_YMAX_V2, 0, 0);
++		input_set_abs_params(dev, ABS_X, x_min, x_max, 0, 0);
++		input_set_abs_params(dev, ABS_Y, y_min, y_max, 0, 0);
+ 		if (etd->reports_pressure) {
+ 			input_set_abs_params(dev, ABS_PRESSURE, ETP_PMIN_V2,
+ 					     ETP_PMAX_V2, 0, 0);
+@@ -512,10 +550,12 @@ static void elantech_set_input_params(struct psmouse *psmouse)
+ 		}
+ 		__set_bit(INPUT_PROP_SEMI_MT, dev->propbit);
+ 		input_mt_init_slots(dev, 2);
+-		input_set_abs_params(dev, ABS_MT_POSITION_X, ETP_XMIN_V2, ETP_XMAX_V2, 0, 0);
+-		input_set_abs_params(dev, ABS_MT_POSITION_Y, ETP_YMIN_V2, ETP_YMAX_V2, 0, 0);
++		input_set_abs_params(dev, ABS_MT_POSITION_X, x_min, x_max, 0, 0);
++		input_set_abs_params(dev, ABS_MT_POSITION_Y, y_min, y_max, 0, 0);
+ 		break;
+ 	}
++
++	etd->y_max = y_max;
+ }
+ 
+ struct elantech_attr_data {
+@@ -769,13 +809,14 @@ int elantech_init(struct psmouse *psmouse)
+ 	pr_info("assuming hardware version %d, firmware version %d.%d.%d\n",
+ 		etd->hw_version, param[0], param[1], param[2]);
+ 
+-	if (synaptics_send_cmd(psmouse, ETP_CAPABILITIES_QUERY, param)) {
++	if (synaptics_send_cmd(psmouse, ETP_CAPABILITIES_QUERY,
++	    etd->capabilities)) {
+ 		pr_err("failed to query capabilities.\n");
+ 		goto init_fail;
+ 	}
+ 	pr_info("Synaptics capabilities query result 0x%02x, 0x%02x, 0x%02x.\n",
+-		param[0], param[1], param[2]);
+-	etd->capabilities = param[0];
++		etd->capabilities[0], etd->capabilities[1],
++		etd->capabilities[2]);
+ 
+ 	/*
+ 	 * This firmware suffers from misreporting coordinates when
+diff --git a/drivers/input/mouse/elantech.h b/drivers/input/mouse/elantech.h
+index 1c5894e..b54ea27 100644
+--- a/drivers/input/mouse/elantech.h
++++ b/drivers/input/mouse/elantech.h
+@@ -93,13 +93,14 @@ struct elantech_data {
+ 	unsigned char reg_25;
+ 	unsigned char reg_26;
+ 	unsigned char debug;
+-	unsigned char capabilities;
++	unsigned char capabilities[3];
+ 	bool paritycheck;
+ 	bool jumpy_cursor;
+ 	bool reports_pressure;
+ 	unsigned char hw_version;
+ 	unsigned int fw_version;
+ 	unsigned int single_finger_reports;
++	unsigned int y_max;
+ 	unsigned char parity[256];
+ };
+ 
+commit 8a360d09b14514139b883d970cd3a1b0b63e6717
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:27:42 2011 -0700
+
+    Input: elantech - remove ETP_EDGE_FUZZ_V2
+    
+    Don't try to be too clever and remove ETP_EDGE_FUZZ_V2. X, Y ranges
+    should be just the raw resolution of the device. Otherwise, they can
+    cause underflow on the Y axis.
+    
+    Suggested-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.h b/drivers/input/mouse/elantech.h
+index b54ea27..d9e6144 100644
+--- a/drivers/input/mouse/elantech.h
++++ b/drivers/input/mouse/elantech.h
+@@ -66,16 +66,13 @@
+ #define ETP_YMAX_V1			(384 - ETP_EDGE_FUZZ_V1)
+ 
+ /*
+- * It seems the resolution for hardware version 2 doubled.
+- * Hence the X and Y ranges are doubled too.
+- * The bezel around the pad also appears to be smaller
++ * The resolution for older v2 hardware doubled.
++ * (newer v2's firmware provides command so we can query)
+  */
+-#define ETP_EDGE_FUZZ_V2		8
+-
+-#define ETP_XMIN_V2			(   0 + ETP_EDGE_FUZZ_V2)
+-#define ETP_XMAX_V2			(1152 - ETP_EDGE_FUZZ_V2)
+-#define ETP_YMIN_V2			(   0 + ETP_EDGE_FUZZ_V2)
+-#define ETP_YMAX_V2			( 768 - ETP_EDGE_FUZZ_V2)
++#define ETP_XMIN_V2			0
++#define ETP_XMAX_V2			1152
++#define ETP_YMIN_V2			0
++#define ETP_YMAX_V2			768
+ 
+ #define ETP_PMIN_V2			0
+ #define ETP_PMAX_V2			255
+commit 7894f21b109848130be7547448af89dc33d0f268
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:28:04 2011 -0700
+
+    Input: elantech - packet checking for v2 hardware
+    
+    For v2 hardware, there is no real parity check, but we can still check
+    some constant bits for data integrity.
+    
+    Also rename elantech_check_parity_v1 to elantech_packet_check_v1 to make
+    these packet checking function names consistent.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index 296b6a6..f2e3a2b 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -350,7 +350,7 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 	input_sync(dev);
+ }
+ 
+-static int elantech_check_parity_v1(struct psmouse *psmouse)
++static int elantech_packet_check_v1(struct psmouse *psmouse)
+ {
+ 	struct elantech_data *etd = psmouse->private;
+ 	unsigned char *packet = psmouse->packet;
+@@ -374,6 +374,34 @@ static int elantech_check_parity_v1(struct psmouse *psmouse)
+ 	       etd->parity[packet[3]] == p3;
+ }
+ 
++static int elantech_packet_check_v2(struct psmouse *psmouse)
++{
++	struct elantech_data *etd = psmouse->private;
++	unsigned char *packet = psmouse->packet;
++
++	/*
++	 * V2 hardware has two flavors. Older ones that do not report pressure,
++	 * and newer ones that reports pressure and width. With newer ones, all
++	 * packets (1, 2, 3 finger touch) have the same constant bits. With
++	 * older ones, 1/3 finger touch packets and 2 finger touch packets
++	 * have different constant bits.
++	 * With all three cases, if the constant bits are not exactly what I
++	 * expected, I consider them invalid.
++	 */
++	if (etd->reports_pressure)
++		return (packet[0] & 0x0c) == 0x04 &&
++		       (packet[3] & 0x0f) == 0x02;
++
++	if ((packet[0] & 0xc0) == 0x80)
++		return (packet[0] & 0x0c) == 0x0c &&
++		       (packet[3] & 0x0e) == 0x08;
++
++	return (packet[0] & 0x3c) == 0x3c &&
++	       (packet[1] & 0xf0) == 0x00 &&
++	       (packet[3] & 0x3e) == 0x38 &&
++	       (packet[4] & 0xf0) == 0x00;
++}
++
+ /*
+  * Process byte stream from mouse and handle complete packets
+  */
+@@ -389,14 +417,16 @@ static psmouse_ret_t elantech_process_byte(struct psmouse *psmouse)
+ 
+ 	switch (etd->hw_version) {
+ 	case 1:
+-		if (etd->paritycheck && !elantech_check_parity_v1(psmouse))
++		if (etd->paritycheck && !elantech_packet_check_v1(psmouse))
+ 			return PSMOUSE_BAD_DATA;
+ 
+ 		elantech_report_absolute_v1(psmouse);
+ 		break;
+ 
+ 	case 2:
+-		/* We don't know how to check parity in protocol v2 */
++		if (etd->paritycheck && !elantech_packet_check_v2(psmouse))
++			return PSMOUSE_BAD_DATA;
++
+ 		elantech_report_absolute_v2(psmouse);
+ 		break;
+ 	}
+@@ -795,8 +825,7 @@ int elantech_init(struct psmouse *psmouse)
+ 		etd->hw_version = 2;
+ 		/* For now show extra debug information */
+ 		etd->debug = 1;
+-		/* Don't know how to do parity checking for version 2 */
+-		etd->paritycheck = 0;
++		etd->paritycheck = 1;
+ 
+ 		if (etd->fw_version >= 0x020800)
+ 			etd->reports_pressure = true;
+commit 3c8bbb951ab23dc1192473ccad76cde89c172d27
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:28:19 2011 -0700
+
+    Input: elantech - clean up elantech_init
+    
+    Group property setting code into elantech_set_properties.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index f2e3a2b..1ab1c14 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -791,6 +791,42 @@ static int elantech_reconnect(struct psmouse *psmouse)
+ }
+ 
+ /*
++ * determine hardware version and set some properties according to it.
++ */
++static void elantech_set_properties(struct elantech_data *etd)
++{
++	/*
++	 * Assume every version greater than 0x020030 is new EeePC style
++	 * hardware with 6 byte packets, except 0x020600
++	 */
++	if (etd->fw_version < 0x020030 || etd->fw_version == 0x020600)
++		etd->hw_version = 1;
++	else
++		etd->hw_version = 2;
++
++	/*
++	 * Turn on packet checking by default.
++	 */
++	etd->paritycheck = 1;
++
++	/*
++	 * This firmware suffers from misreporting coordinates when
++	 * a touch action starts causing the mouse cursor or scrolled page
++	 * to jump. Enable a workaround.
++	 */
++	etd->jumpy_cursor =
++		(etd->fw_version == 0x020022 || etd->fw_version == 0x020600);
++
++	if (etd->hw_version == 2) {
++		/* For now show extra debug information */
++		etd->debug = 1;
++
++		if (etd->fw_version >= 0x020800)
++			etd->reports_pressure = true;
++	}
++}
++
++/*
+  * Initialize the touchpad and create sysfs entries
+  */
+ int elantech_init(struct psmouse *psmouse)
+@@ -816,26 +852,9 @@ int elantech_init(struct psmouse *psmouse)
+ 	}
+ 
+ 	etd->fw_version = (param[0] << 16) | (param[1] << 8) | param[2];
+-
+-	/*
+-	 * Assume every version greater than this is new EeePC style
+-	 * hardware with 6 byte packets
+-	 */
+-	if (etd->fw_version >= 0x020030) {
+-		etd->hw_version = 2;
+-		/* For now show extra debug information */
+-		etd->debug = 1;
+-		etd->paritycheck = 1;
+-
+-		if (etd->fw_version >= 0x020800)
+-			etd->reports_pressure = true;
+-
+-	} else {
+-		etd->hw_version = 1;
+-		etd->paritycheck = 1;
+-	}
+-
+-	pr_info("assuming hardware version %d, firmware version %d.%d.%d\n",
++	elantech_set_properties(etd);
++	pr_info("assuming hardware version %d "
++		"(with firmware version 0x%02x%02x%02x)\n",
+ 		etd->hw_version, param[0], param[1], param[2]);
+ 
+ 	if (synaptics_send_cmd(psmouse, ETP_CAPABILITIES_QUERY,
+@@ -847,16 +866,6 @@ int elantech_init(struct psmouse *psmouse)
+ 		etd->capabilities[0], etd->capabilities[1],
+ 		etd->capabilities[2]);
+ 
+-	/*
+-	 * This firmware suffers from misreporting coordinates when
+-	 * a touch action starts causing the mouse cursor or scrolled page
+-	 * to jump. Enable a workaround.
+-	 */
+-	if (etd->fw_version == 0x020022 || etd->fw_version == 0x020600) {
+-		pr_info("firmware version 2.0.34/2.6.0 detected, enabling jumpy cursor workaround\n");
+-		etd->jumpy_cursor = true;
+-	}
+-
+ 	if (elantech_set_absolute_mode(psmouse)) {
+ 		pr_err("failed to put touchpad into absolute mode.\n");
+ 		goto init_fail;
+commit 28f49616113f3a1fbef789319bfd2122d0c3663f
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:30:31 2011 -0700
+
+    Input: elantech - add v3 hardware support
+    
+    v3 hardware's packet format is almost identical to v2 (one/three finger touch),
+    except when sensing two finger touch, the hardware sends 12 bytes of data.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Acked-by: Daniel Kurtz <djkurtz@chromium.org>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/Documentation/input/elantech.txt b/Documentation/input/elantech.txt
+index bce9941..cee08ee 100644
+--- a/Documentation/input/elantech.txt
++++ b/Documentation/input/elantech.txt
+@@ -16,15 +16,22 @@ Contents
+ 
+  1. Introduction
+  2. Extra knobs
+- 3. Hardware version 1
+-    3.1 Registers
+-    3.2 Native relative mode 4 byte packet format
+-    3.3 Native absolute mode 4 byte packet format
+- 4. Hardware version 2
++ 3. Differentiating hardware versions
++ 4. Hardware version 1
+     4.1 Registers
+-    4.2 Native absolute mode 6 byte packet format
+-        4.2.1 One finger touch
+-        4.2.2 Two finger touch
++    4.2 Native relative mode 4 byte packet format
++    4.3 Native absolute mode 4 byte packet format
++ 5. Hardware version 2
++    5.1 Registers
++    5.2 Native absolute mode 6 byte packet format
++        5.2.1 Parity checking and packet re-synchronization
++        5.2.2 One/Three finger touch
++        5.2.3 Two finger touch
++ 6. Hardware version 3
++    6.1 Registers
++    6.2 Native absolute mode 6 byte packet format
++        6.2.1 One/Three finger touch
++        6.2.2 Two finger touch
+ 
+ 
+ 
+@@ -375,7 +382,7 @@ For all the other ones, there are just a few constant bits:
+ 
+ In case an error is detected, all the packets are shifted by one (and packet[0] is discarded).
+ 
+-5.2.1 One/Three finger touch
++5.2.2 One/Three finger touch
+       ~~~~~~~~~~~~~~~~
+ 
+ byte 0:
+@@ -384,7 +391,7 @@ byte 0:
+ 	 n1  n0  w3  w2   .   .   R   L
+ 
+          L, R = 1 when Left, Right mouse button pressed
+-         n1..n0 = numbers of fingers on touchpad
++         n1..n0 = number of fingers on touchpad
+ 
+ byte 1:
+ 
+@@ -432,7 +439,7 @@ byte 5:
+          y11..y0 = absolute y value (vertical)
+ 
+ 
+-4.2.2 Two finger touch
++5.2.3 Two finger touch
+       ~~~~~~~~~~~~~~~~
+ 
+ Note that the two pairs of coordinates are not exactly the coordinates of the
+@@ -446,7 +453,7 @@ byte 0:
+         n1  n0  ay8 ax8  .   .   R   L
+ 
+          L, R = 1 when Left, Right mouse button pressed
+-         n1..n0 = numbers of fingers on touchpad
++         n1..n0 = number of fingers on touchpad
+ 
+ byte 1:
+ 
+@@ -480,3 +487,89 @@ byte 5:
+         by7 by8 by5 by4 by3 by2 by1 by0
+ 
+          by8..by0 = upper-right finger absolute y value
++
++/////////////////////////////////////////////////////////////////////////////
++
++6. Hardware version 3
++   ==================
++
++6.1 Registers
++    ~~~~~~~~~
++* reg_10
++
++   bit   7   6   5   4   3   2   1   0
++         0   0   0   0   0   0   0   A
++
++         A: 1 = enable absolute tracking
++
++6.2 Native absolute mode 6 byte packet format
++    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++1 and 3 finger touch shares the same 6-byte packet format, except that
++3 finger touch only reports the position of the center of all three fingers.
++
++Firmware would send 12 bytes of data for 2 finger touch.
++
++Note on debounce:
++In case the box has unstable power supply or other electricity issues, or
++when number of finger changes, F/W would send "debounce packet" to inform
++driver that the hardware is in debounce status.
++The debouce packet has the following signature:
++    byte 0: 0xc4
++    byte 1: 0xff
++    byte 2: 0xff
++    byte 3: 0x02
++    byte 4: 0xff
++    byte 5: 0xff
++When we encounter this kind of packet, we just ignore it.
++
++6.2.1 One/Three finger touch
++      ~~~~~~~~~~~~~~~~~~~~~~
++
++byte 0:
++
++   bit   7   6   5   4   3   2   1   0
++        n1  n0  w3  w2   0   1   R   L
++
++        L, R = 1 when Left, Right mouse button pressed
++        n1..n0 = number of fingers on touchpad
++
++byte 1:
++
++   bit   7   6   5   4   3   2   1   0
++        p7  p6  p5  p4 x11 x10  x9  x8
++
++byte 2:
++
++   bit   7   6   5   4   3   2   1   0
++        x7  x6  x5  x4  x3  x2  x1  x0
++
++        x11..x0 = absolute x value (horizontal)
++
++byte 3:
++
++   bit   7   6   5   4   3   2   1   0
++         0   0  w1  w0   0   0   1   0
++
++         w3..w0 = width of the finger touch
++
++byte 4:
++
++   bit   7   6   5   4   3   2   1   0
++        p3  p1  p2  p0  y11 y10 y9  y8
++
++        p7..p0 = pressure
++
++byte 5:
++
++   bit   7   6   5   4   3   2   1   0
++        y7  y6  y5  y4  y3  y2  y1  y0
++
++        y11..y0 = absolute y value (vertical)
++
++6.2.2 Two finger touch
++      ~~~~~~~~~~~~~~~~
++
++The packet format is exactly the same for two finger touch, except the hardware
++sends two 6 byte packets. The first packet contains data for the first finger,
++the second packet has data for the second finger. So for two finger touch a
++total of 12 bytes are sent.
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index 1ab1c14..9cfc70a 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -108,6 +108,16 @@ static int elantech_read_reg(struct psmouse *psmouse, unsigned char reg,
+ 			rc = -1;
+ 		}
+ 		break;
++
++	case 3:
++		if (elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_REGISTER_READWRITE) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, reg) ||
++		    elantech_ps2_command(psmouse, param, PSMOUSE_CMD_GETINFO)) {
++			rc = -1;
++		}
++		break;
+ 	}
+ 
+ 	if (rc)
+@@ -154,6 +164,18 @@ static int elantech_write_reg(struct psmouse *psmouse, unsigned char reg,
+ 			rc = -1;
+ 		}
+ 		break;
++
++	case 3:
++		if (elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_REGISTER_READWRITE) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, reg) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, val) ||
++		    elantech_ps2_command(psmouse, NULL, PSMOUSE_CMD_SETSCALE11)) {
++			rc = -1;
++		}
++		break;
+ 	}
+ 
+ 	if (rc)
+@@ -350,6 +372,84 @@ static void elantech_report_absolute_v2(struct psmouse *psmouse)
+ 	input_sync(dev);
+ }
+ 
++/*
++ * Interpret complete data packets and report absolute mode input events for
++ * hardware version 3. (12 byte packets for two fingers)
++ */
++static void elantech_report_absolute_v3(struct psmouse *psmouse,
++					int packet_type)
++{
++	struct input_dev *dev = psmouse->dev;
++	struct elantech_data *etd = psmouse->private;
++	unsigned char *packet = psmouse->packet;
++	unsigned int fingers = 0, x1 = 0, y1 = 0, x2 = 0, y2 = 0;
++	unsigned int width = 0, pres = 0;
++
++	/* byte 0: n1  n0   .   .   .   .   R   L */
++	fingers = (packet[0] & 0xc0) >> 6;
++
++	switch (fingers) {
++	case 3:
++	case 1:
++		/*
++		 * byte 1:  .   .   .   .  x11 x10 x9  x8
++		 * byte 2: x7  x6  x5  x4  x4  x2  x1  x0
++		 */
++		x1 = ((packet[1] & 0x0f) << 8) | packet[2];
++		/*
++		 * byte 4:  .   .   .   .  y11 y10 y9  y8
++		 * byte 5: y7  y6  y5  y4  y3  y2  y1  y0
++		 */
++		y1 = etd->y_max - (((packet[4] & 0x0f) << 8) | packet[5]);
++		break;
++
++	case 2:
++		if (packet_type == PACKET_V3_HEAD) {
++			/*
++			 * byte 1:   .    .    .    .  ax11 ax10 ax9  ax8
++			 * byte 2: ax7  ax6  ax5  ax4  ax3  ax2  ax1  ax0
++			 */
++			etd->prev_x = ((packet[1] & 0x0f) << 8) | packet[2];
++			/*
++			 * byte 4:   .    .    .    .  ay11 ay10 ay9  ay8
++			 * byte 5: ay7  ay6  ay5  ay4  ay3  ay2  ay1  ay0
++			 */
++			etd->prev_y = etd->y_max -
++				(((packet[4] & 0x0f) << 8) | packet[5]);
++			/*
++			 * wait for next packet
++			 */
++			return;
++		}
++
++		/* packet_type == PACKET_V3_TAIL */
++		x1 = etd->prev_x;
++		y1 = etd->prev_y;
++		x2 = ((packet[1] & 0x0f) << 8) | packet[2];
++		y2 = etd->y_max - (((packet[4] & 0x0f) << 8) | packet[5]);
++		break;
++	}
++
++	pres = (packet[1] & 0xf0) | ((packet[4] & 0xf0) >> 4);
++	width = ((packet[0] & 0x30) >> 2) | ((packet[3] & 0x30) >> 4);
++
++	input_report_key(dev, BTN_TOUCH, fingers != 0);
++	if (fingers != 0) {
++		input_report_abs(dev, ABS_X, x1);
++		input_report_abs(dev, ABS_Y, y1);
++	}
++	elantech_report_semi_mt_data(dev, fingers, x1, y1, x2, y2);
++	input_report_key(dev, BTN_TOOL_FINGER, fingers == 1);
++	input_report_key(dev, BTN_TOOL_DOUBLETAP, fingers == 2);
++	input_report_key(dev, BTN_TOOL_TRIPLETAP, fingers == 3);
++	input_report_key(dev, BTN_LEFT, packet[0] & 0x01);
++	input_report_key(dev, BTN_RIGHT, packet[0] & 0x02);
++	input_report_abs(dev, ABS_PRESSURE, pres);
++	input_report_abs(dev, ABS_TOOL_WIDTH, width);
++
++	input_sync(dev);
++}
++
+ static int elantech_packet_check_v1(struct psmouse *psmouse)
+ {
+ 	struct elantech_data *etd = psmouse->private;
+@@ -403,11 +503,37 @@ static int elantech_packet_check_v2(struct psmouse *psmouse)
+ }
+ 
+ /*
++ * We check the constant bits to determine what packet type we get,
++ * so packet checking is mandatory for v3 hardware.
++ */
++static int elantech_packet_check_v3(struct psmouse *psmouse)
++{
++	const u8 debounce_packet[] = { 0xc4, 0xff, 0xff, 0x02, 0xff, 0xff };
++	unsigned char *packet = psmouse->packet;
++
++	/*
++	 * check debounce first, it has the same signature in byte 0
++	 * and byte 3 as PACKET_V3_HEAD.
++	 */
++	if (!memcmp(packet, debounce_packet, sizeof(debounce_packet)))
++		return PACKET_DEBOUNCE;
++
++	if ((packet[0] & 0x0c) == 0x04 && (packet[3] & 0xcf) == 0x02)
++		return PACKET_V3_HEAD;
++
++	if ((packet[0] & 0x0c) == 0x0c && (packet[3] & 0xce) == 0x0c)
++		return PACKET_V3_TAIL;
++
++	return PACKET_UNKNOWN;
++}
++
++/*
+  * Process byte stream from mouse and handle complete packets
+  */
+ static psmouse_ret_t elantech_process_byte(struct psmouse *psmouse)
+ {
+ 	struct elantech_data *etd = psmouse->private;
++	int packet_type;
+ 
+ 	if (psmouse->pktcnt < psmouse->pktsize)
+ 		return PSMOUSE_GOOD_DATA;
+@@ -429,6 +555,18 @@ static psmouse_ret_t elantech_process_byte(struct psmouse *psmouse)
+ 
+ 		elantech_report_absolute_v2(psmouse);
+ 		break;
++
++	case 3:
++		packet_type = elantech_packet_check_v3(psmouse);
++		/* ignore debounce */
++		if (packet_type == PACKET_DEBOUNCE)
++			return PSMOUSE_FULL_PACKET;
++
++		if (packet_type == PACKET_UNKNOWN)
++			return PSMOUSE_BAD_DATA;
++
++		elantech_report_absolute_v3(psmouse, packet_type);
++		break;
+ 	}
+ 
+ 	return PSMOUSE_FULL_PACKET;
+@@ -463,8 +601,15 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 		    elantech_write_reg(psmouse, 0x11, etd->reg_11) ||
+ 		    elantech_write_reg(psmouse, 0x21, etd->reg_21)) {
+ 			rc = -1;
+-			break;
+ 		}
++		break;
++
++	case 3:
++		etd->reg_10 = 0x0b;
++		if (elantech_write_reg(psmouse, 0x10, etd->reg_10))
++			rc = -1;
++
++		break;
+ 	}
+ 
+ 	if (rc == 0) {
+@@ -498,11 +643,12 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 	return rc;
+ }
+ 
+-static void elantech_set_range(struct psmouse *psmouse,
+-			       unsigned int *x_min, unsigned int *y_min,
+-			       unsigned int *x_max, unsigned int *y_max)
++static int elantech_set_range(struct psmouse *psmouse,
++			      unsigned int *x_min, unsigned int *y_min,
++			      unsigned int *x_max, unsigned int *y_max)
+ {
+ 	struct elantech_data *etd = psmouse->private;
++	unsigned char param[3];
+ 	int i;
+ 
+ 	switch (etd->hw_version) {
+@@ -530,19 +676,30 @@ static void elantech_set_range(struct psmouse *psmouse,
+ 			*y_max = (etd->capabilities[2] - i) * 64;
+ 		}
+ 		break;
++
++	case 3:
++		if (synaptics_send_cmd(psmouse, ETP_FW_ID_QUERY, param))
++			return -1;
++
++		*x_max = (0x0f & param[0]) << 8 | param[1];
++		*y_max = (0xf0 & param[0]) << 4 | param[2];
++		break;
+ 	}
++
++	return 0;
+ }
+ 
+ /*
+  * Set the appropriate event bits for the input subsystem
+  */
+-static void elantech_set_input_params(struct psmouse *psmouse)
++static int elantech_set_input_params(struct psmouse *psmouse)
+ {
+ 	struct input_dev *dev = psmouse->dev;
+ 	struct elantech_data *etd = psmouse->private;
+ 	unsigned int x_min = 0, y_min = 0, x_max = 0, y_max = 0;
+ 
+-	elantech_set_range(psmouse, &x_min, &y_min, &x_max, &y_max);
++	if (elantech_set_range(psmouse, &x_min, &y_min, &x_max, &y_max))
++		return -1;
+ 
+ 	__set_bit(EV_KEY, dev->evbit);
+ 	__set_bit(EV_ABS, dev->evbit);
+@@ -570,6 +727,9 @@ static void elantech_set_input_params(struct psmouse *psmouse)
+ 
+ 	case 2:
+ 		__set_bit(BTN_TOOL_QUADTAP, dev->keybit);
++		__set_bit(INPUT_PROP_SEMI_MT, dev->propbit);
++		/* fall through */
++	case 3:
+ 		input_set_abs_params(dev, ABS_X, x_min, x_max, 0, 0);
+ 		input_set_abs_params(dev, ABS_Y, y_min, y_max, 0, 0);
+ 		if (etd->reports_pressure) {
+@@ -578,7 +738,6 @@ static void elantech_set_input_params(struct psmouse *psmouse)
+ 			input_set_abs_params(dev, ABS_TOOL_WIDTH, ETP_WMIN_V2,
+ 					     ETP_WMAX_V2, 0, 0);
+ 		}
+-		__set_bit(INPUT_PROP_SEMI_MT, dev->propbit);
+ 		input_mt_init_slots(dev, 2);
+ 		input_set_abs_params(dev, ABS_MT_POSITION_X, x_min, x_max, 0, 0);
+ 		input_set_abs_params(dev, ABS_MT_POSITION_Y, y_min, y_max, 0, 0);
+@@ -586,6 +745,8 @@ static void elantech_set_input_params(struct psmouse *psmouse)
+ 	}
+ 
+ 	etd->y_max = y_max;
++
++	return 0;
+ }
+ 
+ struct elantech_attr_data {
+@@ -727,7 +888,8 @@ int elantech_detect(struct psmouse *psmouse, bool set_properties)
+ 	 * Report this in case there are Elantech models that use a different
+ 	 * set of magic numbers
+ 	 */
+-	if (param[0] != 0x3c || param[1] != 0x03 || param[2] != 0xc8) {
++	if (param[0] != 0x3c || param[1] != 0x03 ||
++	    (param[2] != 0xc8 && param[2] != 0x00)) {
+ 		pr_debug("unexpected magic knock result 0x%02x, 0x%02x, 0x%02x.\n",
+ 			 param[0], param[1], param[2]);
+ 		return -1;
+@@ -793,16 +955,16 @@ static int elantech_reconnect(struct psmouse *psmouse)
+ /*
+  * determine hardware version and set some properties according to it.
+  */
+-static void elantech_set_properties(struct elantech_data *etd)
++static int elantech_set_properties(struct elantech_data *etd)
+ {
+-	/*
+-	 * Assume every version greater than 0x020030 is new EeePC style
+-	 * hardware with 6 byte packets, except 0x020600
+-	 */
+ 	if (etd->fw_version < 0x020030 || etd->fw_version == 0x020600)
+ 		etd->hw_version = 1;
+-	else
++	else if (etd->fw_version < 0x150600)
+ 		etd->hw_version = 2;
++	else if ((etd->fw_version & 0x0f0000) >> 16 == 5)
++		etd->hw_version = 3;
++	else
++		return -1;
+ 
+ 	/*
+ 	 * Turn on packet checking by default.
+@@ -817,13 +979,15 @@ static void elantech_set_properties(struct elantech_data *etd)
+ 	etd->jumpy_cursor =
+ 		(etd->fw_version == 0x020022 || etd->fw_version == 0x020600);
+ 
+-	if (etd->hw_version == 2) {
++	if (etd->hw_version > 1) {
+ 		/* For now show extra debug information */
+ 		etd->debug = 1;
+ 
+ 		if (etd->fw_version >= 0x020800)
+ 			etd->reports_pressure = true;
+ 	}
++
++	return 0;
+ }
+ 
+ /*
+@@ -850,9 +1014,12 @@ int elantech_init(struct psmouse *psmouse)
+ 		pr_err("failed to query firmware version.\n");
+ 		goto init_fail;
+ 	}
+-
+ 	etd->fw_version = (param[0] << 16) | (param[1] << 8) | param[2];
+-	elantech_set_properties(etd);
++
++	if (elantech_set_properties(etd)) {
++		pr_err("unknown hardware version, aborting...\n");
++		goto init_fail;
++	}
+ 	pr_info("assuming hardware version %d "
+ 		"(with firmware version 0x%02x%02x%02x)\n",
+ 		etd->hw_version, param[0], param[1], param[2]);
+@@ -871,7 +1038,10 @@ int elantech_init(struct psmouse *psmouse)
+ 		goto init_fail;
+ 	}
+ 
+-	elantech_set_input_params(psmouse);
++	if (elantech_set_input_params(psmouse)) {
++		pr_err("failed to query touchpad range.\n");
++		goto init_fail;
++	}
+ 
+ 	error = sysfs_create_group(&psmouse->ps2dev.serio->dev.kobj,
+ 				   &elantech_attr_group);
+@@ -883,7 +1053,7 @@ int elantech_init(struct psmouse *psmouse)
+ 	psmouse->protocol_handler = elantech_process_byte;
+ 	psmouse->disconnect = elantech_disconnect;
+ 	psmouse->reconnect = elantech_reconnect;
+-	psmouse->pktsize = etd->hw_version == 2 ? 6 : 4;
++	psmouse->pktsize = etd->hw_version > 1 ? 6 : 4;
+ 
+ 	return 0;
+ 
+diff --git a/drivers/input/mouse/elantech.h b/drivers/input/mouse/elantech.h
+index d9e6144..236c33c 100644
+--- a/drivers/input/mouse/elantech.h
++++ b/drivers/input/mouse/elantech.h
+@@ -16,6 +16,7 @@
+ /*
+  * Command values for Synaptics style queries
+  */
++#define ETP_FW_ID_QUERY			0x00
+ #define ETP_FW_VERSION_QUERY		0x01
+ #define ETP_CAPABILITIES_QUERY		0x02
+ 
+@@ -24,6 +25,7 @@
+  */
+ #define ETP_REGISTER_READ		0x10
+ #define ETP_REGISTER_WRITE		0x11
++#define ETP_REGISTER_READWRITE		0x00
+ 
+ /*
+  * Hardware version 2 custom PS/2 command value
+@@ -79,6 +81,14 @@
+ #define ETP_WMIN_V2			0
+ #define ETP_WMAX_V2			15
+ 
++/*
++ * v3 hardware has 2 kinds of packet types.
++ */
++#define PACKET_UNKNOWN			0x01
++#define PACKET_DEBOUNCE			0x02
++#define PACKET_V3_HEAD			0x03
++#define PACKET_V3_TAIL			0x04
++
+ struct elantech_data {
+ 	unsigned char reg_10;
+ 	unsigned char reg_11;
+@@ -98,6 +108,8 @@ struct elantech_data {
+ 	unsigned int fw_version;
+ 	unsigned int single_finger_reports;
+ 	unsigned int y_max;
++	unsigned int prev_x;
++	unsigned int prev_y;
+ 	unsigned char parity[256];
+ };
+ 
+commit 1dc6edec127e1fdb89d246189c232fe635d2f921
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Fri Sep 9 10:31:58 2011 -0700
+
+    Input: elantech - add v4 hardware support
+    
+    v4 hardware is a true multitouch capable touchpad (up to 5 fingers).
+    The packet format is quite complex, please see protocol document for
+    reference.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/Documentation/input/elantech.txt b/Documentation/input/elantech.txt
+index cee08ee..5602eb7 100644
+--- a/Documentation/input/elantech.txt
++++ b/Documentation/input/elantech.txt
+@@ -32,6 +32,12 @@ Contents
+     6.2 Native absolute mode 6 byte packet format
+         6.2.1 One/Three finger touch
+         6.2.2 Two finger touch
++ 7. Hardware version 4
++    7.1 Registers
++    7.2 Native absolute mode 6 byte packet format
++        7.2.1 Status packet
++        7.2.2 Head packet
++        7.2.3 Motion packet
+ 
+ 
+ 
+@@ -573,3 +579,167 @@ The packet format is exactly the same for two finger touch, except the hardware
+ sends two 6 byte packets. The first packet contains data for the first finger,
+ the second packet has data for the second finger. So for two finger touch a
+ total of 12 bytes are sent.
++
++/////////////////////////////////////////////////////////////////////////////
++
++7. Hardware version 4
++   ==================
++
++7.1 Registers
++    ~~~~~~~~~
++* reg_07
++
++   bit   7   6   5   4   3   2   1   0
++         0   0   0   0   0   0   0   A
++
++         A: 1 = enable absolute tracking
++
++7.2 Native absolute mode 6 byte packet format
++    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++v4 hardware is a true multitouch touchpad, capable of tracking up to 5 fingers.
++Unfortunately, due to PS/2's limited bandwidth, its packet format is rather
++complex.
++
++Whenever the numbers or identities of the fingers changes, the hardware sends a
++status packet to indicate how many and which fingers is on touchpad, followed by
++head packets or motion packets. A head packet contains data of finger id, finger
++position (absolute x, y values), width, and pressure. A motion packet contains
++two fingers' position delta.
++
++For example, when status packet tells there are 2 fingers on touchpad, then we
++can expect two following head packets. If the finger status doesn't change,
++the following packets would be motion packets, only sending delta of finger
++position, until we receive a status packet.
++
++One exception is one finger touch. when a status packet tells us there is only
++one finger, the hardware would just send head packets afterwards.
++
++7.2.1 Status packet
++      ~~~~~~~~~~~~~
++
++byte 0:
++
++   bit   7   6   5   4   3   2   1   0
++         .   .   .   .   0   1   R   L
++
++         L, R = 1 when Left, Right mouse button pressed
++
++byte 1:
++
++   bit   7   6   5   4   3   2   1   0
++         .   .   . ft4 ft3 ft2 ft1 ft0
++
++         ft4 ft3 ft2 ft1 ft0 ftn = 1 when finger n is on touchpad
++
++byte 2: not used
++
++byte 3:
++
++   bit   7   6   5   4   3   2   1   0
++         .   .   .   1   0   0   0   0
++
++         constant bits
++
++byte 4:
++
++   bit   7   6   5   4   3   2   1   0
++         p   .   .   .   .   .   .   .
++
++         p = 1 for palm
++
++byte 5: not used
++
++7.2.2 Head packet
++      ~~~~~~~~~~~
++
++byte 0:
++
++   bit   7   6   5   4   3   2   1   0
++        w3  w2  w1  w0   0   1   R   L
++
++        L, R = 1 when Left, Right mouse button pressed
++        w3..w0 = finger width (spans how many trace lines)
++
++byte 1:
++
++   bit   7   6   5   4   3   2   1   0
++        p7  p6  p5  p4 x11 x10  x9  x8
++
++byte 2:
++
++   bit   7   6   5   4   3   2   1   0
++        x7  x6  x5  x4  x3  x2  x1  x0
++
++        x11..x0 = absolute x value (horizontal)
++
++byte 3:
++
++   bit   7   6   5   4   3   2   1   0
++       id2 id1 id0   1   0   0   0   1
++
++       id2..id0 = finger id
++
++byte 4:
++
++   bit   7   6   5   4   3   2   1   0
++        p3  p1  p2  p0  y11 y10 y9  y8
++
++        p7..p0 = pressure
++
++byte 5:
++
++   bit   7   6   5   4   3   2   1   0
++        y7  y6  y5  y4  y3  y2  y1  y0
++
++        y11..y0 = absolute y value (vertical)
++
++7.2.3 Motion packet
++      ~~~~~~~~~~~~~
++
++byte 0:
++
++   bit   7   6   5   4   3   2   1   0
++       id2 id1 id0   w   0   1   R   L
++
++       L, R = 1 when Left, Right mouse button pressed
++       id2..id0 = finger id
++       w = 1 when delta overflows (> 127 or < -128), in this case
++       firmware sends us (delta x / 5) and (delta y  / 5)
++
++byte 1:
++
++   bit   7   6   5   4   3   2   1   0
++        x7  x6  x5  x4  x3  x2  x1  x0
++
++        x7..x0 = delta x (two's complement)
++
++byte 2:
++
++   bit   7   6   5   4   3   2   1   0
++        y7  y6  y5  y4  y3  y2  y1  y0
++
++        y7..y0 = delta y (two's complement)
++
++byte 3:
++
++   bit   7   6   5   4   3   2   1   0
++       id2 id1 id0   1   0   0   1   0
++
++       id2..id0 = finger id
++
++byte 4:
++
++   bit   7   6   5   4   3   2   1   0
++        x7  x6  x5  x4  x3  x2  x1  x0
++
++        x7..x0 = delta x (two's complement)
++
++byte 5:
++
++   bit   7   6   5   4   3   2   1   0
++        y7  y6  y5  y4  y3  y2  y1  y0
++
++        y7..y0 = delta y (two's complement)
++
++        byte 0 ~ 2 for one finger
++        byte 3 ~ 5 for another
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index 9cfc70a..b8733b3 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -84,7 +84,7 @@ static int elantech_read_reg(struct psmouse *psmouse, unsigned char reg,
+ 	unsigned char param[3];
+ 	int rc = 0;
+ 
+-	if (reg < 0x10 || reg > 0x26)
++	if (reg < 0x07 || reg > 0x26)
+ 		return -1;
+ 
+ 	if (reg > 0x11 && reg < 0x20)
+@@ -109,7 +109,7 @@ static int elantech_read_reg(struct psmouse *psmouse, unsigned char reg,
+ 		}
+ 		break;
+ 
+-	case 3:
++	case 3 ... 4:
+ 		if (elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
+ 		    elantech_ps2_command(psmouse, NULL, ETP_REGISTER_READWRITE) ||
+ 		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
+@@ -122,8 +122,10 @@ static int elantech_read_reg(struct psmouse *psmouse, unsigned char reg,
+ 
+ 	if (rc)
+ 		pr_err("failed to read register 0x%02x.\n", reg);
+-	else
++	else if (etd->hw_version != 4)
+ 		*val = param[0];
++	else
++		*val = param[1];
+ 
+ 	return rc;
+ }
+@@ -137,7 +139,7 @@ static int elantech_write_reg(struct psmouse *psmouse, unsigned char reg,
+ 	struct elantech_data *etd = psmouse->private;
+ 	int rc = 0;
+ 
+-	if (reg < 0x10 || reg > 0x26)
++	if (reg < 0x07 || reg > 0x26)
+ 		return -1;
+ 
+ 	if (reg > 0x11 && reg < 0x20)
+@@ -176,6 +178,20 @@ static int elantech_write_reg(struct psmouse *psmouse, unsigned char reg,
+ 			rc = -1;
+ 		}
+ 		break;
++
++	case 4:
++		if (elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_REGISTER_READWRITE) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, reg) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_REGISTER_READWRITE) ||
++		    elantech_ps2_command(psmouse, NULL, ETP_PS2_CUSTOM_COMMAND) ||
++		    elantech_ps2_command(psmouse, NULL, val) ||
++		    elantech_ps2_command(psmouse, NULL, PSMOUSE_CMD_SETSCALE11)) {
++			rc = -1;
++		}
++		break;
+ 	}
+ 
+ 	if (rc)
+@@ -409,12 +425,12 @@ static void elantech_report_absolute_v3(struct psmouse *psmouse,
+ 			 * byte 1:   .    .    .    .  ax11 ax10 ax9  ax8
+ 			 * byte 2: ax7  ax6  ax5  ax4  ax3  ax2  ax1  ax0
+ 			 */
+-			etd->prev_x = ((packet[1] & 0x0f) << 8) | packet[2];
++			etd->mt[0].x = ((packet[1] & 0x0f) << 8) | packet[2];
+ 			/*
+ 			 * byte 4:   .    .    .    .  ay11 ay10 ay9  ay8
+ 			 * byte 5: ay7  ay6  ay5  ay4  ay3  ay2  ay1  ay0
+ 			 */
+-			etd->prev_y = etd->y_max -
++			etd->mt[0].y = etd->y_max -
+ 				(((packet[4] & 0x0f) << 8) | packet[5]);
+ 			/*
+ 			 * wait for next packet
+@@ -423,8 +439,8 @@ static void elantech_report_absolute_v3(struct psmouse *psmouse,
+ 		}
+ 
+ 		/* packet_type == PACKET_V3_TAIL */
+-		x1 = etd->prev_x;
+-		y1 = etd->prev_y;
++		x1 = etd->mt[0].x;
++		y1 = etd->mt[0].y;
+ 		x2 = ((packet[1] & 0x0f) << 8) | packet[2];
+ 		y2 = etd->y_max - (((packet[4] & 0x0f) << 8) | packet[5]);
+ 		break;
+@@ -450,6 +466,129 @@ static void elantech_report_absolute_v3(struct psmouse *psmouse,
+ 	input_sync(dev);
+ }
+ 
++static void elantech_input_sync_v4(struct psmouse *psmouse)
++{
++	struct input_dev *dev = psmouse->dev;
++	unsigned char *packet = psmouse->packet;
++
++	input_report_key(dev, BTN_LEFT, packet[0] & 0x01);
++	input_report_key(dev, BTN_RIGHT, packet[0] & 0x02);
++	input_mt_report_pointer_emulation(dev, true);
++	input_sync(dev);
++}
++
++static void process_packet_status_v4(struct psmouse *psmouse)
++{
++	struct input_dev *dev = psmouse->dev;
++	unsigned char *packet = psmouse->packet;
++	unsigned fingers;
++	int i;
++
++	/* notify finger state change */
++	fingers = packet[1] & 0x1f;
++	for (i = 0; i < ETP_MAX_FINGERS; i++) {
++		if ((fingers & (1 << i)) == 0) {
++			input_mt_slot(dev, i);
++			input_mt_report_slot_state(dev, MT_TOOL_FINGER, false);
++		}
++	}
++
++	elantech_input_sync_v4(psmouse);
++}
++
++static void process_packet_head_v4(struct psmouse *psmouse)
++{
++	struct input_dev *dev = psmouse->dev;
++	struct elantech_data *etd = psmouse->private;
++	unsigned char *packet = psmouse->packet;
++	int id = ((packet[3] & 0xe0) >> 5) - 1;
++	int pres, traces;
++
++	if (id < 0)
++		return;
++
++	etd->mt[id].x = ((packet[1] & 0x0f) << 8) | packet[2];
++	etd->mt[id].y = etd->y_max - (((packet[4] & 0x0f) << 8) | packet[5]);
++	pres = (packet[1] & 0xf0) | ((packet[4] & 0xf0) >> 4);
++	traces = (packet[0] & 0xf0) >> 4;
++
++	input_mt_slot(dev, id);
++	input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
++
++	input_report_abs(dev, ABS_MT_POSITION_X, etd->mt[id].x);
++	input_report_abs(dev, ABS_MT_POSITION_Y, etd->mt[id].y);
++	input_report_abs(dev, ABS_MT_PRESSURE, pres);
++	input_report_abs(dev, ABS_MT_TOUCH_MAJOR, traces * etd->width);
++	/* report this for backwards compatibility */
++	input_report_abs(dev, ABS_TOOL_WIDTH, traces);
++
++	elantech_input_sync_v4(psmouse);
++}
++
++static void process_packet_motion_v4(struct psmouse *psmouse)
++{
++	struct input_dev *dev = psmouse->dev;
++	struct elantech_data *etd = psmouse->private;
++	unsigned char *packet = psmouse->packet;
++	int weight, delta_x1 = 0, delta_y1 = 0, delta_x2 = 0, delta_y2 = 0;
++	int id, sid;
++
++	id = ((packet[0] & 0xe0) >> 5) - 1;
++	if (id < 0)
++		return;
++
++	sid = ((packet[3] & 0xe0) >> 5) - 1;
++	weight = (packet[0] & 0x10) ? ETP_WEIGHT_VALUE : 1;
++	/*
++	 * Motion packets give us the delta of x, y values of specific fingers,
++	 * but in two's complement. Let the compiler do the conversion for us.
++	 * Also _enlarge_ the numbers to int, in case of overflow.
++	 */
++	delta_x1 = (signed char)packet[1];
++	delta_y1 = (signed char)packet[2];
++	delta_x2 = (signed char)packet[4];
++	delta_y2 = (signed char)packet[5];
++
++	etd->mt[id].x += delta_x1 * weight;
++	etd->mt[id].y -= delta_y1 * weight;
++	input_mt_slot(dev, id);
++	input_report_abs(dev, ABS_MT_POSITION_X, etd->mt[id].x);
++	input_report_abs(dev, ABS_MT_POSITION_Y, etd->mt[id].y);
++
++	if (sid >= 0) {
++		etd->mt[sid].x += delta_x2 * weight;
++		etd->mt[sid].y -= delta_y2 * weight;
++		input_mt_slot(dev, sid);
++		input_report_abs(dev, ABS_MT_POSITION_X, etd->mt[sid].x);
++		input_report_abs(dev, ABS_MT_POSITION_Y, etd->mt[sid].y);
++	}
++
++	elantech_input_sync_v4(psmouse);
++}
++
++static void elantech_report_absolute_v4(struct psmouse *psmouse,
++					int packet_type)
++{
++	switch (packet_type) {
++	case PACKET_V4_STATUS:
++		process_packet_status_v4(psmouse);
++		break;
++
++	case PACKET_V4_HEAD:
++		process_packet_head_v4(psmouse);
++		break;
++
++	case PACKET_V4_MOTION:
++		process_packet_motion_v4(psmouse);
++		break;
++
++	case PACKET_UNKNOWN:
++	default:
++		/* impossible to get here */
++		break;
++	}
++}
++
+ static int elantech_packet_check_v1(struct psmouse *psmouse)
+ {
+ 	struct elantech_data *etd = psmouse->private;
+@@ -504,7 +643,7 @@ static int elantech_packet_check_v2(struct psmouse *psmouse)
+ 
+ /*
+  * We check the constant bits to determine what packet type we get,
+- * so packet checking is mandatory for v3 hardware.
++ * so packet checking is mandatory for v3 and later hardware.
+  */
+ static int elantech_packet_check_v3(struct psmouse *psmouse)
+ {
+@@ -527,6 +666,25 @@ static int elantech_packet_check_v3(struct psmouse *psmouse)
+ 	return PACKET_UNKNOWN;
+ }
+ 
++static int elantech_packet_check_v4(struct psmouse *psmouse)
++{
++	unsigned char *packet = psmouse->packet;
++
++	if ((packet[0] & 0x0c) == 0x04 &&
++	    (packet[3] & 0x1f) == 0x11)
++		return PACKET_V4_HEAD;
++
++	if ((packet[0] & 0x0c) == 0x04 &&
++	    (packet[3] & 0x1f) == 0x12)
++		return PACKET_V4_MOTION;
++
++	if ((packet[0] & 0x0c) == 0x04 &&
++	    (packet[3] & 0x1f) == 0x10)
++		return PACKET_V4_STATUS;
++
++	return PACKET_UNKNOWN;
++}
++
+ /*
+  * Process byte stream from mouse and handle complete packets
+  */
+@@ -567,6 +725,14 @@ static psmouse_ret_t elantech_process_byte(struct psmouse *psmouse)
+ 
+ 		elantech_report_absolute_v3(psmouse, packet_type);
+ 		break;
++
++	case 4:
++		packet_type = elantech_packet_check_v4(psmouse);
++		if (packet_type == PACKET_UNKNOWN)
++			return PSMOUSE_BAD_DATA;
++
++		elantech_report_absolute_v4(psmouse, packet_type);
++		break;
+ 	}
+ 
+ 	return PSMOUSE_FULL_PACKET;
+@@ -610,6 +776,13 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 			rc = -1;
+ 
+ 		break;
++
++	case 4:
++		etd->reg_07 = 0x01;
++		if (elantech_write_reg(psmouse, 0x07, etd->reg_07))
++			rc = -1;
++
++		goto skip_readback_reg_10; /* v4 has no reg 0x10 to read */
+ 	}
+ 
+ 	if (rc == 0) {
+@@ -637,6 +810,7 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 		}
+ 	}
+ 
++ skip_readback_reg_10:
+ 	if (rc)
+ 		pr_err("failed to initialise registers.\n");
+ 
+@@ -645,10 +819,12 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 
+ static int elantech_set_range(struct psmouse *psmouse,
+ 			      unsigned int *x_min, unsigned int *y_min,
+-			      unsigned int *x_max, unsigned int *y_max)
++			      unsigned int *x_max, unsigned int *y_max,
++			      unsigned int *width)
+ {
+ 	struct elantech_data *etd = psmouse->private;
+ 	unsigned char param[3];
++	unsigned char traces;
+ 	int i;
+ 
+ 	switch (etd->hw_version) {
+@@ -684,6 +860,19 @@ static int elantech_set_range(struct psmouse *psmouse,
+ 		*x_max = (0x0f & param[0]) << 8 | param[1];
+ 		*y_max = (0xf0 & param[0]) << 4 | param[2];
+ 		break;
++
++	case 4:
++		if (synaptics_send_cmd(psmouse, ETP_FW_ID_QUERY, param))
++			return -1;
++
++		*x_max = (0x0f & param[0]) << 8 | param[1];
++		*y_max = (0xf0 & param[0]) << 4 | param[2];
++		traces = etd->capabilities[1];
++		if ((traces < 2) || (traces > *x_max))
++			return -1;
++
++		*width = *x_max / (traces - 1);
++		break;
+ 	}
+ 
+ 	return 0;
+@@ -696,9 +885,9 @@ static int elantech_set_input_params(struct psmouse *psmouse)
+ {
+ 	struct input_dev *dev = psmouse->dev;
+ 	struct elantech_data *etd = psmouse->private;
+-	unsigned int x_min = 0, y_min = 0, x_max = 0, y_max = 0;
++	unsigned int x_min = 0, y_min = 0, x_max = 0, y_max = 0, width = 0;
+ 
+-	if (elantech_set_range(psmouse, &x_min, &y_min, &x_max, &y_max))
++	if (elantech_set_range(psmouse, &x_min, &y_min, &x_max, &y_max, &width))
+ 		return -1;
+ 
+ 	__set_bit(EV_KEY, dev->evbit);
+@@ -742,9 +931,37 @@ static int elantech_set_input_params(struct psmouse *psmouse)
+ 		input_set_abs_params(dev, ABS_MT_POSITION_X, x_min, x_max, 0, 0);
+ 		input_set_abs_params(dev, ABS_MT_POSITION_Y, y_min, y_max, 0, 0);
+ 		break;
++
++	case 4:
++		__set_bit(BTN_TOOL_QUADTAP, dev->keybit);
++		/* For X to recognize me as touchpad. */
++		input_set_abs_params(dev, ABS_X, x_min, x_max, 0, 0);
++		input_set_abs_params(dev, ABS_Y, y_min, y_max, 0, 0);
++		/*
++		 * range of pressure and width is the same as v2,
++		 * report ABS_PRESSURE, ABS_TOOL_WIDTH for compatibility.
++		 */
++		input_set_abs_params(dev, ABS_PRESSURE, ETP_PMIN_V2,
++				     ETP_PMAX_V2, 0, 0);
++		input_set_abs_params(dev, ABS_TOOL_WIDTH, ETP_WMIN_V2,
++				     ETP_WMAX_V2, 0, 0);
++		/* Multitouch capable pad, up to 5 fingers. */
++		input_mt_init_slots(dev, ETP_MAX_FINGERS);
++		input_set_abs_params(dev, ABS_MT_POSITION_X, x_min, x_max, 0, 0);
++		input_set_abs_params(dev, ABS_MT_POSITION_Y, y_min, y_max, 0, 0);
++		input_set_abs_params(dev, ABS_MT_PRESSURE, ETP_PMIN_V2,
++				     ETP_PMAX_V2, 0, 0);
++		/*
++		 * The firmware reports how many trace lines the finger spans,
++		 * convert to surface unit as Protocol-B requires.
++		 */
++		input_set_abs_params(dev, ABS_MT_TOUCH_MAJOR, 0,
++				     ETP_WMAX_V2 * width, 0, 0);
++		break;
+ 	}
+ 
+ 	etd->y_max = y_max;
++	etd->width = width;
+ 
+ 	return 0;
+ }
+@@ -816,6 +1033,7 @@ static ssize_t elantech_set_int_attr(struct psmouse *psmouse,
+ 			    elantech_show_int_attr,			\
+ 			    elantech_set_int_attr)
+ 
++ELANTECH_INT_ATTR(reg_07, 0x07);
+ ELANTECH_INT_ATTR(reg_10, 0x10);
+ ELANTECH_INT_ATTR(reg_11, 0x11);
+ ELANTECH_INT_ATTR(reg_20, 0x20);
+@@ -829,6 +1047,7 @@ ELANTECH_INT_ATTR(debug, 0);
+ ELANTECH_INT_ATTR(paritycheck, 0);
+ 
+ static struct attribute *elantech_attrs[] = {
++	&psmouse_attr_reg_07.dattr.attr,
+ 	&psmouse_attr_reg_10.dattr.attr,
+ 	&psmouse_attr_reg_11.dattr.attr,
+ 	&psmouse_attr_reg_20.dattr.attr,
+@@ -957,12 +1176,16 @@ static int elantech_reconnect(struct psmouse *psmouse)
+  */
+ static int elantech_set_properties(struct elantech_data *etd)
+ {
++	int ver = (etd->fw_version & 0x0f0000) >> 16;
++
+ 	if (etd->fw_version < 0x020030 || etd->fw_version == 0x020600)
+ 		etd->hw_version = 1;
+ 	else if (etd->fw_version < 0x150600)
+ 		etd->hw_version = 2;
+-	else if ((etd->fw_version & 0x0f0000) >> 16 == 5)
++	else if (ver == 5)
+ 		etd->hw_version = 3;
++	else if (ver == 6)
++		etd->hw_version = 4;
+ 	else
+ 		return -1;
+ 
+diff --git a/drivers/input/mouse/elantech.h b/drivers/input/mouse/elantech.h
+index 236c33c..7ecaef0 100644
+--- a/drivers/input/mouse/elantech.h
++++ b/drivers/input/mouse/elantech.h
+@@ -82,14 +82,37 @@
+ #define ETP_WMAX_V2			15
+ 
+ /*
+- * v3 hardware has 2 kinds of packet types.
++ * v3 hardware has 2 kinds of packet types,
++ * v4 hardware has 3.
+  */
+ #define PACKET_UNKNOWN			0x01
+ #define PACKET_DEBOUNCE			0x02
+ #define PACKET_V3_HEAD			0x03
+ #define PACKET_V3_TAIL			0x04
++#define PACKET_V4_HEAD			0x05
++#define PACKET_V4_MOTION		0x06
++#define PACKET_V4_STATUS		0x07
++
++/*
++ * track up to 5 fingers for v4 hardware
++ */
++#define ETP_MAX_FINGERS			5
++
++/*
++ * weight value for v4 hardware
++ */
++#define ETP_WEIGHT_VALUE		5
++
++/*
++ * The base position for one finger, v4 hardware
++ */
++struct finger_pos {
++	unsigned int x;
++	unsigned int y;
++};
+ 
+ struct elantech_data {
++	unsigned char reg_07;
+ 	unsigned char reg_10;
+ 	unsigned char reg_11;
+ 	unsigned char reg_20;
+@@ -108,8 +131,8 @@ struct elantech_data {
+ 	unsigned int fw_version;
+ 	unsigned int single_finger_reports;
+ 	unsigned int y_max;
+-	unsigned int prev_x;
+-	unsigned int prev_y;
++	unsigned int width;
++	struct finger_pos mt[ETP_MAX_FINGERS];
+ 	unsigned char parity[256];
+ };
+ 
+commit 84a90b610a1473d732818ec5d041ab18eae77f14
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Tue Sep 20 22:42:51 2011 -0700
+
+    Input: elantech - better support all those v2 variants
+    
+    V2 hardware has many variants. This patch adddresses two issues:
+    
+     - some model also has debounce packets, but with a different signature
+       than v3. Now we just check debounce for all v2 hardware.
+    
+     - due to different scanning methods the hardware uses, x and y ranges have
+       to be calculated differently. And for some specific versions, we can just
+       see them as custom-made, so set {x, y} the same values as Windows driver
+       does.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Tested-by: Richard Schütz <r.schtz@t-online.de>
+    Reviewed-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index b8733b3..c2d91eb 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -613,6 +613,18 @@ static int elantech_packet_check_v1(struct psmouse *psmouse)
+ 	       etd->parity[packet[3]] == p3;
+ }
+ 
++static int elantech_debounce_check_v2(struct psmouse *psmouse)
++{
++        /*
++         * When we encounter packet that matches this exactly, it means the
++         * hardware is in debounce status. Just ignore the whole packet.
++         */
++        const u8 debounce_packet[] = { 0x84, 0xff, 0xff, 0x02, 0xff, 0xff };
++        unsigned char *packet = psmouse->packet;
++
++        return !memcmp(packet, debounce_packet, sizeof(debounce_packet));
++}
++
+ static int elantech_packet_check_v2(struct psmouse *psmouse)
+ {
+ 	struct elantech_data *etd = psmouse->private;
+@@ -708,6 +720,10 @@ static psmouse_ret_t elantech_process_byte(struct psmouse *psmouse)
+ 		break;
+ 
+ 	case 2:
++		/* ignore debounce */
++		if (elantech_debounce_check_v2(psmouse))
++			return PSMOUSE_FULL_PACKET;
++
+ 		if (etd->paritycheck && !elantech_packet_check_v2(psmouse))
+ 			return PSMOUSE_BAD_DATA;
+ 
+@@ -825,7 +841,6 @@ static int elantech_set_range(struct psmouse *psmouse,
+ 	struct elantech_data *etd = psmouse->private;
+ 	unsigned char param[3];
+ 	unsigned char traces;
+-	int i;
+ 
+ 	switch (etd->hw_version) {
+ 	case 1:
+@@ -844,12 +859,33 @@ static int elantech_set_range(struct psmouse *psmouse,
+ 			*x_max = ETP_XMAX_V2;
+ 			*y_max = ETP_YMAX_V2;
+ 		} else {
++			int i;
++			int fixed_dpi;
++
+ 			i = (etd->fw_version > 0x020800 &&
+ 			     etd->fw_version < 0x020900) ? 1 : 2;
+-			*x_min = 0;
+-			*y_min = 0;
+-			*x_max = (etd->capabilities[1] - i) * 64;
+-			*y_max = (etd->capabilities[2] - i) * 64;
++
++			if (synaptics_send_cmd(psmouse, ETP_FW_ID_QUERY, param))
++				return -1;
++
++			fixed_dpi = param[1] & 0x10;
++
++			if (((etd->fw_version >> 16) == 0x14) && fixed_dpi) {
++				if (synaptics_send_cmd(psmouse, ETP_SAMPLE_QUERY, param))
++					return -1;
++
++				*x_max = (etd->capabilities[1] - i) * param[1] / 2;
++				*y_max = (etd->capabilities[2] - i) * param[2] / 2;
++			} else if (etd->fw_version == 0x040216) {
++				*x_max = 819;
++				*y_max = 405;
++			} else if (etd->fw_version == 0x040219 || etd->fw_version == 0x040215) {
++				*x_max = 900;
++				*y_max = 500;
++			} else {
++				*x_max = (etd->capabilities[1] - i) * 64;
++				*y_max = (etd->capabilities[2] - i) * 64;
++			}
+ 		}
+ 		break;
+ 
+diff --git a/drivers/input/mouse/elantech.h b/drivers/input/mouse/elantech.h
+index 7ecaef0..9e5f1aa 100644
+--- a/drivers/input/mouse/elantech.h
++++ b/drivers/input/mouse/elantech.h
+@@ -19,6 +19,7 @@
+ #define ETP_FW_ID_QUERY			0x00
+ #define ETP_FW_VERSION_QUERY		0x01
+ #define ETP_CAPABILITIES_QUERY		0x02
++#define ETP_SAMPLE_QUERY		0x03
+ 
+ /*
+  * Command values for register reading or writing
+commit 4af61e90270e35bafa9e99a3c48fb3f363da592d
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Tue Sep 20 22:42:51 2011 -0700
+
+    Input: elantech - remove module parameter force_elantech
+    
+    This essentially reverts commit f81bc788ff91d4efd4baf88b2c29713838caa8e5.
+    
+    With recent work on elantech driver, I believe we now have complete support
+    for all elantech touchpads. So remove this hack.
+    
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Reviewed-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index c2d91eb..25290b3 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -28,10 +28,6 @@
+ 			printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__);	\
+ 	} while (0)
+ 
+-static bool force_elantech;
+-module_param_named(force_elantech, force_elantech, bool, 0644);
+-MODULE_PARM_DESC(force_elantech, "Force the Elantech PS/2 protocol extension to be used, 1 = enabled, 0 = disabled (default).");
+-
+ /*
+  * Send a Synaptics style sliced query command
+  */
+@@ -1164,12 +1160,8 @@ int elantech_detect(struct psmouse *psmouse, bool set_properties)
+ 		 param[0], param[1], param[2]);
+ 
+ 	if (!elantech_is_signature_valid(param)) {
+-		if (!force_elantech) {
+-			pr_debug("Probably not a real Elantech touchpad. Aborting.\n");
+-			return -1;
+-		}
+-
+-		pr_debug("Probably not a real Elantech touchpad. Enabling anyway due to force_elantech.\n");
++		pr_debug("Probably not a real Elantech touchpad. Aborting.\n");
++		return -1;
+ 	}
+ 
+ 	if (set_properties) {
+commit 26e56eb2bfccdd6bcec0c298d40e12e3daea0188
+Author: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Date:   Thu Oct 6 15:26:51 2011 -0700
+
+    Input: synaptics_i2c - wrap suspend and resume in CONFIG_PM_SLEEP
+    
+    CONFIG_PM is defined when CONFIG_PM_SLEEP or CONFIG_PM_RUNTIME is defined,
+    however suspend and resume methods are only valid in context of
+    CONFIG_PM_SLEEP. If only CONFIG_PM_RUNTIME is defined we get the following
+    warning (courtesy of Geerts randconfig builds):
+    
+    	synaptics_i2c.c: warning: 'synaptics_i2c_resume' defined but not used
+    
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/synaptics_i2c.c b/drivers/input/mouse/synaptics_i2c.c
+index e28e9ce..4b755cb 100644
+--- a/drivers/input/mouse/synaptics_i2c.c
++++ b/drivers/input/mouse/synaptics_i2c.c
+@@ -619,7 +619,7 @@ static int __devexit synaptics_i2c_remove(struct i2c_client *client)
+ 	return 0;
+ }
+ 
+-#ifdef CONFIG_PM
++#ifdef CONFIG_PM_SLEEP
+ static int synaptics_i2c_suspend(struct device *dev)
+ {
+ 	struct i2c_client *client = to_i2c_client(dev);
+commit b5d21704361eefe337a36ebbb57a1d9927132511
+Author: Dmitry Torokhov <dmitry.torokhov@gmail.com>
+Date:   Mon Oct 10 18:27:03 2011 -0700
+
+    Input: psmouse - switch to using dev_*() for messages
+    
+    This will ensure our reporting is consistent with the rest of the system
+    and we do not refer to obsolete source file names.
+    
+    Reviewed-by: Wanlong Gao <gaowanlong@cn.fujitsu.com>
+    Reviewed-by: JJ Ding <dgdunix@gmail.com>
+    Reviewed-by: Daniel Kurtz <djkurtz@chromium.org>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/alps.c b/drivers/input/mouse/alps.c
+index 99d5876..003587c 100644
+--- a/drivers/input/mouse/alps.c
++++ b/drivers/input/mouse/alps.c
+@@ -23,13 +23,6 @@
+ #include "psmouse.h"
+ #include "alps.h"
+ 
+-#undef DEBUG
+-#ifdef DEBUG
+-#define dbg(format, arg...) printk(KERN_INFO "alps.c: " format "\n", ## arg)
+-#else
+-#define dbg(format, arg...) do {} while (0)
+-#endif
+-
+ #define ALPS_OLDPROTO		0x01	/* old style input */
+ #define ALPS_DUALPOINT		0x02	/* touchpad has trackstick */
+ #define ALPS_PASS		0x04	/* device has a pass-through port */
+@@ -297,10 +290,10 @@ static psmouse_ret_t alps_handle_interleaved_ps2(struct psmouse *psmouse)
+ 		      psmouse->packet[4] |
+ 		      psmouse->packet[5]) & 0x80) ||
+ 		    (!alps_is_valid_first_byte(priv->i, psmouse->packet[6]))) {
+-			dbg("refusing packet %x %x %x %x "
+-			    "(suspected interleaved ps/2)\n",
+-			    psmouse->packet[3], psmouse->packet[4],
+-			    psmouse->packet[5], psmouse->packet[6]);
++			psmouse_dbg(psmouse,
++				    "refusing packet %x %x %x %x (suspected interleaved ps/2)\n",
++				    psmouse->packet[3], psmouse->packet[4],
++				    psmouse->packet[5], psmouse->packet[6]);
+ 			return PSMOUSE_BAD_DATA;
+ 		}
+ 
+@@ -319,13 +312,13 @@ static psmouse_ret_t alps_handle_interleaved_ps2(struct psmouse *psmouse)
+ 		 * There is also possibility that we got 6-byte ALPS
+ 		 * packet followed  by 3-byte packet from trackpoint. We
+ 		 * can not distinguish between these 2 scenarios but
+-		 * becase the latter is unlikely to happen in course of
++		 * because the latter is unlikely to happen in course of
+ 		 * normal operation (user would need to press all
+ 		 * buttons on the pad and start moving trackpoint
+ 		 * without touching the pad surface) we assume former.
+ 		 * Even if we are wrong the wost thing that would happen
+ 		 * the cursor would jump but we should not get protocol
+-		 * desynchronization.
++		 * de-synchronization.
+ 		 */
+ 
+ 		alps_report_bare_ps2_packet(psmouse, &psmouse->packet[3],
+@@ -361,10 +354,10 @@ static void alps_flush_packet(unsigned long data)
+ 		if ((psmouse->packet[3] |
+ 		     psmouse->packet[4] |
+ 		     psmouse->packet[5]) & 0x80) {
+-			dbg("refusing packet %x %x %x "
+-			    "(suspected interleaved ps/2)\n",
+-			    psmouse->packet[3], psmouse->packet[4],
+-			    psmouse->packet[5]);
++			psmouse_dbg(psmouse,
++				    "refusing packet %x %x %x (suspected interleaved ps/2)\n",
++				    psmouse->packet[3], psmouse->packet[4],
++				    psmouse->packet[5]);
+ 		} else {
+ 			alps_process_packet(psmouse);
+ 		}
+@@ -396,16 +389,18 @@ static psmouse_ret_t alps_process_byte(struct psmouse *psmouse)
+ 	}
+ 
+ 	if (!alps_is_valid_first_byte(model, psmouse->packet[0])) {
+-		dbg("refusing packet[0] = %x (mask0 = %x, byte0 = %x)\n",
+-		    psmouse->packet[0], model->mask0, model->byte0);
++		psmouse_dbg(psmouse,
++			    "refusing packet[0] = %x (mask0 = %x, byte0 = %x)\n",
++			    psmouse->packet[0], model->mask0, model->byte0);
+ 		return PSMOUSE_BAD_DATA;
+ 	}
+ 
+ 	/* Bytes 2 - 6 should have 0 in the highest bit */
+ 	if (psmouse->pktcnt >= 2 && psmouse->pktcnt <= 6 &&
+ 	    (psmouse->packet[psmouse->pktcnt - 1] & 0x80)) {
+-		dbg("refusing packet[%i] = %x\n",
+-		    psmouse->pktcnt - 1, psmouse->packet[psmouse->pktcnt - 1]);
++		psmouse_dbg(psmouse, "refusing packet[%i] = %x\n",
++			    psmouse->pktcnt - 1,
++			    psmouse->packet[psmouse->pktcnt - 1]);
+ 		return PSMOUSE_BAD_DATA;
+ 	}
+ 
+@@ -439,7 +434,8 @@ static const struct alps_model_info *alps_get_model(struct psmouse *psmouse, int
+ 	if (ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO))
+ 		return NULL;
+ 
+-	dbg("E6 report: %2.2x %2.2x %2.2x", param[0], param[1], param[2]);
++	psmouse_dbg(psmouse, "E6 report: %2.2x %2.2x %2.2x",
++		    param[0], param[1], param[2]);
+ 
+ 	if (param[0] != 0 || param[1] != 0 || (param[2] != 10 && param[2] != 100))
+ 		return NULL;
+@@ -459,7 +455,8 @@ static const struct alps_model_info *alps_get_model(struct psmouse *psmouse, int
+ 	if (ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO))
+ 		return NULL;
+ 
+-	dbg("E7 report: %2.2x %2.2x %2.2x", param[0], param[1], param[2]);
++	psmouse_dbg(psmouse, "E7 report: %2.2x %2.2x %2.2x",
++		    param[0], param[1], param[2]);
+ 
+ 	if (version) {
+ 		for (i = 0; i < ARRAY_SIZE(rates) && param[2] != rates[i]; i++)
+@@ -527,7 +524,8 @@ static int alps_get_status(struct psmouse *psmouse, char *param)
+ 	    ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO))
+ 		return -1;
+ 
+-	dbg("Status: %2.2x %2.2x %2.2x", param[0], param[1], param[2]);
++	psmouse_dbg(psmouse, "Status: %2.2x %2.2x %2.2x",
++		    param[0], param[1], param[2]);
+ 
+ 	return 0;
+ }
+@@ -605,12 +603,12 @@ static int alps_hw_init(struct psmouse *psmouse)
+ 	}
+ 
+ 	if (alps_tap_mode(psmouse, true)) {
+-		printk(KERN_WARNING "alps.c: Failed to enable hardware tapping\n");
++		psmouse_warn(psmouse, "Failed to enable hardware tapping\n");
+ 		return -1;
+ 	}
+ 
+ 	if (alps_absolute_mode(psmouse)) {
+-		printk(KERN_ERR "alps.c: Failed to enable absolute mode\n");
++		psmouse_err(psmouse, "Failed to enable absolute mode\n");
+ 		return -1;
+ 	}
+ 
+@@ -621,7 +619,7 @@ static int alps_hw_init(struct psmouse *psmouse)
+ 
+ 	/* ALPS needs stream mode, otherwise it won't report any data */
+ 	if (ps2_command(&psmouse->ps2dev, NULL, PSMOUSE_CMD_SETSTREAM)) {
+-		printk(KERN_ERR "alps.c: Failed to enable stream mode\n");
++		psmouse_err(psmouse, "Failed to enable stream mode\n");
+ 		return -1;
+ 	}
+ 
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index 25290b3..09b93b1 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -10,8 +10,6 @@
+  * Trademarks are the property of their respective owners.
+  */
+ 
+-#define pr_fmt(fmt) KBUILD_BASENAME ": " fmt
+-
+ #include <linux/delay.h>
+ #include <linux/slab.h>
+ #include <linux/module.h>
+@@ -25,7 +23,8 @@
+ #define elantech_debug(fmt, ...)					\
+ 	do {								\
+ 		if (etd->debug)						\
+-			printk(KERN_DEBUG pr_fmt(fmt), ##__VA_ARGS__);	\
++			psmouse_printk(KERN_DEBUG, psmouse,		\
++					fmt, ##__VA_ARGS__);		\
+ 	} while (0)
+ 
+ /*
+@@ -36,7 +35,7 @@ static int synaptics_send_cmd(struct psmouse *psmouse, unsigned char c,
+ {
+ 	if (psmouse_sliced_command(psmouse, c) ||
+ 	    ps2_command(&psmouse->ps2dev, param, PSMOUSE_CMD_GETINFO)) {
+-		pr_err("synaptics_send_cmd query 0x%02x failed.\n", c);
++		psmouse_err(psmouse, "%s query 0x%02x failed.\n", __func__, c);
+ 		return -1;
+ 	}
+ 
+@@ -65,7 +64,7 @@ static int elantech_ps2_command(struct psmouse *psmouse,
+ 	} while (tries > 0);
+ 
+ 	if (rc)
+-		pr_err("ps2 command 0x%02x failed.\n", command);
++		psmouse_err(psmouse, "ps2 command 0x%02x failed.\n", command);
+ 
+ 	return rc;
+ }
+@@ -117,7 +116,7 @@ static int elantech_read_reg(struct psmouse *psmouse, unsigned char reg,
+ 	}
+ 
+ 	if (rc)
+-		pr_err("failed to read register 0x%02x.\n", reg);
++		psmouse_err(psmouse, "failed to read register 0x%02x.\n", reg);
+ 	else if (etd->hw_version != 4)
+ 		*val = param[0];
+ 	else
+@@ -191,8 +190,9 @@ static int elantech_write_reg(struct psmouse *psmouse, unsigned char reg,
+ 	}
+ 
+ 	if (rc)
+-		pr_err("failed to write register 0x%02x with value 0x%02x.\n",
+-			reg, val);
++		psmouse_err(psmouse,
++			    "failed to write register 0x%02x with value 0x%02x.\n",
++			    reg, val);
+ 
+ 	return rc;
+ }
+@@ -200,13 +200,13 @@ static int elantech_write_reg(struct psmouse *psmouse, unsigned char reg,
+ /*
+  * Dump a complete mouse movement packet to the syslog
+  */
+-static void elantech_packet_dump(unsigned char *packet, int size)
++static void elantech_packet_dump(struct psmouse *psmouse)
+ {
+ 	int	i;
+ 
+-	printk(KERN_DEBUG pr_fmt("PS/2 packet ["));
+-	for (i = 0; i < size; i++)
+-		printk("%s0x%02x ", (i) ? ", " : " ", packet[i]);
++	psmouse_printk(KERN_DEBUG, psmouse, "PS/2 packet [");
++	for (i = 0; i < psmouse->pktsize; i++)
++		printk("%s0x%02x ", i ? ", " : " ", psmouse->packet[i]);
+ 	printk("]\n");
+ }
+ 
+@@ -705,7 +705,7 @@ static psmouse_ret_t elantech_process_byte(struct psmouse *psmouse)
+ 		return PSMOUSE_GOOD_DATA;
+ 
+ 	if (etd->debug > 1)
+-		elantech_packet_dump(psmouse->packet, psmouse->pktsize);
++		elantech_packet_dump(psmouse);
+ 
+ 	switch (etd->hw_version) {
+ 	case 1:
+@@ -801,7 +801,7 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 		/*
+ 		 * Read back reg 0x10. For hardware version 1 we must make
+ 		 * sure the absolute mode bit is set. For hardware version 2
+-		 * the touchpad is probably initalising and not ready until
++		 * the touchpad is probably initializing and not ready until
+ 		 * we read back the value we just wrote.
+ 		 */
+ 		do {
+@@ -814,17 +814,19 @@ static int elantech_set_absolute_mode(struct psmouse *psmouse)
+ 		} while (tries > 0);
+ 
+ 		if (rc) {
+-			pr_err("failed to read back register 0x10.\n");
++			psmouse_err(psmouse,
++				    "failed to read back register 0x10.\n");
+ 		} else if (etd->hw_version == 1 &&
+ 			   !(val & ETP_R10_ABSOLUTE_MODE)) {
+-			pr_err("touchpad refuses to switch to absolute mode.\n");
++			psmouse_err(psmouse,
++				    "touchpad refuses to switch to absolute mode.\n");
+ 			rc = -1;
+ 		}
+ 	}
+ 
+  skip_readback_reg_10:
+ 	if (rc)
+-		pr_err("failed to initialise registers.\n");
++		psmouse_err(psmouse, "failed to initialise registers.\n");
+ 
+ 	return rc;
+ }
+@@ -1131,7 +1133,7 @@ int elantech_detect(struct psmouse *psmouse, bool set_properties)
+ 	    ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11) ||
+ 	    ps2_command(ps2dev,  NULL, PSMOUSE_CMD_SETSCALE11) ||
+ 	    ps2_command(ps2dev, param, PSMOUSE_CMD_GETINFO)) {
+-		pr_debug("sending Elantech magic knock failed.\n");
++		psmouse_dbg(psmouse, "sending Elantech magic knock failed.\n");
+ 		return -1;
+ 	}
+ 
+@@ -1141,8 +1143,9 @@ int elantech_detect(struct psmouse *psmouse, bool set_properties)
+ 	 */
+ 	if (param[0] != 0x3c || param[1] != 0x03 ||
+ 	    (param[2] != 0xc8 && param[2] != 0x00)) {
+-		pr_debug("unexpected magic knock result 0x%02x, 0x%02x, 0x%02x.\n",
+-			 param[0], param[1], param[2]);
++		psmouse_dbg(psmouse,
++			    "unexpected magic knock result 0x%02x, 0x%02x, 0x%02x.\n",
++			    param[0], param[1], param[2]);
+ 		return -1;
+ 	}
+ 
+@@ -1152,15 +1155,17 @@ int elantech_detect(struct psmouse *psmouse, bool set_properties)
+ 	 * to Elantech magic knock and there might be more.
+ 	 */
+ 	if (synaptics_send_cmd(psmouse, ETP_FW_VERSION_QUERY, param)) {
+-		pr_debug("failed to query firmware version.\n");
++		psmouse_dbg(psmouse, "failed to query firmware version.\n");
+ 		return -1;
+ 	}
+ 
+-	pr_debug("Elantech version query result 0x%02x, 0x%02x, 0x%02x.\n",
+-		 param[0], param[1], param[2]);
++	psmouse_dbg(psmouse,
++		    "Elantech version query result 0x%02x, 0x%02x, 0x%02x.\n",
++		    param[0], param[1], param[2]);
+ 
+ 	if (!elantech_is_signature_valid(param)) {
+-		pr_debug("Probably not a real Elantech touchpad. Aborting.\n");
++		psmouse_dbg(psmouse,
++			    "Probably not a real Elantech touchpad. Aborting.\n");
+ 		return -1;
+ 	}
+ 
+@@ -1192,7 +1197,8 @@ static int elantech_reconnect(struct psmouse *psmouse)
+ 		return -1;
+ 
+ 	if (elantech_set_absolute_mode(psmouse)) {
+-		pr_err("failed to put touchpad back into absolute mode.\n");
++		psmouse_err(psmouse,
++			    "failed to put touchpad back into absolute mode.\n");
+ 		return -1;
+ 	}
+ 
+@@ -1262,42 +1268,46 @@ int elantech_init(struct psmouse *psmouse)
+ 	 * Do the version query again so we can store the result
+ 	 */
+ 	if (synaptics_send_cmd(psmouse, ETP_FW_VERSION_QUERY, param)) {
+-		pr_err("failed to query firmware version.\n");
++		psmouse_err(psmouse, "failed to query firmware version.\n");
+ 		goto init_fail;
+ 	}
+ 	etd->fw_version = (param[0] << 16) | (param[1] << 8) | param[2];
+ 
+ 	if (elantech_set_properties(etd)) {
+-		pr_err("unknown hardware version, aborting...\n");
++		psmouse_err(psmouse, "unknown hardware version, aborting...\n");
+ 		goto init_fail;
+ 	}
+-	pr_info("assuming hardware version %d "
+-		"(with firmware version 0x%02x%02x%02x)\n",
+-		etd->hw_version, param[0], param[1], param[2]);
++	psmouse_info(psmouse,
++		     "assuming hardware version %d (with firmware version 0x%02x%02x%02x)\n",
++		     etd->hw_version, param[0], param[1], param[2]);
+ 
+ 	if (synaptics_send_cmd(psmouse, ETP_CAPABILITIES_QUERY,
+ 	    etd->capabilities)) {
+-		pr_err("failed to query capabilities.\n");
++		psmouse_err(psmouse, "failed to query capabilities.\n");
+ 		goto init_fail;
+ 	}
+-	pr_info("Synaptics capabilities query result 0x%02x, 0x%02x, 0x%02x.\n",
+-		etd->capabilities[0], etd->capabilities[1],
+-		etd->capabilities[2]);
++	psmouse_info(psmouse,
++		     "Synaptics capabilities query result 0x%02x, 0x%02x, 0x%02x.\n",
++		     etd->capabilities[0], etd->capabilities[1],
++		     etd->capabilities[2]);
+ 
+ 	if (elantech_set_absolute_mode(psmouse)) {
+-		pr_err("failed to put touchpad into absolute mode.\n");
++		psmouse_err(psmouse,
++			    "failed to put touchpad into absolute mode.\n");
+ 		goto init_fail;
+ 	}
+ 
+ 	if (elantech_set_input_params(psmouse)) {
+-		pr_err("failed to query touchpad range.\n");
++		psmouse_err(psmouse, "failed to query touchpad range.\n");
+ 		goto init_fail;
+ 	}
+ 
+ 	error = sysfs_create_group(&psmouse->ps2dev.serio->dev.kobj,
+ 				   &elantech_attr_group);
+ 	if (error) {
+-		pr_err("failed to create sysfs attributes, error: %d.\n", error);
++		psmouse_err(psmouse,
++			    "failed to create sysfs attributes, error: %d.\n",
++			    error);
+ 		goto init_fail;
+ 	}
+ 
+diff --git a/drivers/input/mouse/hgpk.c b/drivers/input/mouse/hgpk.c
+index 4d17d9f..0470dd4 100644
+--- a/drivers/input/mouse/hgpk.c
++++ b/drivers/input/mouse/hgpk.c
+@@ -136,10 +136,10 @@ static int hgpk_discard_decay_hack(struct psmouse *psmouse, int x, int y)
+ 	/* discard if too big, or half that but > 4 times the prev delta */
+ 	if (avx > recalib_delta ||
+ 		(avx > recalib_delta / 2 && ((avx / 4) > priv->xlast))) {
+-		hgpk_err(psmouse, "detected %dpx jump in x\n", x);
++		psmouse_warn(psmouse, "detected %dpx jump in x\n", x);
+ 		priv->xbigj = avx;
+ 	} else if (approx_half(avx, priv->xbigj)) {
+-		hgpk_err(psmouse, "detected secondary %dpx jump in x\n", x);
++		psmouse_warn(psmouse, "detected secondary %dpx jump in x\n", x);
+ 		priv->xbigj = avx;
+ 		priv->xsaw_secondary++;
+ 	} else {
+@@ -151,10 +151,10 @@ static int hgpk_discard_decay_hack(struct psmouse *psmouse, int x, int y)
+ 
+ 	if (avy > recalib_delta ||
+ 		(avy > recalib_delta / 2 && ((avy / 4) > priv->ylast))) {
+-		hgpk_err(psmouse, "detected %dpx jump in y\n", y);
++		psmouse_warn(psmouse, "detected %dpx jump in y\n", y);
+ 		priv->ybigj = avy;
+ 	} else if (approx_half(avy, priv->ybigj)) {
+-		hgpk_err(psmouse, "detected secondary %dpx jump in y\n", y);
++		psmouse_warn(psmouse, "detected secondary %dpx jump in y\n", y);
+ 		priv->ybigj = avy;
+ 		priv->ysaw_secondary++;
+ 	} else {
+@@ -168,7 +168,7 @@ static int hgpk_discard_decay_hack(struct psmouse *psmouse, int x, int y)
+ 	priv->ylast = avy;
+ 
+ 	if (do_recal && jumpy_delay) {
+-		hgpk_err(psmouse, "scheduling recalibration\n");
++		psmouse_warn(psmouse, "scheduling recalibration\n");
+ 		psmouse_queue_work(psmouse, &priv->recalib_wq,
+ 				msecs_to_jiffies(jumpy_delay));
+ 	}
+@@ -260,8 +260,8 @@ static void hgpk_spewing_hack(struct psmouse *psmouse,
+ 		 * movement, it is probably a case of the user moving the
+ 		 * cursor very slowly across the screen. */
+ 		if (abs(priv->x_tally) < 3 && abs(priv->y_tally) < 3) {
+-			hgpk_err(psmouse, "packet spew detected (%d,%d)\n",
+-				 priv->x_tally, priv->y_tally);
++			psmouse_warn(psmouse, "packet spew detected (%d,%d)\n",
++				     priv->x_tally, priv->y_tally);
+ 			priv->spew_flag = RECALIBRATING;
+ 			psmouse_queue_work(psmouse, &priv->recalib_wq,
+ 					   msecs_to_jiffies(spew_delay));
+@@ -333,12 +333,12 @@ static bool hgpk_is_byte_valid(struct psmouse *psmouse, unsigned char *packet)
+ 	}
+ 
+ 	if (!valid)
+-		hgpk_dbg(psmouse,
+-			 "bad data, mode %d (%d) %02x %02x %02x %02x %02x %02x\n",
+-			 priv->mode, pktcnt,
+-			 psmouse->packet[0], psmouse->packet[1],
+-			 psmouse->packet[2], psmouse->packet[3],
+-			 psmouse->packet[4], psmouse->packet[5]);
++		psmouse_dbg(psmouse,
++			    "bad data, mode %d (%d) %02x %02x %02x %02x %02x %02x\n",
++			    priv->mode, pktcnt,
++			    psmouse->packet[0], psmouse->packet[1],
++			    psmouse->packet[2], psmouse->packet[3],
++			    psmouse->packet[4], psmouse->packet[5]);
+ 
+ 	return valid;
+ }
+@@ -361,19 +361,20 @@ static void hgpk_process_advanced_packet(struct psmouse *psmouse)
+ 
+ 		input_report_abs(idev, ABS_PRESSURE, z);
+ 		if (tpdebug)
+-			hgpk_dbg(psmouse, "pd=%d fd=%d z=%d",
+-				 pt_down, finger_down, z);
++			psmouse_dbg(psmouse, "pd=%d fd=%d z=%d",
++				    pt_down, finger_down, z);
+ 	} else {
+ 		/*
+ 		 * PenTablet mode does not report pressure, so we don't
+ 		 * report it here
+ 		 */
+ 		if (tpdebug)
+-			hgpk_dbg(psmouse, "pd=%d ", down);
++			psmouse_dbg(psmouse, "pd=%d ", down);
+ 	}
+ 
+ 	if (tpdebug)
+-		hgpk_dbg(psmouse, "l=%d r=%d x=%d y=%d\n", left, right, x, y);
++		psmouse_dbg(psmouse, "l=%d r=%d x=%d y=%d\n",
++			    left, right, x, y);
+ 
+ 	input_report_key(idev, BTN_TOUCH, down);
+ 	input_report_key(idev, BTN_LEFT, left);
+@@ -395,7 +396,7 @@ static void hgpk_process_advanced_packet(struct psmouse *psmouse)
+ 	if (x == priv->abs_x && y == priv->abs_y) {
+ 		if (++priv->dupe_count > SPEW_WATCH_COUNT) {
+ 			if (tpdebug)
+-				hgpk_dbg(psmouse, "hard spew detected\n");
++				psmouse_dbg(psmouse, "hard spew detected\n");
+ 			priv->spew_flag = RECALIBRATING;
+ 			psmouse_queue_work(psmouse, &priv->recalib_wq,
+ 					   msecs_to_jiffies(spew_delay));
+@@ -412,7 +413,7 @@ static void hgpk_process_advanced_packet(struct psmouse *psmouse)
+ 		int y_diff = priv->abs_y - y;
+ 		if (hgpk_discard_decay_hack(psmouse, x_diff, y_diff)) {
+ 			if (tpdebug)
+-				hgpk_dbg(psmouse, "discarding\n");
++				psmouse_dbg(psmouse, "discarding\n");
+ 			goto done;
+ 		}
+ 		hgpk_spewing_hack(psmouse, left, right, x_diff, y_diff);
+@@ -437,20 +438,21 @@ static void hgpk_process_simple_packet(struct psmouse *psmouse)
+ 	int y = ((packet[0] << 3) & 0x100) - packet[2];
+ 
+ 	if (packet[0] & 0xc0)
+-		hgpk_dbg(psmouse,
+-			 "overflow -- 0x%02x 0x%02x 0x%02x\n",
+-			 packet[0], packet[1], packet[2]);
++		psmouse_dbg(psmouse,
++			    "overflow -- 0x%02x 0x%02x 0x%02x\n",
++			    packet[0], packet[1], packet[2]);
+ 
+ 	if (hgpk_discard_decay_hack(psmouse, x, y)) {
+ 		if (tpdebug)
+-			hgpk_dbg(psmouse, "discarding\n");
++			psmouse_dbg(psmouse, "discarding\n");
+ 		return;
+ 	}
+ 
+ 	hgpk_spewing_hack(psmouse, left, right, x, y);
+ 
+ 	if (tpdebug)
+-		hgpk_dbg(psmouse, "l=%d r=%d x=%d y=%d\n", left, right, x, y);
++		psmouse_dbg(psmouse, "l=%d r=%d x=%d y=%d\n",
++			    left, right, x, y);
+ 
+ 	input_report_key(dev, BTN_LEFT, left);
+ 	input_report_key(dev, BTN_RIGHT, right);
+@@ -482,9 +484,8 @@ static psmouse_ret_t hgpk_process_byte(struct psmouse *psmouse)
+ 			 * ugh, got a packet inside our recalibration
+ 			 * window, schedule another recalibration.
+ 			 */
+-			hgpk_dbg(psmouse,
+-				 "packet inside calibration window, "
+-				 "queueing another recalibration\n");
++			psmouse_dbg(psmouse,
++				    "packet inside calibration window, queueing another recalibration\n");
+ 			psmouse_queue_work(psmouse, &priv->recalib_wq,
+ 					msecs_to_jiffies(post_interrupt_delay));
+ 		}
+@@ -628,7 +629,7 @@ static int hgpk_reset_device(struct psmouse *psmouse, bool recalibrate)
+ 
+ 	err = hgpk_select_mode(psmouse);
+ 	if (err) {
+-		hgpk_err(psmouse, "failed to select mode\n");
++		psmouse_err(psmouse, "failed to select mode\n");
+ 		return err;
+ 	}
+ 
+@@ -648,11 +649,11 @@ static int hgpk_force_recalibrate(struct psmouse *psmouse)
+ 		return 0;
+ 
+ 	if (!autorecal) {
+-		hgpk_dbg(psmouse, "recalibrations disabled, ignoring\n");
++		psmouse_dbg(psmouse, "recalibration disabled, ignoring\n");
+ 		return 0;
+ 	}
+ 
+-	hgpk_dbg(psmouse, "recalibrating touchpad..\n");
++	psmouse_dbg(psmouse, "recalibrating touchpad..\n");
+ 
+ 	/* we don't want to race with the irq handler, nor with resyncs */
+ 	psmouse_set_state(psmouse, PSMOUSE_INITIALIZING);
+@@ -675,7 +676,7 @@ static int hgpk_force_recalibrate(struct psmouse *psmouse)
+ 	psmouse_set_state(psmouse, PSMOUSE_ACTIVATED);
+ 
+ 	if (tpdebug)
+-		hgpk_dbg(psmouse, "touchpad reactivated\n");
++		psmouse_dbg(psmouse, "touchpad reactivated\n");
+ 
+ 	/*
+ 	 * If we get packets right away after recalibrating, it's likely
+@@ -727,16 +728,16 @@ static int hgpk_toggle_powersave(struct psmouse *psmouse, int enable)
+ 
+ 		err = hgpk_reset_device(psmouse, false);
+ 		if (err) {
+-			hgpk_err(psmouse, "Failed to reset device!\n");
++			psmouse_err(psmouse, "Failed to reset device!\n");
+ 			return err;
+ 		}
+ 
+ 		/* should be all set, enable the touchpad */
+ 		ps2_command(&psmouse->ps2dev, NULL, PSMOUSE_CMD_ENABLE);
+ 		psmouse_set_state(psmouse, PSMOUSE_ACTIVATED);
+-		hgpk_dbg(psmouse, "Touchpad powered up.\n");
++		psmouse_dbg(psmouse, "Touchpad powered up.\n");
+ 	} else {
+-		hgpk_dbg(psmouse, "Powering off touchpad.\n");
++		psmouse_dbg(psmouse, "Powering off touchpad.\n");
+ 
+ 		if (ps2_command(ps2dev, NULL, 0xec) ||
+ 		    ps2_command(ps2dev, NULL, 0xec) ||
+@@ -923,7 +924,7 @@ static void hgpk_recalib_work(struct work_struct *work)
+ 	struct psmouse *psmouse = priv->psmouse;
+ 
+ 	if (hgpk_force_recalibrate(psmouse))
+-		hgpk_err(psmouse, "recalibration failed!\n");
++		psmouse_err(psmouse, "recalibration failed!\n");
+ }
+ 
+ static int hgpk_register(struct psmouse *psmouse)
+@@ -947,14 +948,15 @@ static int hgpk_register(struct psmouse *psmouse)
+ 	err = device_create_file(&psmouse->ps2dev.serio->dev,
+ 				 &psmouse_attr_powered.dattr);
+ 	if (err) {
+-		hgpk_err(psmouse, "Failed creating 'powered' sysfs node\n");
++		psmouse_err(psmouse, "Failed creating 'powered' sysfs node\n");
+ 		return err;
+ 	}
+ 
+ 	err = device_create_file(&psmouse->ps2dev.serio->dev,
+ 				 &psmouse_attr_hgpk_mode.dattr);
+ 	if (err) {
+-		hgpk_err(psmouse, "Failed creating 'hgpk_mode' sysfs node\n");
++		psmouse_err(psmouse,
++			    "Failed creating 'hgpk_mode' sysfs node\n");
+ 		goto err_remove_powered;
+ 	}
+ 
+@@ -963,8 +965,8 @@ static int hgpk_register(struct psmouse *psmouse)
+ 		err = device_create_file(&psmouse->ps2dev.serio->dev,
+ 					 &psmouse_attr_recalibrate.dattr);
+ 		if (err) {
+-			hgpk_err(psmouse,
+-				"Failed creating 'recalibrate' sysfs node\n");
++			psmouse_err(psmouse,
++				    "Failed creating 'recalibrate' sysfs node\n");
+ 			goto err_remove_mode;
+ 		}
+ 	}
+@@ -1027,13 +1029,13 @@ static enum hgpk_model_t hgpk_get_model(struct psmouse *psmouse)
+ 		return -EIO;
+ 	}
+ 
+-	hgpk_dbg(psmouse, "ID: %02x %02x %02x\n", param[0], param[1], param[2]);
++	psmouse_dbg(psmouse, "ID: %02x %02x %02x\n", param[0], param[1], param[2]);
+ 
+ 	/* HGPK signature: 0x67, 0x00, 0x<model> */
+ 	if (param[0] != 0x67 || param[1] != 0x00)
+ 		return -ENODEV;
+ 
+-	hgpk_info(psmouse, "OLPC touchpad revision 0x%x\n", param[2]);
++	psmouse_info(psmouse, "OLPC touchpad revision 0x%x\n", param[2]);
+ 
+ 	return param[2];
+ }
+diff --git a/drivers/input/mouse/hgpk.h b/drivers/input/mouse/hgpk.h
+index 311c0e8..dd68677 100644
+--- a/drivers/input/mouse/hgpk.h
++++ b/drivers/input/mouse/hgpk.h
+@@ -46,17 +46,6 @@ struct hgpk_data {
+ 	int xsaw_secondary, ysaw_secondary; /* jumpiness detection */
+ };
+ 
+-#define hgpk_dbg(psmouse, format, arg...)		\
+-	dev_dbg(&(psmouse)->ps2dev.serio->dev, format, ## arg)
+-#define hgpk_err(psmouse, format, arg...)		\
+-	dev_err(&(psmouse)->ps2dev.serio->dev, format, ## arg)
+-#define hgpk_info(psmouse, format, arg...)		\
+-	dev_info(&(psmouse)->ps2dev.serio->dev, format, ## arg)
+-#define hgpk_warn(psmouse, format, arg...)		\
+-	dev_warn(&(psmouse)->ps2dev.serio->dev, format, ## arg)
+-#define hgpk_notice(psmouse, format, arg...)		\
+-	dev_notice(&(psmouse)->ps2dev.serio->dev, format, ## arg)
+-
+ #ifdef CONFIG_MOUSE_PS2_OLPC
+ void hgpk_module_init(void);
+ int hgpk_detect(struct psmouse *psmouse, bool set_properties);
+diff --git a/drivers/input/mouse/lifebook.c b/drivers/input/mouse/lifebook.c
+index 83bcaba..2c4db63 100644
+--- a/drivers/input/mouse/lifebook.c
++++ b/drivers/input/mouse/lifebook.c
+@@ -169,8 +169,8 @@ static psmouse_ret_t lifebook_process_byte(struct psmouse *psmouse)
+ 
+ 	if (relative_packet) {
+ 		if (!dev2)
+-			printk(KERN_WARNING "lifebook.c: got relative packet "
+-				"but no relative device set up\n");
++			psmouse_warn(psmouse,
++				     "got relative packet but no relative device set up\n");
+ 	} else {
+ 		if (lifebook_use_6byte_proto) {
+ 			input_report_abs(dev1, ABS_X,
+@@ -212,7 +212,7 @@ static int lifebook_absolute_mode(struct psmouse *psmouse)
+ 
+ 	/*
+ 	 * Enable absolute output -- ps2_command fails always but if
+-	 * you leave this call out the touchsreen will never send
++	 * you leave this call out the touchscreen will never send
+ 	 * absolute coordinates
+ 	 */
+ 	param = lifebook_use_6byte_proto ? 0x08 : 0x07;
+diff --git a/drivers/input/mouse/logips2pp.c b/drivers/input/mouse/logips2pp.c
+index c9983ae..faac2c3 100644
+--- a/drivers/input/mouse/logips2pp.c
++++ b/drivers/input/mouse/logips2pp.c
+@@ -82,11 +82,11 @@ static psmouse_ret_t ps2pp_process_byte(struct psmouse *psmouse)
+ 			packet[0] = packet[2] | 0x08;
+ 			break;
+ 
+-#ifdef DEBUG
+ 		default:
+-			printk(KERN_WARNING "psmouse.c: Received PS2++ packet #%x, but don't know how to handle.\n",
+-				(packet[1] >> 4) | (packet[0] & 0x30));
+-#endif
++			psmouse_dbg(psmouse,
++				    "Received PS2++ packet #%x, but don't know how to handle.\n",
++				    (packet[1] >> 4) | (packet[0] & 0x30));
++			break;
+ 		}
+ 	} else {
+ 		/* Standard PS/2 motion data */
+@@ -382,7 +382,7 @@ int ps2pp_init(struct psmouse *psmouse, bool set_properties)
+ 		}
+ 
+ 	} else {
+-		printk(KERN_WARNING "logips2pp: Detected unknown logitech mouse model %d\n", model);
++		psmouse_warn(psmouse, "Detected unknown Logitech mouse model %d\n", model);
+ 	}
+ 
+ 	if (set_properties) {
+@@ -400,9 +400,9 @@ int ps2pp_init(struct psmouse *psmouse, bool set_properties)
+ 				error = device_create_file(&psmouse->ps2dev.serio->dev,
+ 							   &psmouse_attr_smartscroll.dattr);
+ 				if (error) {
+-					printk(KERN_ERR
+-						"logips2pp.c: failed to create smartscroll "
+-						"sysfs attribute, error: %d\n", error);
++					psmouse_err(psmouse,
++						    "failed to create smartscroll sysfs attribute, error: %d\n",
++						    error);
+ 					return -1;
+ 				}
+ 			}
+diff --git a/drivers/input/mouse/psmouse-base.c b/drivers/input/mouse/psmouse-base.c
+index 3f74bae..9f352fb 100644
+--- a/drivers/input/mouse/psmouse-base.c
++++ b/drivers/input/mouse/psmouse-base.c
+@@ -11,6 +11,9 @@
+  * the Free Software Foundation.
+  */
+ 
++#define pr_fmt(fmt)		KBUILD_MODNAME ": " fmt
++#define psmouse_fmt(fmt)	fmt
++
+ #include <linux/delay.h>
+ #include <linux/module.h>
+ #include <linux/slab.h>
+@@ -251,11 +254,14 @@ static int psmouse_handle_byte(struct psmouse *psmouse)
+ 	switch (rc) {
+ 	case PSMOUSE_BAD_DATA:
+ 		if (psmouse->state == PSMOUSE_ACTIVATED) {
+-			printk(KERN_WARNING "psmouse.c: %s at %s lost sync at byte %d\n",
+-				psmouse->name, psmouse->phys, psmouse->pktcnt);
++			psmouse_warn(psmouse,
++				     "%s at %s lost sync at byte %d\n",
++				     psmouse->name, psmouse->phys,
++				     psmouse->pktcnt);
+ 			if (++psmouse->out_of_sync_cnt == psmouse->resetafter) {
+ 				__psmouse_set_state(psmouse, PSMOUSE_IGNORE);
+-				printk(KERN_NOTICE "psmouse.c: issuing reconnect request\n");
++				psmouse_notice(psmouse,
++						"issuing reconnect request\n");
+ 				serio_reconnect(psmouse->ps2dev.serio);
+ 				return -1;
+ 			}
+@@ -267,8 +273,9 @@ static int psmouse_handle_byte(struct psmouse *psmouse)
+ 		psmouse->pktcnt = 0;
+ 		if (psmouse->out_of_sync_cnt) {
+ 			psmouse->out_of_sync_cnt = 0;
+-			printk(KERN_NOTICE "psmouse.c: %s at %s - driver resynched.\n",
+-				psmouse->name, psmouse->phys);
++			psmouse_notice(psmouse,
++					"%s at %s - driver resynced.\n",
++					psmouse->name, psmouse->phys);
+ 		}
+ 		break;
+ 
+@@ -295,9 +302,10 @@ static irqreturn_t psmouse_interrupt(struct serio *serio,
+ 		     ((flags & SERIO_PARITY) && !psmouse->ignore_parity))) {
+ 
+ 		if (psmouse->state == PSMOUSE_ACTIVATED)
+-			printk(KERN_WARNING "psmouse.c: bad data from KBC -%s%s\n",
+-				flags & SERIO_TIMEOUT ? " timeout" : "",
+-				flags & SERIO_PARITY ? " bad parity" : "");
++			psmouse_warn(psmouse,
++				     "bad data from KBC -%s%s\n",
++				     flags & SERIO_TIMEOUT ? " timeout" : "",
++				     flags & SERIO_PARITY ? " bad parity" : "");
+ 		ps2_cmd_aborted(&psmouse->ps2dev);
+ 		goto out;
+ 	}
+@@ -315,8 +323,8 @@ static irqreturn_t psmouse_interrupt(struct serio *serio,
+ 
+ 	if (psmouse->state == PSMOUSE_ACTIVATED &&
+ 	    psmouse->pktcnt && time_after(jiffies, psmouse->last + HZ/2)) {
+-		printk(KERN_INFO "psmouse.c: %s at %s lost synchronization, throwing %d bytes away.\n",
+-		       psmouse->name, psmouse->phys, psmouse->pktcnt);
++		psmouse_info(psmouse, "%s at %s lost synchronization, throwing %d bytes away.\n",
++			     psmouse->name, psmouse->phys, psmouse->pktcnt);
+ 		psmouse->badbyte = psmouse->packet[0];
+ 		__psmouse_set_state(psmouse, PSMOUSE_RESYNCING);
+ 		psmouse_queue_work(psmouse, &psmouse->resync_work, 0);
+@@ -943,7 +951,8 @@ static int psmouse_probe(struct psmouse *psmouse)
+  */
+ 
+ 	if (ps2_command(ps2dev, NULL, PSMOUSE_CMD_RESET_DIS))
+-		printk(KERN_WARNING "psmouse.c: Failed to reset mouse on %s\n", ps2dev->serio->phys);
++		psmouse_warn(psmouse, "Failed to reset mouse on %s\n",
++			     ps2dev->serio->phys);
+ 
+ 	return 0;
+ }
+@@ -1005,8 +1014,8 @@ static void psmouse_initialize(struct psmouse *psmouse)
+ static void psmouse_activate(struct psmouse *psmouse)
+ {
+ 	if (ps2_command(&psmouse->ps2dev, NULL, PSMOUSE_CMD_ENABLE))
+-		printk(KERN_WARNING "psmouse.c: Failed to enable mouse on %s\n",
+-			psmouse->ps2dev.serio->phys);
++		psmouse_warn(psmouse, "Failed to enable mouse on %s\n",
++			     psmouse->ps2dev.serio->phys);
+ 
+ 	psmouse_set_state(psmouse, PSMOUSE_ACTIVATED);
+ }
+@@ -1020,14 +1029,14 @@ static void psmouse_activate(struct psmouse *psmouse)
+ static void psmouse_deactivate(struct psmouse *psmouse)
+ {
+ 	if (ps2_command(&psmouse->ps2dev, NULL, PSMOUSE_CMD_DISABLE))
+-		printk(KERN_WARNING "psmouse.c: Failed to deactivate mouse on %s\n",
+-			psmouse->ps2dev.serio->phys);
++		psmouse_warn(psmouse, "Failed to deactivate mouse on %s\n",
++			     psmouse->ps2dev.serio->phys);
+ 
+ 	psmouse_set_state(psmouse, PSMOUSE_CMD_MODE);
+ }
+ 
+ /*
+- * psmouse_poll() - default poll hanlder. Everyone except for ALPS uses it.
++ * psmouse_poll() - default poll handler. Everyone except for ALPS uses it.
+  */
+ 
+ static int psmouse_poll(struct psmouse *psmouse)
+@@ -1115,14 +1124,15 @@ static void psmouse_resync(struct work_struct *work)
+ 	}
+ 
+ 	if (!enabled) {
+-		printk(KERN_WARNING "psmouse.c: failed to re-enable mouse on %s\n",
+-			psmouse->ps2dev.serio->phys);
++		psmouse_warn(psmouse, "failed to re-enable mouse on %s\n",
++			     psmouse->ps2dev.serio->phys);
+ 		failed = true;
+ 	}
+ 
+ 	if (failed) {
+ 		psmouse_set_state(psmouse, PSMOUSE_IGNORE);
+-		printk(KERN_INFO "psmouse.c: resync failed, issuing reconnect request\n");
++		psmouse_info(psmouse,
++			     "resync failed, issuing reconnect request\n");
+ 		serio_reconnect(serio);
+ 	} else
+ 		psmouse_set_state(psmouse, PSMOUSE_ACTIVATED);
+@@ -1155,8 +1165,8 @@ static void psmouse_cleanup(struct serio *serio)
+ 	 * Disable stream mode so cleanup routine can proceed undisturbed.
+ 	 */
+ 	if (ps2_command(&psmouse->ps2dev, NULL, PSMOUSE_CMD_DISABLE))
+-		printk(KERN_WARNING "psmouse.c: Failed to disable mouse on %s\n",
+-			psmouse->ps2dev.serio->phys);
++		psmouse_warn(psmouse, "Failed to disable mouse on %s\n",
++			     psmouse->ps2dev.serio->phys);
+ 
+ 	if (psmouse->cleanup)
+ 		psmouse->cleanup(psmouse);
+@@ -1400,7 +1410,8 @@ static int psmouse_reconnect(struct serio *serio)
+ 	int rc = -1;
+ 
+ 	if (!drv || !psmouse) {
+-		printk(KERN_DEBUG "psmouse: reconnect request, but serio is disconnected, ignoring...\n");
++		psmouse_dbg(psmouse,
++			    "reconnect request, but serio is disconnected, ignoring...\n");
+ 		return -1;
+ 	}
+ 
+@@ -1427,8 +1438,9 @@ static int psmouse_reconnect(struct serio *serio)
+ 			goto out;
+ 	}
+ 
+-	/* ok, the device type (and capabilities) match the old one,
+-	 * we can continue using it, complete intialization
++	/*
++	 * OK, the device type (and capabilities) match the old one,
++	 * we can continue using it, complete initialization
+ 	 */
+ 	psmouse_set_state(psmouse, PSMOUSE_CMD_MODE);
+ 
+@@ -1586,9 +1598,8 @@ static ssize_t psmouse_attr_set_protocol(struct psmouse *psmouse, void *data, co
+ 
+ 	while (!list_empty(&serio->children)) {
+ 		if (++retry > 3) {
+-			printk(KERN_WARNING
+-				"psmouse: failed to destroy children ports, "
+-				"protocol change aborted.\n");
++			psmouse_warn(psmouse,
++				     "failed to destroy children ports, protocol change aborted.\n");
+ 			input_free_device(new_dev);
+ 			return -EIO;
+ 		}
+@@ -1715,7 +1726,7 @@ static int __init psmouse_init(void)
+ 
+ 	kpsmoused_wq = create_singlethread_workqueue("kpsmoused");
+ 	if (!kpsmoused_wq) {
+-		printk(KERN_ERR "psmouse: failed to create kpsmoused workqueue\n");
++		pr_err("failed to create kpsmoused workqueue\n");
+ 		return -ENOMEM;
+ 	}
+ 
+diff --git a/drivers/input/mouse/psmouse.h b/drivers/input/mouse/psmouse.h
+index 593e910..9b84b0c 100644
+--- a/drivers/input/mouse/psmouse.h
++++ b/drivers/input/mouse/psmouse.h
+@@ -150,4 +150,29 @@ static struct psmouse_attribute psmouse_attr_##_name = {			\
+ 	static ssize_t _set(struct psmouse *, void *, const char *, size_t);	\
+ 	__PSMOUSE_DEFINE_ATTR_VAR(_name, _mode, _data, NULL, _set, true)
+ 
++#ifndef psmouse_fmt
++#define psmouse_fmt(fmt)	KBUILD_BASENAME ": " fmt
++#endif
++
++#define psmouse_dbg(psmouse, format, ...)		\
++	dev_dbg(&(psmouse)->ps2dev.serio->dev,		\
++		psmouse_fmt(format), ##__VA_ARGS__)
++#define psmouse_info(psmouse, format, ...)		\
++	dev_info(&(psmouse)->ps2dev.serio->dev,		\
++		 psmouse_fmt(format), ##__VA_ARGS__)
++#define psmouse_warn(psmouse, format, ...)		\
++	dev_warn(&(psmouse)->ps2dev.serio->dev,		\
++		 psmouse_fmt(format), ##__VA_ARGS__)
++#define psmouse_err(psmouse, format, ...)		\
++	dev_err(&(psmouse)->ps2dev.serio->dev,		\
++		psmouse_fmt(format), ##__VA_ARGS__)
++#define psmouse_notice(psmouse, format, ...)		\
++	dev_notice(&(psmouse)->ps2dev.serio->dev,	\
++		   psmouse_fmt(format), ##__VA_ARGS__)
++#define psmouse_printk(level, psmouse, format, ...)	\
++	dev_printk(level,				\
++		   &(psmouse)->ps2dev.serio->dev,	\
++		   psmouse_fmt(format), ##__VA_ARGS__)
++
++
+ #endif /* _PSMOUSE_H */
+diff --git a/drivers/input/mouse/sentelic.c b/drivers/input/mouse/sentelic.c
+index 2fc887a..c5b12d2 100644
+--- a/drivers/input/mouse/sentelic.c
++++ b/drivers/input/mouse/sentelic.c
+@@ -607,11 +607,12 @@ static void fsp_packet_debug(unsigned char packet[])
+ 
+ 	ps2_packet_cnt++;
+ 	jiffies_msec = jiffies_to_msecs(jiffies);
+-	printk(KERN_DEBUG "%08dms PS/2 packets: %02x, %02x, %02x, %02x\n",
+-		jiffies_msec, packet[0], packet[1], packet[2], packet[3]);
++	psmouse_dbg(psmouse,
++		    "%08dms PS/2 packets: %02x, %02x, %02x, %02x\n",
++		    jiffies_msec, packet[0], packet[1], packet[2], packet[3]);
+ 
+ 	if (jiffies_msec - ps2_last_second > 1000) {
+-		printk(KERN_DEBUG "PS/2 packets/sec = %d\n", ps2_packet_cnt);
++		psmouse_dbg(psmouse, "PS/2 packets/sec = %d\n", ps2_packet_cnt);
+ 		ps2_packet_cnt = 0;
+ 		ps2_last_second = jiffies_msec;
+ 	}
+@@ -820,9 +821,9 @@ int fsp_init(struct psmouse *psmouse)
+ 		return -ENODEV;
+ 	}
+ 
+-	printk(KERN_INFO
+-		"Finger Sensing Pad, hw: %d.%d.%d, sw: %s, buttons: %d\n",
+-		ver >> 4, ver & 0x0F, rev, fsp_drv_ver, buttons & 7);
++	psmouse_info(psmouse,
++		     "Finger Sensing Pad, hw: %d.%d.%d, sw: %s, buttons: %d\n",
++		     ver >> 4, ver & 0x0F, rev, fsp_drv_ver, buttons & 7);
+ 
+ 	psmouse->private = priv = kzalloc(sizeof(struct fsp_data), GFP_KERNEL);
+ 	if (!priv)
+diff --git a/drivers/input/mouse/synaptics.c b/drivers/input/mouse/synaptics.c
+index 30c85a5..c080b82 100644
+--- a/drivers/input/mouse/synaptics.c
++++ b/drivers/input/mouse/synaptics.c
+@@ -167,8 +167,8 @@ static int synaptics_capability(struct psmouse *psmouse)
+ 
+ 	if (SYN_EXT_CAP_REQUESTS(priv->capabilities) >= 1) {
+ 		if (synaptics_send_cmd(psmouse, SYN_QUE_EXT_CAPAB, cap)) {
+-			printk(KERN_ERR "Synaptics claims to have extended capabilities,"
+-			       " but I'm not able to read them.\n");
++			psmouse_warn(psmouse,
++				     "device claims to have extended capabilities, but I'm not able to read them.\n");
+ 		} else {
+ 			priv->ext_cap = (cap[0] << 16) | (cap[1] << 8) | cap[2];
+ 
+@@ -183,8 +183,8 @@ static int synaptics_capability(struct psmouse *psmouse)
+ 
+ 	if (SYN_EXT_CAP_REQUESTS(priv->capabilities) >= 4) {
+ 		if (synaptics_send_cmd(psmouse, SYN_QUE_EXT_CAPAB_0C, cap)) {
+-			printk(KERN_ERR "Synaptics claims to have extended capability 0x0c,"
+-			       " but I'm not able to read it.\n");
++			psmouse_warn(psmouse,
++				     "device claims to have extended capability 0x0c, but I'm not able to read it.\n");
+ 		} else {
+ 			priv->ext_cap_0c = (cap[0] << 16) | (cap[1] << 8) | cap[2];
+ 		}
+@@ -232,8 +232,8 @@ static int synaptics_resolution(struct psmouse *psmouse)
+ 	if (SYN_EXT_CAP_REQUESTS(priv->capabilities) >= 5 &&
+ 	    SYN_CAP_MAX_DIMENSIONS(priv->ext_cap_0c)) {
+ 		if (synaptics_send_cmd(psmouse, SYN_QUE_EXT_MAX_COORDS, resp)) {
+-			printk(KERN_ERR "Synaptics claims to have max coordinates"
+-			       " query, but I'm not able to read it.\n");
++			psmouse_warn(psmouse,
++				     "device claims to have max coordinates query, but I'm not able to read it.\n");
+ 		} else {
+ 			priv->x_max = (resp[0] << 5) | ((resp[1] & 0x0f) << 1);
+ 			priv->y_max = (resp[2] << 5) | ((resp[1] & 0xf0) >> 3);
+@@ -243,8 +243,8 @@ static int synaptics_resolution(struct psmouse *psmouse)
+ 	if (SYN_EXT_CAP_REQUESTS(priv->capabilities) >= 7 &&
+ 	    SYN_CAP_MIN_DIMENSIONS(priv->ext_cap_0c)) {
+ 		if (synaptics_send_cmd(psmouse, SYN_QUE_EXT_MIN_COORDS, resp)) {
+-			printk(KERN_ERR "Synaptics claims to have min coordinates"
+-			       " query, but I'm not able to read it.\n");
++			psmouse_warn(psmouse,
++				     "device claims to have min coordinates query, but I'm not able to read it.\n");
+ 		} else {
+ 			priv->x_min = (resp[0] << 5) | ((resp[1] & 0x0f) << 1);
+ 			priv->y_min = (resp[2] << 5) | ((resp[1] & 0xf0) >> 3);
+@@ -388,7 +388,8 @@ static void synaptics_pt_activate(struct psmouse *psmouse)
+ 			priv->mode &= ~SYN_BIT_FOUR_BYTE_CLIENT;
+ 
+ 		if (synaptics_mode_cmd(psmouse, priv->mode))
+-			printk(KERN_INFO "synaptics: failed to switch guest protocol\n");
++			psmouse_warn(psmouse,
++				     "failed to switch guest protocol\n");
+ 	}
+ }
+ 
+@@ -398,7 +399,8 @@ static void synaptics_pt_create(struct psmouse *psmouse)
+ 
+ 	serio = kzalloc(sizeof(struct serio), GFP_KERNEL);
+ 	if (!serio) {
+-		printk(KERN_ERR "synaptics: not enough memory to allocate pass-through port\n");
++		psmouse_err(psmouse,
++			    "not enough memory for pass-through port\n");
+ 		return;
+ 	}
+ 
+@@ -412,7 +414,8 @@ static void synaptics_pt_create(struct psmouse *psmouse)
+ 
+ 	psmouse->pt_activate = synaptics_pt_activate;
+ 
+-	printk(KERN_INFO "serio: %s port at %s\n", serio->name, psmouse->phys);
++	psmouse_info(psmouse, "serio: %s port at %s\n",
++		     serio->name, psmouse->phys);
+ 	serio_register_port(serio);
+ }
+ 
+@@ -1049,13 +1052,15 @@ static void synaptics_process_packet(struct psmouse *psmouse)
+ 	input_sync(dev);
+ }
+ 
+-static int synaptics_validate_byte(unsigned char packet[], int idx, unsigned char pkt_type)
++static int synaptics_validate_byte(struct psmouse *psmouse,
++				   int idx, unsigned char pkt_type)
+ {
+ 	static const unsigned char newabs_mask[]	= { 0xC8, 0x00, 0x00, 0xC8, 0x00 };
+ 	static const unsigned char newabs_rel_mask[]	= { 0xC0, 0x00, 0x00, 0xC0, 0x00 };
+ 	static const unsigned char newabs_rslt[]	= { 0x80, 0x00, 0x00, 0xC0, 0x00 };
+ 	static const unsigned char oldabs_mask[]	= { 0xC0, 0x60, 0x00, 0xC0, 0x60 };
+ 	static const unsigned char oldabs_rslt[]	= { 0xC0, 0x00, 0x00, 0x80, 0x00 };
++	const char *packet = psmouse->packet;
+ 
+ 	if (idx < 0 || idx > 4)
+ 		return 0;
+@@ -1073,7 +1078,7 @@ static int synaptics_validate_byte(unsigned char packet[], int idx, unsigned cha
+ 		return (packet[idx] & oldabs_mask[idx]) == oldabs_rslt[idx];
+ 
+ 	default:
+-		printk(KERN_ERR "synaptics: unknown packet type %d\n", pkt_type);
++		psmouse_err(psmouse, "unknown packet type %d\n", pkt_type);
+ 		return 0;
+ 	}
+ }
+@@ -1083,8 +1088,8 @@ static unsigned char synaptics_detect_pkt_type(struct psmouse *psmouse)
+ 	int i;
+ 
+ 	for (i = 0; i < 5; i++)
+-		if (!synaptics_validate_byte(psmouse->packet, i, SYN_NEWABS_STRICT)) {
+-			printk(KERN_INFO "synaptics: using relaxed packet validation\n");
++		if (!synaptics_validate_byte(psmouse, i, SYN_NEWABS_STRICT)) {
++			psmouse_info(psmouse, "using relaxed packet validation\n");
+ 			return SYN_NEWABS_RELAXED;
+ 		}
+ 
+@@ -1109,7 +1114,7 @@ static psmouse_ret_t synaptics_process_byte(struct psmouse *psmouse)
+ 		return PSMOUSE_FULL_PACKET;
+ 	}
+ 
+-	return synaptics_validate_byte(psmouse->packet, psmouse->pktcnt - 1, priv->pkt_type) ?
++	return synaptics_validate_byte(psmouse, psmouse->pktcnt - 1, priv->pkt_type) ?
+ 		PSMOUSE_GOOD_DATA : PSMOUSE_BAD_DATA;
+ }
+ 
+@@ -1222,21 +1227,21 @@ static int synaptics_reconnect(struct psmouse *psmouse)
+ 		return -1;
+ 
+ 	if (retry > 1)
+-		printk(KERN_DEBUG "Synaptics reconnected after %d tries\n",
+-			retry);
++		psmouse_dbg(psmouse, "reconnected after %d tries\n", retry);
+ 
+ 	if (synaptics_query_hardware(psmouse)) {
+-		printk(KERN_ERR "Unable to query Synaptics hardware.\n");
++		psmouse_err(psmouse, "Unable to query device.\n");
+ 		return -1;
+ 	}
+ 
+ 	if (synaptics_set_absolute_mode(psmouse)) {
+-		printk(KERN_ERR "Unable to initialize Synaptics hardware.\n");
++		psmouse_err(psmouse, "Unable to initialize device.\n");
+ 		return -1;
+ 	}
+ 
+ 	if (synaptics_set_advanced_gesture_mode(psmouse)) {
+-		printk(KERN_ERR "Advanced gesture mode reconnect failed.\n");
++		psmouse_err(psmouse,
++			    "Advanced gesture mode reconnect failed.\n");
+ 		return -1;
+ 	}
+ 
+@@ -1244,12 +1249,12 @@ static int synaptics_reconnect(struct psmouse *psmouse)
+ 	    old_priv.model_id != priv->model_id ||
+ 	    old_priv.capabilities != priv->capabilities ||
+ 	    old_priv.ext_cap != priv->ext_cap) {
+-		printk(KERN_ERR "Synaptics hardware appears to be different: "
+-			"id(%ld-%ld), model(%ld-%ld), caps(%lx-%lx), ext(%lx-%lx).\n",
+-			old_priv.identity, priv->identity,
+-			old_priv.model_id, priv->model_id,
+-			old_priv.capabilities, priv->capabilities,
+-			old_priv.ext_cap, priv->ext_cap);
++		psmouse_err(psmouse,
++			    "hardware appears to be different: id(%ld-%ld), model(%ld-%ld), caps(%lx-%lx), ext(%lx-%lx).\n",
++			    old_priv.identity, priv->identity,
++			    old_priv.model_id, priv->model_id,
++			    old_priv.capabilities, priv->capabilities,
++			    old_priv.ext_cap, priv->ext_cap);
+ 		return -1;
+ 	}
+ 
+@@ -1330,7 +1335,8 @@ int synaptics_init(struct psmouse *psmouse)
+ 	 * just fine.
+ 	 */
+ 	if (broken_olpc_ec) {
+-		printk(KERN_INFO "synaptics: OLPC XO detected, not enabling Synaptics protocol.\n");
++		psmouse_info(psmouse,
++			     "OLPC XO detected, not enabling Synaptics protocol.\n");
+ 		return -ENODEV;
+ 	}
+ 
+@@ -1341,26 +1347,28 @@ int synaptics_init(struct psmouse *psmouse)
+ 	psmouse_reset(psmouse);
+ 
+ 	if (synaptics_query_hardware(psmouse)) {
+-		printk(KERN_ERR "Unable to query Synaptics hardware.\n");
++		psmouse_err(psmouse, "Unable to query device.\n");
+ 		goto init_fail;
+ 	}
+ 
+ 	if (synaptics_set_absolute_mode(psmouse)) {
+-		printk(KERN_ERR "Unable to initialize Synaptics hardware.\n");
++		psmouse_err(psmouse, "Unable to initialize device.\n");
+ 		goto init_fail;
+ 	}
+ 
+ 	if (synaptics_set_advanced_gesture_mode(psmouse)) {
+-		printk(KERN_ERR "Advanced gesture mode init failed.\n");
++		psmouse_err(psmouse, "Advanced gesture mode init failed.\n");
+ 		goto init_fail;
+ 	}
+ 
+ 	priv->pkt_type = SYN_MODEL_NEWABS(priv->model_id) ? SYN_NEWABS : SYN_OLDABS;
+ 
+-	printk(KERN_INFO "Synaptics Touchpad, model: %ld, fw: %ld.%ld, id: %#lx, caps: %#lx/%#lx/%#lx\n",
+-		SYN_ID_MODEL(priv->identity),
+-		SYN_ID_MAJOR(priv->identity), SYN_ID_MINOR(priv->identity),
+-		priv->model_id, priv->capabilities, priv->ext_cap, priv->ext_cap_0c);
++	psmouse_info(psmouse,
++		     "Touchpad model: %ld, fw: %ld.%ld, id: %#lx, caps: %#lx/%#lx/%#lx\n",
++		     SYN_ID_MODEL(priv->identity),
++		     SYN_ID_MAJOR(priv->identity), SYN_ID_MINOR(priv->identity),
++		     priv->model_id,
++		     priv->capabilities, priv->ext_cap, priv->ext_cap_0c);
+ 
+ 	set_input_params(psmouse->dev, priv);
+ 
+@@ -1392,8 +1400,9 @@ int synaptics_init(struct psmouse *psmouse)
+ 	 * the same rate as a standard PS/2 mouse).
+ 	 */
+ 	if (psmouse->rate >= 80 && impaired_toshiba_kbc) {
+-		printk(KERN_INFO "synaptics: Toshiba %s detected, limiting rate to 40pps.\n",
+-			dmi_get_system_info(DMI_PRODUCT_NAME));
++		psmouse_info(psmouse,
++			     "Toshiba %s detected, limiting rate to 40pps.\n",
++			     dmi_get_system_info(DMI_PRODUCT_NAME));
+ 		psmouse->rate = 40;
+ 	}
+ 
+commit 3940d6185a982a970ff562e085caccbdd62f40bb
+Author: JJ Ding <jj_ding@emc.com.tw>
+Date:   Tue Nov 8 22:13:14 2011 -0800
+
+    Input: elantech - adjust hw_version detection logic
+    
+    This patch fixes some v3 hardware (fw_version: 0x150500) wrongly detected
+    as v2 hardware.
+    
+    Reported-by: Marc Dietrich <marvin24@gmx.de>
+    Signed-off-by: JJ Ding <jj_ding@emc.com.tw>
+    Tested-By: Marc Dietrich <marvin24@gmx.de>
+    Acked-by: Éric Piel <eric.piel@tremplin-utc.net>
+    Signed-off-by: Dmitry Torokhov <dtor@mail.ru>
+
+diff --git a/drivers/input/mouse/elantech.c b/drivers/input/mouse/elantech.c
+index 09b93b1..e2a9867 100644
+--- a/drivers/input/mouse/elantech.c
++++ b/drivers/input/mouse/elantech.c
+@@ -1210,18 +1210,28 @@ static int elantech_reconnect(struct psmouse *psmouse)
+  */
+ static int elantech_set_properties(struct elantech_data *etd)
+ {
++	/* This represents the version of IC body. */
+ 	int ver = (etd->fw_version & 0x0f0000) >> 16;
+ 
++	/* Early version of Elan touchpads doesn't obey the rule. */
+ 	if (etd->fw_version < 0x020030 || etd->fw_version == 0x020600)
+ 		etd->hw_version = 1;
+-	else if (etd->fw_version < 0x150600)
+-		etd->hw_version = 2;
+-	else if (ver == 5)
+-		etd->hw_version = 3;
+-	else if (ver == 6)
+-		etd->hw_version = 4;
+-	else
+-		return -1;
++	else {
++		switch (ver) {
++		case 2:
++		case 4:
++			etd->hw_version = 2;
++			break;
++		case 5:
++			etd->hw_version = 3;
++			break;
++		case 6:
++			etd->hw_version = 4;
++			break;
++		default:
++			return -1;
++		}
++	}
+ 
+ 	/*
+ 	 * Turn on packet checking by default.

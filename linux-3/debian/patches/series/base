@@ -22,4 +22,4 @@
 + features/all/Kbuild-kconfig-Verbose-version-of-listnewconfig.patch
 
 + bugfix/patch-3.1.6
-
++ bugfix/elantech

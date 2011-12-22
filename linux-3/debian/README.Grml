@@ -20,6 +20,9 @@ To build for an official upload:
   dpkg-buildpackage -S -us -uc
   cowbuilder ...
 
+Don't forget to update linux-meta-grml!
+
+
 For test purposes, just:
   # export DEBIAN_KERNEL_JOBS=8 # if you can spare some CPU cycles
   dpkg-buildpackage

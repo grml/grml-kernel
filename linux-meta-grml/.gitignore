@@ -1,0 +1,6 @@
+debian/files
+debian/debhelper.log
+debian/substvars
+debian/linux-image-amd64-grml
+debian/linux-image-amd64-grml.debhelper.log
+debian/linux-image-amd64-grml.substvars

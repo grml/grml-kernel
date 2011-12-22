@@ -1,0 +1,5 @@
+linux-meta-grml (3.1.0-3+grml.1) grml-testing; urgency=low
+
+  * Initial release.
+
+ -- Christian Hofstaedtler <ch@grml.org>  Thu, 22 Dec 2011 00:41:33 +0100

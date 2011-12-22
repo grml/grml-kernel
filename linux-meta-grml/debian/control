@@ -1,0 +1,25 @@
+Source: linux-meta-grml
+Section: kernel
+Priority: optional
+Maintainer: Grml Team <team@grml.org>
+Standards-Version: 3.9.2
+Build-Depends: debhelper (>= 8)
+Vcs-Git: git://git.grml.org/grml-kernel.git
+Vcs-Browser: http://git.grml.org/?p=grml-kernel.git;a=tree;f=linux-meta-grml
+
+Package: linux-image-amd64-grml
+Architecture: amd64
+Section: kernel
+Depends: linux-image-3.1.0-3-grml-amd64
+Description: The newest Linux kernel for amd64, Grml Edition
+ This package is a meta-package that will always depend on the newest
+ default Linux kernel image (Grml Edition) for amd64 (the arch).
+
+Package: linux-image-i386-grml
+Architecture: i386
+Section: kernel
+Depends: linux-image-3.1.0-3-grml-486
+Description: The newest Linux kernel for i386, Grml Edition
+ This package is a meta-package that will always depend on the newest
+ default Linux kernel image (Grml Edition) for i386 (the arch).
+

@@ -1,6 +1,7 @@
 [base]
 flavours:
  486
+ amd64
 kernel-arch: x86
 
 [image]
@@ -18,3 +19,13 @@ parts: up
 configs:
  kernelarch-x86/config-arch-32
 
+
+[amd64_description]
+hardware: 64-bit PCs
+hardware-long: PCs with AMD64 or Intel 64 processors
+parts: up
+
+[amd64_image]
+configs:
+ kernelarch-x86/config-arch-64
+ kernelarch-x86/config-grml

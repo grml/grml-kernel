@@ -1,3 +1,10 @@
+linux-2.6 (3.1.0-4+grml.1) grml-testing; urgency=low
+
+  * Update to stable release 3.1.8
+  * Bump ABI version
+
+ -- Michael Prokop <mika@grml.org>  Thu, 12 Jan 2012 15:06:42 +0100
+
 linux-2.6 (3.1.0-3+grml.1) grml-testing; urgency=low
 
   * Update to stable release 3.1.6

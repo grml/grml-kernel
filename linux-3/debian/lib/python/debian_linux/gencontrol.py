@@ -1,7 +1,10 @@
-from debian import *
-from utils import SortedDict
+import codecs
+from collections import OrderedDict
 
-class PackagesList(SortedDict):
+from .debian import *
+
+
+class PackagesList(OrderedDict):
     def append(self, package):
         self[package['Package']] = package
 
@@ -9,12 +12,13 @@ class PackagesList(SortedDict):
         for package in packages:
             self[package['Package']] = package
 
+
 class Makefile(object):
     def __init__(self):
         self.rules = {}
         self.add('.NOTPARALLEL')
 
-    def add(self, name, deps = None, cmds = None):
+    def add(self, name, deps=None, cmds=None):
         if name in self.rules:
             self.rules[name].add(deps, cmds)
         else:
@@ -31,12 +35,12 @@ class Makefile(object):
             self.rules[i].write(out)
 
     class Rule(object):
-        def __init__(self, name, deps = None, cmds = None):
+        def __init__(self, name, deps=None, cmds=None):
             self.name = name
             self.deps, self.cmds = set(), []
             self.add(deps, cmds)
 
-        def add(self, deps = None, cmds = None):
+        def add(self, deps=None, cmds=None):
             if deps is not None:
                 self.deps.update(deps)
             if cmds is not None:
@@ -59,6 +63,7 @@ class Makefile(object):
             else:
                 out.write('%s:%s\n' % (self.name, deps_string))
 
+
 class MakeFlags(dict):
     def __repr__(self):
         repr = super(flags, self).__repr__()
@@ -70,12 +75,13 @@ class MakeFlags(dict):
     def copy(self):
         return self.__class__(super(MakeFlags, self).copy())
 
+
 class Gencontrol(object):
     makefile_targets = ('binary-arch', 'build', 'setup', 'source')
 
-    def __init__(self, config, templates, version = Version):
+    def __init__(self, config, templates, version=Version):
         self.config, self.templates = config, templates
-        self.changelog = Changelog(version = version)
+        self.changelog = Changelog(version=version)
 
     def __call__(self):
         packages = PackagesList()
@@ -93,7 +99,7 @@ class Gencontrol(object):
         packages['source'] = self.process_package(source)
 
     def do_main(self, packages, makefile):
-        config_entry = self.config['base',]
+        config_entry = self.config['base', ]
         vars = self.vars.copy()
 
         makeflags = MakeFlags()
@@ -108,13 +114,13 @@ class Gencontrol(object):
         pass
 
     def do_main_makefile(self, makefile, makeflags, extra):
-        makefile.add('binary-indep', cmds = ["$(MAKE) -f debian/rules.real binary-indep %s" % makeflags])
+        makefile.add('binary-indep', cmds=["$(MAKE) -f debian/rules.real binary-indep %s" % makeflags])
 
     def do_main_packages(self, packages, vars, makeflags, extra):
         pass
 
     def do_main_recurse(self, packages, makefile, vars, makeflags, extra):
-        for arch in iter(self.config['base',]['arches']):
+        for arch in iter(self.config['base', ]['arches']):
             self.do_arch(packages, makefile, arch, vars.copy(), makeflags.copy(), extra)
 
     def do_extra(self, packages, makefile):
@@ -136,11 +142,11 @@ class Gencontrol(object):
             cmds = []
             for i in extra_arches[arch]:
                 tmp = []
-                if i.has_key('X-Version-Overwrite-Epoch'):
+                if 'X-Version-Overwrite-Epoch' in i:
                         tmp.append("-v1:%s" % self.version['source'])
                 cmds.append("$(MAKE) -f debian/rules.real install-dummy DH_OPTIONS='-p%s' GENCONTROL_ARGS='%s'" % (i['Package'], ' '.join(tmp)))
-            makefile.add('binary-arch_%s' % arch ['binary-arch_%s_extra' % arch])
-            makefile.add("binary-arch_%s_extra" % arch, cmds = cmds)
+            makefile.add('binary-arch_%s' % arch['binary-arch_%s_extra' % arch])
+            makefile.add("binary-arch_%s_extra" % arch, cmds=cmds)
 
     def do_arch(self, packages, makefile, arch, vars, makeflags, extra):
         vars['arch'] = arch
@@ -218,7 +224,7 @@ class Gencontrol(object):
             ('kernel-arch', 'KERNEL_ARCH'),
             ('localversion', 'LOCALVERSION'),
         ):  
-            if vars.has_key(i[0]):
+            if i[0] in vars:
                 makeflags[i[1]] = vars[i[0]]
 
     def do_flavour_makefile(self, makefile, arch, featureset, flavour, makeflags, extra):
@@ -269,9 +275,11 @@ class Gencontrol(object):
     def substitute(self, s, vars):
         if isinstance(s, (list, tuple)):
             return [self.substitute(i, vars) for i in s]
+
         def subst(match):
             return vars[match.group(1)]
-        return re.sub(r'@([-_a-z]+)@', subst, s)
+
+        return re.sub(r'@([-_a-z]+)@', subst, unicode(s))
 
     def write(self, packages, makefile):
         self.write_control(packages.itervalues())
@@ -283,7 +291,7 @@ class Gencontrol(object):
         f.close()
 
     def write_control(self, list):
-        self.write_rfc822(file("debian/control", 'w'), list)
+        self.write_rfc822(codecs.open("debian/control", 'w', 'utf-8'), list)
 
     def write_makefile(self, makefile):
         f = file("debian/rules.gen", 'w')
@@ -293,7 +301,5 @@ class Gencontrol(object):
     def write_rfc822(self, f, list):
         for entry in list:
             for key, value in entry.iteritems():
-                f.write("%s: %s\n" % (key, value))
-            f.write('\n')
-
-
+                f.write(u"%s: %s\n" % (key, value))
+            f.write(u'\n')

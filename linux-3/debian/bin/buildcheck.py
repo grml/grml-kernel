@@ -44,10 +44,8 @@ class CheckAbi(object):
 
         self.filename_new = "%s/Module.symvers" % dir
 
-        changelog = Changelog(version=VersionLinux)[0]
-        version = changelog.version.linux_version
-        abiname = self.config['abi',]['abiname']
-        self.filename_ref = "debian/abi/%s-%s/%s_%s_%s" % (version, abiname, arch, featureset, flavour)
+        version_abi = self.config['version', ]['abiname']
+        self.filename_ref = "debian/abi/%s/%s_%s_%s" % (version_abi, arch, featureset, flavour)
 
     def __call__(self, out):
         ret = 0
@@ -163,7 +161,7 @@ class CheckAbi(object):
                 raise NotImplementedError
 
         return filtered
- 
+
 
 class CheckImage(object):
     def __init__(self, config, dir, arch, featureset, flavour):

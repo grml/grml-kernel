@@ -82,8 +82,6 @@ $(STAMPS_DIR)/source:
 	mkdir -p '$(DIR)'
 	cp -al $(SOURCE_FILES) '$(DIR)'
 	$(patch_cmd)
-	# Suppress trailing '+' in utsrelease
-	touch '$(DIR)/.scmversion'
 	@$(stamp)
 
 $(STAMPS_DIR)/source_$(ARCH)_$(FEATURESET): SOURCE_DIR=$(BUILD_DIR)/source
@@ -114,7 +112,8 @@ else
 	echo 'endif' >> '$(DIR)/.kernelvariables'
 endif
 ifdef CFLAGS_KERNEL
-	echo 'CFLAGS += $(CFLAGS_KERNEL)'  >> '$(DIR)/.kernelvariables'
+	echo 'CFLAGS_KERNEL += $(CFLAGS_KERNEL)' >> '$(DIR)/.kernelvariables'
+	echo 'CFLAGS_MODULE += $(CFLAGS_KERNEL)' >> '$(DIR)/.kernelvariables'
 endif
 	+$(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' V=1 listnewconfig
 	+yes "" | $(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' oldconfig >/dev/null
@@ -129,8 +128,7 @@ $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-s390x-tape: BUILD_TAR
 
 $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain \
 $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-s390-tape \
-$(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-s390x-tape \
-$(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-xen:
+$(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-s390x-tape:
 	+$(MAKE_CLEAN) -C '$(DIR)' $(BUILD_TARGET)
 	python debian/bin/buildcheck.py $(DIR) $(ARCH) $(FEATURESET) $(FLAVOUR)
 	@$(stamp)
@@ -154,7 +152,7 @@ install-base:
 	dh_shlibdeps
 	dh_gencontrol -- $(GENCONTROL_ARGS)
 	dh_md5sums
-	dh_builddeb -- $(BUILDDEB_ARGS)
+	dh_builddeb -- -Zxz $(BUILDDEB_ARGS)
 
 install-dummy:
 	dh_testdir
@@ -242,6 +240,7 @@ install-headers_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_$(
 
 	mkdir -p $(DIR)/arch/$(KERNEL_ARCH)/kernel
 	cp -a $(SOURCE_DIR)/{.config,.kernel*,Module.symvers,include} $(DIR)
+	cp -a $(SOURCE_DIR)/arch/$(KERNEL_ARCH)/include $(DIR)/arch/$(KERNEL_ARCH)
 	cp -a $(SOURCE_DIR)/arch/$(KERNEL_ARCH)/kernel/asm-offsets.s $(DIR)/arch/$(KERNEL_ARCH)/kernel
 
 ifneq ($(filter powerpc ppc64,$(ARCH)),)
@@ -296,9 +295,14 @@ install-libc-dev_$(ARCH):
 	rm -rf $(OUT_DIR)/include/drm $(OUT_DIR)/include/scsi
 	find $(OUT_DIR)/include \( -name .install -o -name ..install.cmd \) -execdir rm {} +
 
+ifneq (,$(DEB_HOST_MULTIARCH))
 	# Move include/asm to arch-specific directory
 	mkdir -p $(OUT_DIR)/include/$(DEB_HOST_MULTIARCH)
 	mv $(OUT_DIR)/include/asm $(OUT_DIR)/include/$(DEB_HOST_MULTIARCH)/
+	echo linux-libc-dev:Multi-Arch=same >>debian/$(PACKAGE_NAME).substvars
+else
+	echo linux-libc-dev:Multi-Arch= >>debian/$(PACKAGE_NAME).substvars
+endif
 	
 	+$(MAKE_SELF) install-base
 
@@ -334,8 +338,8 @@ install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain:
 	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_image \
 	  DIR='$(DIR)' PACKAGE_DIR='$(PACKAGE_DIR)' INSTALL_DIR='$(INSTALL_DIR)' REAL_VERSION='$(REAL_VERSION)'
 ifeq ($(MODULES),True)
-	+$(MAKE_CLEAN) -C $(DIR) modules_install INSTALL_MOD_PATH='$(CURDIR)'/$(PACKAGE_DIR) INSTALL_MOD_STRIP=1 \
-	  INSTALL_FW_PATH='$(CURDIR)'/$(PACKAGE_DIR)/lib/firmware/$(REAL_VERSION)
+	chmod a+x $(CURDIR)/debian/bin/no-depmod
+	+$(MAKE_CLEAN) -C $(DIR) modules_install DEPMOD='$(CURDIR)/debian/bin/no-depmod' INSTALL_MOD_PATH='$(CURDIR)'/$(PACKAGE_DIR) INSTALL_MOD_STRIP=1
 ifeq ($(DEBUG),True)
 	find $(PACKAGE_DIR) -name '*.ko' | sed 's|$(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/kernel/||' | while read module ; do \
 	  objcopy --add-gnu-debuglink=$(DIR)/$$module $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/kernel/$$module || exit; \
@@ -343,7 +347,9 @@ ifeq ($(DEBUG),True)
 endif
 	cp $(DIR)/.config $(PACKAGE_DIR)/boot/config-$(REAL_VERSION)
 	cp $(DIR)/System.map $(PACKAGE_DIR)/boot/System.map-$(REAL_VERSION)
-	find $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/ -mindepth 1 -maxdepth 1 \! -name kernel \! -name modules.order -exec rm {} \+
+	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/build
+	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/source
+	rm $(PACKAGE_DIR)/lib/firmware -rf
 endif
 	+$(MAKE_SELF) \
 	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_templates \
@@ -436,26 +442,6 @@ install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-s390-tape:
 	install -m644 '$(DIR)/arch/s390/boot/image' $(PACKAGE_DIR)/boot/vmlinuz-$(REAL_VERSION)
 	+$(MAKE_SELF) install-base
 
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-xen: MODULES_PACKAGE_NAME = linux-modules-$(REAL_VERSION)
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-xen: MODULES_PACKAGE_DIR = debian/$(MODULES_PACKAGE_NAME)
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-xen: DH_OPTIONS =
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain-xen:
-	dh_testdir
-	dh_testroot
-	dh_prep
-	dh_installdirs -p$(PACKAGE_NAME) boot 'var/lib/$(PACKAGE_NAME)'
-	dh_installdirs -p$(MODULES_PACKAGE_NAME) boot
-	cp '$(DIR)'/arch/$(KERNEL_ARCH)/boot/vmlinuz $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
-	+$(MAKE_CLEAN) -C $(DIR) modules_install INSTALL_MOD_PATH='$(CURDIR)'/$(MODULES_PACKAGE_DIR)
-	cp $(DIR)/.config $(MODULES_PACKAGE_DIR)/boot/config-$(REAL_VERSION)
-	cp $(DIR)/System.map $(MODULES_PACKAGE_DIR)/boot/System.map-$(REAL_VERSION)
-	rm $(MODULES_PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/{build,source}
-	dh_installmodules -p$(MODULES_PACKAGE_NAME)
-	for i in $(XEN_VERSIONS); do echo $$i; done > $(PACKAGE_DIR)/var/lib/$(PACKAGE_NAME)/xen-versions
-	install -d $(PACKAGE_DIR)/DEBIAN
-	echo /var/lib/$(PACKAGE_NAME)/xen-versions >> $(PACKAGE_DIR)/DEBIAN/conffiles
-	+$(MAKE_SELF) install-base DH_OPTIONS='-p$(PACKAGE_NAME) -p$(MODULES_PACKAGE_NAME)'
-
 install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR): REAL_VERSION = $(ABINAME)$(LOCALVERSION)
 install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR): PACKAGE_NAME = linux-image-$(REAL_VERSION)-dbg
 install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR): PACKAGE_DIR = debian/$(PACKAGE_NAME)
@@ -476,8 +462,9 @@ ifeq ($(MODULES),True)
 	find $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)/ -mindepth 1 -maxdepth 1 \! -name kernel -exec rm {} \+
 	rm $(DEBUG_DIR)/lib/firmware -rf
 endif
-	+$(MAKE_SELF) install-base BUILDDEB_ARGS="-Zxz"
+	+$(MAKE_SELF) install-base
 
+install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=debian/installer
 install-udeb_$(ARCH): export KW_CONFIG_DIR=debian/installer/$(ARCH)
 install-udeb_$(ARCH): DH_OPTIONS=$(PACKAGE_NAMES:%=-p%)
 install-udeb_$(ARCH):

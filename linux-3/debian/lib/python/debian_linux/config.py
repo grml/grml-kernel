@@ -1,10 +1,16 @@
-import os, os.path, re, sys, textwrap
+import os
+import os.path
+import re
+import sys
+import textwrap
+import cPickle
 
 __all__ = [
     'ConfigCoreDump',
     'ConfigCoreHierarchy',
     'ConfigParser',
 ]
+
 
 class SchemaItemBoolean(object):
     def __call__(self, i):
@@ -15,8 +21,9 @@ class SchemaItemBoolean(object):
             return False
         raise Error
 
+
 class SchemaItemList(object):
-    def __init__(self, type = "\s+"):
+    def __init__(self, type="\s+"):
         self.type = type
 
     def __call__(self, i):
@@ -24,6 +31,7 @@ class SchemaItemList(object):
         if not i:
             return []
         return [j.strip() for j in re.split(self.type, i)]
+
 
 class ConfigCore(dict):
     def get_merge(self, section, arch, featureset, flavour, key, default=None):
@@ -55,7 +63,7 @@ class ConfigCore(dict):
 
         return ret or default
 
-    def merge(self, section, arch = None, featureset = None, flavour = None):
+    def merge(self, section, arch=None, featureset=None, flavour=None):
         ret = {}
         ret.update(self.get((section,), {}))
         if featureset:
@@ -70,147 +78,116 @@ class ConfigCore(dict):
         return ret
 
     def dump(self, fp):
-        sections = self.keys()
-        sections.sort()
-        for section in sections:
-            fp.write('[%r]\n' % (section,))
-            items = self[section]
-            items_keys = items.keys()
-            items_keys.sort()
-            for item in items:
-                fp.write('%s: %r\n' % (item, items[item]))
-            fp.write('\n')
+        cPickle.dump(self, fp, 0)
 
-class ConfigCoreDump(ConfigCore):
-    def __init__(self, config = None, fp = None):
-        super(ConfigCoreDump, self).__init__(self)
-        if config is not None:
-            self.update(config)
-        if fp is not None:
-            from ConfigParser import RawConfigParser
-            config = RawConfigParser()
-            config.readfp(fp)
-            for section in config.sections():
-                section_real = eval(section)
-                data = {}
-                for key, value in config.items(section):
-                    value_real = eval(value)
-                    data[key] = value_real
-                self[section_real] = data
 
-class ConfigCoreHierarchy(ConfigCore):
-    config_name = "defines"
+class ConfigCoreDump(object):
+    def __new__(self, fp):
+        return cPickle.load(fp)
 
-    schemas = {
-        'abi': {
-            'ignore-changes': SchemaItemList(),
-        },
+
+class ConfigCoreHierarchy(object):
+    schema_base = {
         'base': {
             'arches': SchemaItemList(),
             'enabled': SchemaItemBoolean(),
             'featuresets': SchemaItemList(),
             'flavours': SchemaItemList(),
-            'modules': SchemaItemBoolean(),
         },
-        'build': {},
-        'description': {
-            'parts': SchemaItemList(),
-        },
-        'image': {
-            'bootloaders': SchemaItemList(),
-            'configs': SchemaItemList(),
-            'initramfs': SchemaItemBoolean(),
-            'initramfs-generators': SchemaItemList(),
-        },
-        'image-dbg': {
-            'enabled': SchemaItemBoolean(),
-        },
-        'relations': {
-        },
-        'xen': {
-            'dom0-support': SchemaItemBoolean(),
-            'flavours': SchemaItemList(),
-            'versions': SchemaItemList(),
-        }
     }
 
-    def __init__(self, dirs = []):
-        super(ConfigCoreHierarchy, self).__init__()
-        self._dirs = dirs
-        self._read_base()
+    def __new__(cls, schema, dirs=[]):
+        schema_complete = cls.schema_base.copy()
+        for key, value in schema.iteritems():
+            schema_complete.setdefault(key, {}).update(value)
+        return cls.Reader(dirs, schema_complete)()
 
-    def _read_arch(self, arch):
-        config = ConfigParser(self.schemas)
-        config.read(self.get_files("%s/%s" % (arch, self.config_name)))
+    class Reader(object):
+        config_name = "defines"
 
-        featuresets = config['base',].get('featuresets', [])
-        flavours = config['base',].get('flavours', [])
+        def __init__(self, dirs, schema):
+            self.dirs, self.schema = dirs, schema
 
-        for section in iter(config):
-            if section[0] in featuresets:
-                real = (section[-1], arch, section[0])
-            elif len(section) > 1:
-                real = (section[-1], arch, None) + section[:-1]
-            else:
-                real = (section[-1], arch) + section[:-1]
-            s = self.get(real, {})
-            s.update(config[section])
-            self[tuple(real)] = s
+        def __call__(self):
+            ret = ConfigCore()
+            self.read(ret)
+            return ret
 
-        for featureset in featuresets:
-            self._read_arch_featureset(arch, featureset)
+        def get_files(self, *dirs):
+            dirs = list(dirs)
+            dirs.append(self.config_name)
+            return (os.path.join(i, *dirs) for i in self.dirs if i)
 
-        if flavours:
-            base = self['base', arch]
-            featuresets.insert(0, 'none')
-            base['featuresets'] = featuresets
-            del base['flavours']
-            self['base', arch] = base
-            self['base', arch, 'none'] = {'flavours': flavours, 'implicit-flavour': True}
+        def read_arch(self, ret, arch):
+            config = ConfigParser(self.schema)
+            config.read(self.get_files(arch))
 
-    def _read_arch_featureset(self, arch, featureset):
-        config = ConfigParser(self.schemas)
-        config.read(self.get_files("%s/%s/%s" % (arch, featureset, self.config_name)))
+            featuresets = config['base', ].get('featuresets', [])
+            flavours = config['base', ].get('flavours', [])
 
-        flavours = config['base',].get('flavours', [])
+            for section in iter(config):
+                if section[0] in featuresets:
+                    real = (section[-1], arch, section[0])
+                elif len(section) > 1:
+                    real = (section[-1], arch, None) + section[:-1]
+                else:
+                    real = (section[-1], arch) + section[:-1]
+                s = ret.get(real, {})
+                s.update(config[section])
+                ret[tuple(real)] = s
 
-        for section in iter(config):
-            real = (section[-1], arch, featureset) + section[:-1]
-            s = self.get(real, {})
-            s.update(config[section])
-            self[tuple(real)] = s
+            for featureset in featuresets:
+                self.read_arch_featureset(ret, arch, featureset)
 
-    def _read_base(self):
-        config = ConfigParser(self.schemas)
-        config.read(self.get_files(self.config_name))
+            if flavours:
+                base = ret['base', arch]
+                featuresets.insert(0, 'none')
+                base['featuresets'] = featuresets
+                del base['flavours']
+                ret['base', arch] = base
+                ret['base', arch, 'none'] = {'flavours': flavours, 'implicit-flavour': True}
 
-        arches = config['base',]['arches']
-        featuresets = config['base',].get('featuresets', [])
+        def read_arch_featureset(self, ret, arch, featureset):
+            config = ConfigParser(self.schema)
+            config.read(self.get_files(arch, featureset))
 
-        for section in iter(config):
-            if section[0].startswith('featureset-'):
-                real = (section[-1], None, section[0].lstrip('featureset-'))
-            else:
-                real = (section[-1],) + section[1:]
-            self[real] = config[section]
+            flavours = config['base', ].get('flavours', [])
 
-        for arch in arches:
-            self._read_arch(arch)
-        for featureset in featuresets:
-            self._read_featureset(featureset)
+            for section in iter(config):
+                real = (section[-1], arch, featureset) + section[:-1]
+                s = ret.get(real, {})
+                s.update(config[section])
+                ret[tuple(real)] = s
 
-    def _read_featureset(self, featureset):
-        config = ConfigParser(self.schemas)
-        config.read(self.get_files("featureset-%s/%s" % (featureset, self.config_name)))
+        def read(self, ret):
+            config = ConfigParser(self.schema)
+            config.read(self.get_files())
 
-        for section in iter(config):
-            real = (section[-1], None, featureset)
-            s = self.get(real, {})
-            s.update(config[section])
-            self[real] = s
+            arches = config['base', ]['arches']
+            featuresets = config['base', ].get('featuresets', [])
 
-    def get_files(self, name):
-        return [os.path.join(i, name) for i in self._dirs if i]
+            for section in iter(config):
+                if section[0].startswith('featureset-'):
+                    real = (section[-1], None, section[0].lstrip('featureset-'))
+                else:
+                    real = (section[-1],) + section[1:]
+                ret[real] = config[section]
+
+            for arch in arches:
+                self.read_arch(ret, arch)
+            for featureset in featuresets:
+                self.read_featureset(ret, featureset)
+
+        def read_featureset(self, ret, featureset):
+            config = ConfigParser(self.schema)
+            config.read(self.get_files('featureset-%s' % featureset))
+
+            for section in iter(config):
+                real = (section[-1], None, featureset)
+                s = ret.get(real, {})
+                s.update(config[section])
+                ret[real] = s
+
 
 class ConfigParser(object):
     __slots__ = '_config', 'schemas'
@@ -236,44 +213,37 @@ class ConfigParser(object):
             data = {}
             for key, value in self._config.items(section):
                 data[key] = value
-            s1 = section.split('_')
-            if s1[-1] in self.schemas:
-                ret[tuple(s1)] = self.SectionSchema(data, self.schemas[s1[-1]])
+            section_list = section.split('_')
+            section_base = section_list[-1]
+            if section_base in self.schemas:
+                section_ret = tuple(section_list)
+                data = self._convert_one(self.schemas[section_base], data)
             else:
-                ret[(section,)] = self.Section(data)
+                section_ret = (section, )
+            ret[section_ret] = data
         return ret
 
+    def _convert_one(self, schema, data):
+        ret = {}
+        for key, value in data.iteritems():
+            if key in schema:
+                value = schema[key](value)
+            ret[key] = value
+        return ret
+ 
     def keys(self):
         return self._convert().keys()
 
     def read(self, data):
         return self._config.read(data)
 
-    class Section(dict):
-        def __init__(self, data):
-            super(ConfigParser.Section, self).__init__(data)
-
-    class SectionSchema(Section):
-        __slots__ = ()
-
-        def __init__(self, data, schema):
-            for key in data.keys():
-                try:
-                    data[key] = schema[key](data[key])
-                except KeyError: pass
-            super(ConfigParser.SectionSchema, self).__init__(data)
 
 if __name__ == '__main__':
     import sys
-    config = ConfigCoreHierarchy(['debian/config'])
-    sections = config.keys()
-    sections.sort()
-    for section in sections:
-        print "[%s]" % (section,)
-        items = config[section]
-        items_keys = items.keys()
-        items_keys.sort()
-        for item in items:
-            print "%s: %s" % (item, items[item])
+    sys.path.append('debian/lib/python')
+    config = ConfigCoreDump(open('debian/config.defines.dump'))
+    for section, items in sorted(config.iteritems()):
+        print u"[%s]" % (section,)
+        for item, value in sorted(items.iteritems()):
+            print u"%s: %s" % (item, value)
         print
-

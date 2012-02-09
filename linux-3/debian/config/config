@@ -197,7 +197,10 @@ CONFIG_EXTRA_FIRMWARE=""
 ##
 ## file: drivers/bcma/Kconfig
 ##
-# CONFIG_BCMA is not set
+CONFIG_BCMA=m
+CONFIG_BCMA_HOST_PCI=y
+# CONFIG_BCMA_DRIVER_PCI_HOSTMODE is not set
+# CONFIG_BCMA_DEBUG is not set
 
 ##
 ## file: drivers/block/Kconfig
@@ -386,7 +389,6 @@ CONFIG_HID_LCPOWER=m
 CONFIG_LOGITECH_FF=y
 CONFIG_LOGIRUMBLEPAD2_FF=y
 CONFIG_LOGIG940_FF=y
-CONFIG_LOGIWII_FF=y
 CONFIG_HID_MAGICMOUSE=m
 CONFIG_HID_MULTITOUCH=m
 CONFIG_HID_NTRIG=m
@@ -423,6 +425,11 @@ CONFIG_HID_ZYDACRON=m
 ##
 CONFIG_HID_PID=y
 CONFIG_USB_HIDDEV=y
+
+##
+## file: drivers/hv/Kconfig
+##
+# CONFIG_HYPERV is not set
 
 ##
 ## file: drivers/hwmon/Kconfig
@@ -705,7 +712,6 @@ CONFIG_KEYBOARD_STOWAWAY=m
 # CONFIG_INPUT_AD714X is not set
 # CONFIG_INPUT_MMA8450 is not set
 # CONFIG_INPUT_MPU3050 is not set
-CONFIG_INPUT_ATI_REMOTE=m
 CONFIG_INPUT_ATI_REMOTE2=m
 CONFIG_INPUT_KEYSPAN_REMOTE=m
 # CONFIG_INPUT_KXTJ9 is not set
@@ -849,7 +855,6 @@ CONFIG_MISDN_L1OIP=m
 CONFIG_NEW_LEDS=y
 CONFIG_LEDS_CLASS=y
 CONFIG_LEDS_NET48XX=m
-CONFIG_LEDS_ALIX2=m
 CONFIG_LEDS_PCA9532=m
 # CONFIG_LEDS_GPIO is not set
 CONFIG_LEDS_LP3944=m
@@ -888,6 +893,7 @@ CONFIG_BLK_DEV_DM=m
 # CONFIG_DM_DEBUG is not set
 CONFIG_DM_CRYPT=m
 CONFIG_DM_SNAPSHOT=m
+CONFIG_DM_THIN_PROVISIONING=m
 CONFIG_DM_MIRROR=m
 CONFIG_DM_RAID=m
 CONFIG_DM_LOG_USERSPACE=m
@@ -979,6 +985,7 @@ CONFIG_DVB_USB_EC168=m
 CONFIG_DVB_USB_AZ6027=m
 CONFIG_DVB_USB_LME2510=m
 CONFIG_DVB_USB_TECHNISAT_USB2=m
+CONFIG_DVB_USB_IT913X=m
 
 ##
 ## file: drivers/media/dvb/firewire/Kconfig
@@ -1162,6 +1169,8 @@ CONFIG_VIDEO_SAA7185=m
 CONFIG_VIDEO_ADV7170=m
 CONFIG_VIDEO_ADV7175=m
 CONFIG_VIDEO_OV7670=m
+CONFIG_VIDEO_SR030PC30=m
+CONFIG_VIDEO_NOON010PC30=m
 CONFIG_VIDEO_UPD64031A=m
 CONFIG_VIDEO_UPD64083=m
 CONFIG_VIDEO_VIVI=m
@@ -1173,8 +1182,6 @@ CONFIG_VIDEO_MEYE=m
 CONFIG_VIDEO_MXB=m
 CONFIG_VIDEO_HEXIUM_ORION=m
 CONFIG_VIDEO_HEXIUM_GEMINI=m
-CONFIG_VIDEO_SR030PC30=m
-CONFIG_VIDEO_NOON010PC30=m
 CONFIG_SOC_CAMERA=m
 CONFIG_SOC_CAMERA_IMX074=m
 CONFIG_SOC_CAMERA_MT9M001=m
@@ -1232,6 +1239,11 @@ CONFIG_VIDEO_CX231XX_DVB=m
 ## file: drivers/media/video/cx23885/Kconfig
 ##
 CONFIG_VIDEO_CX23885=m
+
+##
+## file: drivers/media/video/cx25821/Kconfig
+##
+# CONFIG_VIDEO_CX25821 is not set
 
 ##
 ## file: drivers/media/video/cx25840/Kconfig
@@ -1441,7 +1453,6 @@ CONFIG_I2O_BUS=m
 ##
 ## file: drivers/mfd/Kconfig
 ##
-CONFIG_MFD_SUPPORT=y
 CONFIG_MFD_SM501=m
 CONFIG_HTC_PASIC3=m
 # CONFIG_UCB1400_CORE is not set
@@ -1638,108 +1649,17 @@ CONFIG_MTD_UBI_BEB_RESERVE=1
 ## file: drivers/net/Kconfig
 ##
 CONFIG_NETDEVICES=y
-CONFIG_IFB=m
-CONFIG_DUMMY=m
 CONFIG_BONDING=m
+CONFIG_DUMMY=m
+CONFIG_EQUALIZER=m
+CONFIG_MII=m
+CONFIG_IFB=m
 CONFIG_MACVLAN=m
 CONFIG_MACVTAP=m
-CONFIG_EQUALIZER=m
-CONFIG_TUN=m
-CONFIG_VETH=m
-CONFIG_MII=m
-CONFIG_NET_ETHERNET=y
-CONFIG_CASSINI=m
-CONFIG_ENC28J60=m
-# CONFIG_ENC28J60_WRITEVERIFY is not set
-CONFIG_ETHOC=m
-CONFIG_DNET=m
-CONFIG_PCNET32=m
-CONFIG_KSZ884X_PCI=m
-CONFIG_R6040=m
-CONFIG_SMSC9420=m
-CONFIG_TLAN=m
-CONFIG_KS8842=m
-CONFIG_KS8851=m
-CONFIG_KS8851_MLL=m
-CONFIG_SC92031=m
-# CONFIG_NET_POCKET is not set
-CONFIG_ATL2=m
-CONFIG_NETDEV_1000=y
-CONFIG_ACENIC=m
-# CONFIG_ACENIC_OMIT_TIGON_I is not set
-CONFIG_DL2K=m
-CONFIG_E1000=m
-CONFIG_E1000E=m
-CONFIG_IP1000=m
-CONFIG_IGB=m
-CONFIG_IGB_DCA=y
-CONFIG_IGBVF=m
-CONFIG_NS83820=m
-CONFIG_HAMACHI=m
-CONFIG_YELLOWFIN=m
-CONFIG_R8169=m
-CONFIG_SIS190=m
-CONFIG_SKGE=m
-# CONFIG_SKGE_DEBUG is not set
-CONFIG_SKGE_GENESIS=y
-CONFIG_SKY2=m
-# CONFIG_SKY2_DEBUG is not set
-CONFIG_VIA_VELOCITY=m
-CONFIG_TIGON3=m
-CONFIG_BNX2=m
-CONFIG_CNIC=m
-CONFIG_QLA3XXX=m
-CONFIG_ATL1=m
-CONFIG_ATL1E=m
-CONFIG_ATL1C=m
-CONFIG_JME=m
-# CONFIG_PCH_GBE is not set
-CONFIG_NETDEV_10000=y
-CONFIG_CHELSIO_T1=m
-CONFIG_CHELSIO_T1_1G=y
-CONFIG_CHELSIO_T3=m
-CONFIG_CHELSIO_T4=m
-CONFIG_CHELSIO_T4VF=m
-CONFIG_ENIC=m
-CONFIG_IXGBE=m
-CONFIG_IXGBE_DCA=y
-CONFIG_IXGBE_DCB=y
-CONFIG_IXGBEVF=m
-CONFIG_IXGB=m
-CONFIG_S2IO=m
-CONFIG_VXGE=m
-# CONFIG_VXGE_DEBUG_TRACE_ALL is not set
-CONFIG_MYRI10GE=m
-CONFIG_MYRI10GE_DCA=y
-CONFIG_NETXEN_NIC=m
-CONFIG_NIU=m
-CONFIG_MLX4_EN=m
-CONFIG_MLX4_DEBUG=y
-CONFIG_TEHUTI=m
-CONFIG_BNX2X=m
-CONFIG_QLCNIC=m
-CONFIG_QLGE=m
-CONFIG_BNA=m
-CONFIG_DEFXX=m
-# CONFIG_DEFXX_MMIO is not set
-CONFIG_PPP=m
-CONFIG_PPP_MULTILINK=y
-CONFIG_PPP_FILTER=y
-CONFIG_PPP_ASYNC=m
-CONFIG_PPP_SYNC_TTY=m
-CONFIG_PPP_DEFLATE=m
-CONFIG_PPP_BSDCOMP=m
-CONFIG_PPP_MPPE=m
-CONFIG_PPPOE=m
-CONFIG_PPTP=m
-CONFIG_PPPOATM=m
-CONFIG_PPPOL2TP=m
-CONFIG_SLIP=m
-CONFIG_SLIP_COMPRESSED=y
-CONFIG_SLIP_SMART=y
-CONFIG_SLIP_MODE_SLIP6=y
 CONFIG_NETCONSOLE=m
 CONFIG_NETCONSOLE_DYNAMIC=y
+CONFIG_TUN=m
+CONFIG_VETH=m
 CONFIG_VIRTIO_NET=m
 CONFIG_VMXNET3=m
 
@@ -1752,11 +1672,6 @@ CONFIG_LTPC=m
 CONFIG_IPDDP=m
 CONFIG_IPDDP_ENCAP=y
 CONFIG_IPDDP_DECAP=y
-
-##
-## file: drivers/net/benet/Kconfig
-##
-CONFIG_BE2NET=m
 
 ##
 ## file: drivers/net/can/Kconfig
@@ -1780,7 +1695,9 @@ CONFIG_CAN_MCP251X=m
 CONFIG_CAN_SJA1000=m
 CONFIG_CAN_SJA1000_ISA=m
 # CONFIG_CAN_SJA1000_PLATFORM is not set
+CONFIG_CAN_EMS_PCMCIA=m
 CONFIG_CAN_EMS_PCI=m
+CONFIG_CAN_PEAK_PCI=m
 CONFIG_CAN_KVASER_PCI=m
 CONFIG_CAN_PLX_PCI=m
 CONFIG_CAN_TSCAN1=m
@@ -1796,6 +1713,281 @@ CONFIG_CAN_SOFTING_CS=m
 ##
 CONFIG_CAN_EMS_USB=m
 CONFIG_CAN_ESD_USB2=m
+
+##
+## file: drivers/net/ethernet/Kconfig
+##
+CONFIG_ETHERNET=y
+CONFIG_DNET=m
+CONFIG_JME=m
+CONFIG_ETHOC=m
+
+##
+## file: drivers/net/ethernet/alteon/Kconfig
+##
+CONFIG_NET_VENDOR_ALTEON=y
+CONFIG_ACENIC=m
+# CONFIG_ACENIC_OMIT_TIGON_I is not set
+
+##
+## file: drivers/net/ethernet/amd/Kconfig
+##
+CONFIG_NET_VENDOR_AMD=y
+CONFIG_PCNET32=m
+
+##
+## file: drivers/net/ethernet/atheros/Kconfig
+##
+CONFIG_NET_VENDOR_ATHEROS=y
+CONFIG_ATL2=m
+CONFIG_ATL1=m
+CONFIG_ATL1E=m
+CONFIG_ATL1C=m
+
+##
+## file: drivers/net/ethernet/broadcom/Kconfig
+##
+CONFIG_NET_VENDOR_BROADCOM=y
+CONFIG_BNX2=m
+CONFIG_CNIC=m
+CONFIG_TIGON3=m
+CONFIG_BNX2X=m
+
+##
+## file: drivers/net/ethernet/brocade/Kconfig
+##
+CONFIG_NET_VENDOR_BROCADE=y
+
+##
+## file: drivers/net/ethernet/brocade/bna/Kconfig
+##
+CONFIG_BNA=m
+
+##
+## file: drivers/net/ethernet/chelsio/Kconfig
+##
+CONFIG_NET_VENDOR_CHELSIO=y
+CONFIG_CHELSIO_T1=m
+CONFIG_CHELSIO_T1_1G=y
+CONFIG_CHELSIO_T3=m
+CONFIG_CHELSIO_T4=m
+CONFIG_CHELSIO_T4VF=m
+
+##
+## file: drivers/net/ethernet/cisco/Kconfig
+##
+CONFIG_NET_VENDOR_CISCO=y
+
+##
+## file: drivers/net/ethernet/cisco/enic/Kconfig
+##
+CONFIG_ENIC=m
+
+##
+## file: drivers/net/ethernet/dec/tulip/Kconfig
+##
+CONFIG_DE2104X_DSL=0
+CONFIG_TULIP_NAPI=y
+CONFIG_TULIP_NAPI_HW_MITIGATION=y
+# CONFIG_DE4X5 is not set
+CONFIG_ULI526X=m
+
+##
+## file: drivers/net/ethernet/dlink/Kconfig
+##
+CONFIG_NET_VENDOR_DLINK=y
+CONFIG_DL2K=m
+
+##
+## file: drivers/net/ethernet/emulex/Kconfig
+##
+CONFIG_NET_VENDOR_EMULEX=y
+
+##
+## file: drivers/net/ethernet/emulex/benet/Kconfig
+##
+CONFIG_BE2NET=m
+
+##
+## file: drivers/net/ethernet/icplus/Kconfig
+##
+CONFIG_IP1000=m
+
+##
+## file: drivers/net/ethernet/intel/Kconfig
+##
+CONFIG_NET_VENDOR_INTEL=y
+CONFIG_E1000=m
+CONFIG_E1000E=m
+CONFIG_IGB=m
+CONFIG_IGB_DCA=m
+CONFIG_IGBVF=m
+CONFIG_IXGB=m
+CONFIG_IXGBE=m
+CONFIG_IXGBE_DCA=y
+CONFIG_IXGBE_DCB=y
+CONFIG_IXGBEVF=m
+
+##
+## file: drivers/net/ethernet/marvell/Kconfig
+##
+CONFIG_NET_VENDOR_MARVELL=y
+CONFIG_SKGE=m
+# CONFIG_SKGE_DEBUG is not set
+CONFIG_SKGE_GENESIS=y
+CONFIG_SKY2=m
+# CONFIG_SKY2_DEBUG is not set
+
+##
+## file: drivers/net/ethernet/mellanox/Kconfig
+##
+CONFIG_NET_VENDOR_MELLANOX=y
+
+##
+## file: drivers/net/ethernet/mellanox/mlx4/Kconfig
+##
+CONFIG_MLX4_EN=m
+CONFIG_MLX4_DEBUG=y
+
+##
+## file: drivers/net/ethernet/micrel/Kconfig
+##
+CONFIG_NET_VENDOR_MICREL=y
+CONFIG_KS8842=m
+CONFIG_KS8851=m
+CONFIG_KS8851_MLL=m
+CONFIG_KSZ884X_PCI=m
+
+##
+## file: drivers/net/ethernet/microchip/Kconfig
+##
+CONFIG_NET_VENDOR_MICROCHIP=y
+CONFIG_ENC28J60=m
+# CONFIG_ENC28J60_WRITEVERIFY is not set
+
+##
+## file: drivers/net/ethernet/myricom/Kconfig
+##
+CONFIG_NET_VENDOR_MYRI=y
+CONFIG_MYRI10GE=m
+CONFIG_MYRI10GE_DCA=y
+
+##
+## file: drivers/net/ethernet/natsemi/Kconfig
+##
+CONFIG_NET_VENDOR_NATSEMI=y
+CONFIG_NS83820=m
+
+##
+## file: drivers/net/ethernet/neterion/Kconfig
+##
+CONFIG_NET_VENDOR_EXAR=y
+CONFIG_S2IO=m
+CONFIG_VXGE=m
+# CONFIG_VXGE_DEBUG_TRACE_ALL is not set
+
+##
+## file: drivers/net/ethernet/oki-semi/Kconfig
+##
+CONFIG_NET_VENDOR_OKI=y
+
+##
+## file: drivers/net/ethernet/oki-semi/pch_gbe/Kconfig
+##
+# CONFIG_PCH_GBE is not set
+
+##
+## file: drivers/net/ethernet/packetengines/Kconfig
+##
+CONFIG_NET_PACKET_ENGINE=y
+CONFIG_HAMACHI=m
+CONFIG_YELLOWFIN=m
+
+##
+## file: drivers/net/ethernet/qlogic/Kconfig
+##
+CONFIG_NET_VENDOR_QLOGIC=y
+CONFIG_QLA3XXX=m
+CONFIG_QLCNIC=m
+CONFIG_QLGE=m
+CONFIG_NETXEN_NIC=m
+
+##
+## file: drivers/net/ethernet/rdc/Kconfig
+##
+CONFIG_NET_VENDOR_RDC=y
+CONFIG_R6040=m
+
+##
+## file: drivers/net/ethernet/realtek/Kconfig
+##
+CONFIG_NET_VENDOR_REALTEK=y
+CONFIG_R8169=m
+
+##
+## file: drivers/net/ethernet/sfc/Kconfig
+##
+CONFIG_SFC=m
+CONFIG_SFC_MTD=y
+
+##
+## file: drivers/net/ethernet/silan/Kconfig
+##
+CONFIG_NET_VENDOR_SILAN=y
+CONFIG_SC92031=m
+
+##
+## file: drivers/net/ethernet/sis/Kconfig
+##
+CONFIG_NET_VENDOR_SIS=y
+CONFIG_SIS190=m
+
+##
+## file: drivers/net/ethernet/smsc/Kconfig
+##
+CONFIG_NET_VENDOR_SMSC=y
+CONFIG_SMSC9420=m
+
+##
+## file: drivers/net/ethernet/stmicro/Kconfig
+##
+CONFIG_NET_VENDOR_STMICRO=y
+
+##
+## file: drivers/net/ethernet/stmicro/stmmac/Kconfig
+##
+# CONFIG_STMMAC_ETH is not set
+
+##
+## file: drivers/net/ethernet/sun/Kconfig
+##
+CONFIG_NET_VENDOR_SUN=y
+CONFIG_CASSINI=m
+CONFIG_NIU=m
+
+##
+## file: drivers/net/ethernet/tehuti/Kconfig
+##
+CONFIG_NET_VENDOR_TEHUTI=y
+CONFIG_TEHUTI=m
+
+##
+## file: drivers/net/ethernet/ti/Kconfig
+##
+CONFIG_NET_VENDOR_TI=y
+CONFIG_TLAN=m
+
+##
+## file: drivers/net/ethernet/via/Kconfig
+##
+CONFIG_NET_VENDOR_VIA=y
+CONFIG_VIA_VELOCITY=m
+
+##
+## file: drivers/net/fddi/Kconfig
+##
+CONFIG_DEFXX=m
+# CONFIG_DEFXX_MMIO is not set
 
 ##
 ## file: drivers/net/hamradio/Kconfig
@@ -1829,11 +2021,6 @@ CONFIG_KS959_DONGLE=m
 CONFIG_MCS_FIR=m
 
 ##
-## file: drivers/net/pcmcia/Kconfig
-##
-CONFIG_PCMCIA_IBMTR=m
-
-##
 ## file: drivers/net/phy/Kconfig
 ##
 CONFIG_PHYLIB=m
@@ -1852,25 +2039,40 @@ CONFIG_NATIONAL_PHY=m
 CONFIG_STE10XP=m
 CONFIG_LSI_ET1011C_PHY=m
 CONFIG_MICREL_PHY=m
-CONFIG_FIXED_PHY=y
+#. Must only be enabled for specific flavours
+# CONFIG_FIXED_PHY is not set
 CONFIG_MDIO_BITBANG=m
 # CONFIG_MDIO_GPIO is not set
 
 ##
-## file: drivers/net/sfc/Kconfig
+## file: drivers/net/ppp/Kconfig
 ##
-CONFIG_SFC=m
-CONFIG_SFC_MTD=y
+CONFIG_PPP=m
+CONFIG_PPP_BSDCOMP=m
+CONFIG_PPP_DEFLATE=m
+CONFIG_PPP_FILTER=y
+CONFIG_PPP_MPPE=m
+CONFIG_PPP_MULTILINK=y
+CONFIG_PPPOATM=m
+CONFIG_PPPOE=m
+CONFIG_PPTP=m
+CONFIG_PPPOL2TP=m
+CONFIG_PPP_ASYNC=m
+CONFIG_PPP_SYNC_TTY=m
 
 ##
-## file: drivers/net/stmmac/Kconfig
+## file: drivers/net/slip/Kconfig
 ##
-# CONFIG_STMMAC_ETH is not set
+CONFIG_SLIP=m
+CONFIG_SLIP_COMPRESSED=y
+CONFIG_SLIP_SMART=y
+CONFIG_SLIP_MODE_SLIP6=y
 
 ##
 ## file: drivers/net/tokenring/Kconfig
 ##
 CONFIG_TR=y
+CONFIG_PCMCIA_IBMTR=m
 CONFIG_IBMTR=m
 CONFIG_IBMOL=m
 CONFIG_IBMLS=m
@@ -1881,15 +2083,6 @@ CONFIG_SKISA=m
 CONFIG_PROTEON=m
 CONFIG_ABYSS=m
 CONFIG_SMCTR=m
-
-##
-## file: drivers/net/tulip/Kconfig
-##
-CONFIG_DE2104X_DSL=0
-CONFIG_TULIP_NAPI=y
-CONFIG_TULIP_NAPI_HW_MITIGATION=y
-# CONFIG_DE4X5 is not set
-CONFIG_ULI526X=m
 
 ##
 ## file: drivers/net/usb/Kconfig
@@ -1995,15 +2188,18 @@ CONFIG_ATH9K_HTC=m
 CONFIG_CARL9170=m
 CONFIG_CARL9170_LEDS=y
 # CONFIG_CARL9170_DEBUGFS is not set
+# CONFIG_CARL9170_HWRNG is not set
 
 ##
 ## file: drivers/net/wireless/b43/Kconfig
 ##
 CONFIG_B43=m
+CONFIG_B43_BCMA=y
 CONFIG_B43_PCMCIA=y
 CONFIG_B43_SDIO=y
 CONFIG_B43_PHY_N=y
 CONFIG_B43_PHY_LP=y
+CONFIG_B43_PHY_HT=y
 # CONFIG_B43_DEBUG is not set
 
 ##
@@ -2016,6 +2212,13 @@ CONFIG_B43LEGACY_DMA_AND_PIO_MODE=y
 # CONFIG_B43LEGACY_DMA_MODE is not set
 # CONFIG_B43LEGACY_PIO_MODE is not set
 ## end choice
+
+##
+## file: drivers/net/wireless/brcm80211/Kconfig
+##
+CONFIG_BRCMSMAC=m
+# CONFIG_BRCMFMAC is not set
+# CONFIG_BRCMDBG is not set
 
 ##
 ## file: drivers/net/wireless/hostap/Kconfig
@@ -2049,7 +2252,7 @@ CONFIG_IWL3945=m
 ##
 ## file: drivers/net/wireless/iwlwifi/Kconfig
 ##
-CONFIG_IWLAGN=m
+CONFIG_IWLWIFI=m
 # CONFIG_IWLWIFI_DEBUG is not set
 # CONFIG_IWLWIFI_DEVICE_TRACING is not set
 # CONFIG_IWLWIFI_DEVICE_SVTOOL is not set
@@ -2382,8 +2585,8 @@ CONFIG_SCSI_AHA1542=m
 CONFIG_SCSI_AHA1740=m
 CONFIG_SCSI_AACRAID=m
 CONFIG_SCSI_AIC7XXX_OLD=m
+CONFIG_SCSI_MVUMI=m
 CONFIG_SCSI_ADVANSYS=m
-# CONFIG_SCSI_ARCMSR_AER is not set
 CONFIG_SCSI_HPTIOP=m
 CONFIG_VMWARE_PVSCSI=m
 CONFIG_LIBFC=m
@@ -2557,11 +2760,6 @@ CONFIG_STAGING=y
 # CONFIG_CRYSTALHD is not set
 
 ##
-## file: drivers/staging/cx25821/Kconfig
-##
-# CONFIG_VIDEO_CX25821 is not set
-
-##
 ## file: drivers/staging/echo/Kconfig
 ##
 # CONFIG_ECHO is not set
@@ -2577,16 +2775,6 @@ CONFIG_STAGING=y
 # CONFIG_TRANZPORT is not set
 
 ##
-## file: drivers/staging/go7007/Kconfig
-##
-# CONFIG_VIDEO_GO7007 is not set
-
-##
-## file: drivers/staging/hv/Kconfig
-##
-# CONFIG_HYPERV is not set
-
-##
 ## file: drivers/staging/iio/Kconfig
 ##
 # CONFIG_IIO is not set
@@ -2595,6 +2783,11 @@ CONFIG_STAGING=y
 ## file: drivers/staging/line6/Kconfig
 ##
 # CONFIG_LINE6_USB is not set
+
+##
+## file: drivers/staging/media/Kconfig
+##
+# CONFIG_STAGING_MEDIA is not set
 
 ##
 ## file: drivers/staging/panel/Kconfig
@@ -3936,12 +4129,14 @@ CONFIG_BRIDGE_EBT_NFLOG=m
 CONFIG_CAN=m
 CONFIG_CAN_RAW=m
 CONFIG_CAN_BCM=m
+CONFIG_CAN_GW=m
 
 ##
 ## file: net/ceph/Kconfig
 ##
 CONFIG_CEPH_LIB=m
 # CONFIG_CEPH_LIB_PRETTYDEBUG is not set
+# CONFIG_CEPH_LIB_USE_DNS_RESOLVER is not set
 
 ##
 ## file: net/dcb/Kconfig
@@ -3981,6 +4176,7 @@ CONFIG_IP_DCCP_CCID3=y
 ## file: net/ieee802154/Kconfig
 ##
 CONFIG_IEEE802154=m
+CONFIG_IEEE802154_6LOWPAN=m
 
 ##
 ## file: net/ipv4/Kconfig
@@ -4278,6 +4474,11 @@ CONFIG_IP_VS_PE_SIP=m
 CONFIG_NFC=m
 
 ##
+## file: net/nfc/nci/Kconfig
+##
+CONFIG_NFC_NCI=m
+
+##
 ## file: net/packet/Kconfig
 ##
 CONFIG_PACKET=y
@@ -4453,7 +4654,8 @@ CONFIG_DEFAULT_SECURITY_DAC=y
 ##
 ## file: security/apparmor/Kconfig
 ##
-# CONFIG_SECURITY_APPARMOR is not set
+CONFIG_SECURITY_APPARMOR=y
+CONFIG_SECURITY_APPARMOR_BOOTPARAM_VALUE=1
 
 ##
 ## file: security/integrity/ima/Kconfig
@@ -4612,4 +4814,14 @@ CONFIG_SND_USB_6FIRE=m
 ## file: usr/Kconfig
 ##
 CONFIG_INITRAMFS_SOURCE=""
+
+##
+## file: unknown
+##
+CONFIG_INPUT_ATI_REMOTE=m
+# CONFIG_JUMP_LABEL is not set
+CONFIG_LEDS_ALIX2=m
+CONFIG_LOGIWII_FF=y
+CONFIG_MFD_SUPPORT=y
+# CONFIG_SCSI_ARCMSR_AER is not set
 

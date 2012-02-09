@@ -1,3 +1,9 @@
+linux-2.6 (3.2.0-1+grml.1) grml-testing; urgency=low
+
+  * Grml build of 3.2.5.
+
+ -- Michael Prokop <mika@grml.org>  Thu, 09 Feb 2012 14:43:36 +0100
+
 linux-2.6 (3.1.0-4+grml.1) grml-testing; urgency=low
 
   * Update to stable release 3.1.8

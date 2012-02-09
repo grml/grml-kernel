@@ -1,3 +1,9 @@
+linux-meta-grml (3.2.0-1+grml.1) grml-testing; urgency=low
+
+  * Release for kernel version 3.2.0-1.
+
+ -- Michael Prokop <mika@grml.org>  Thu, 09 Feb 2012 17:17:33 +0100
+
 linux-meta-grml (3.1.0-3+grml.2) grml-testing; urgency=low
 
   * Update for new kernel release.

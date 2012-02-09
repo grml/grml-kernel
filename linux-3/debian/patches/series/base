@@ -2,9 +2,9 @@
 + debian/kernelvariables.patch
 + debian/doc-build-parallel.patch
 
-+ features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
+#+ features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
 
-+ features/all/sound-pci-cs46xx-request_firmware.patch
+#+ features/all/sound-pci-cs46xx-request_firmware.patch
 
 # Patches and source files from aufs3 repository, imported with
 # debian/patches/features/all/aufs3/gen-patch.

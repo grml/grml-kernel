@@ -1,6 +1,7 @@
 Section: kernel
 Priority: optional
 Maintainer: Grml Team <team@grml.org>
+Uploaders: Michael Prokop <mika@grml.org>
 Standards-Version: 3.9.2
 Build-Depends: debhelper (>> 7), cpio, module-init-tools, python (>= 2.6.6-3~), lzma [armel], kernel-wedge (>= 2.83)
 Build-Depends-Indep: bzip2, xmlto

@@ -1,3 +1,15 @@
+linux-2.6 (3.3.6-1+grml.1) grml-testing; urgency=low
+
+  * Update to stable release 3.3.6
+  * Bump ABI version
+  * Disable debian/revert-CIFS-Respect-negotiated-MaxMpxCount.patch
+  * Drop 0012-tools-include-Add-byteshift-headers-for-endian-acces.patch
+    (became part of 3.3.5)
+  * Drop NFSv4-Ensure-that-the-LOCK-code-sets-exception-inode.patch
+    (became part of 3.3.5)
+
+ -- Michael Prokop <mika@grml.org>  Mon, 14 May 2012 20:11:33 +0200
+
 linux-2.6 (3.3.4-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.3.4 based on Debian's 3.3.4-1~experimental.1.

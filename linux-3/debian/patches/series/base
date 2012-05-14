@@ -99,7 +99,6 @@
 + features/x86/hyperv/0077-hv-remove-the-second-argument-of-k-un-map_atomic.patch
 
 + features/x86/efi-stub/0011-x86-efi-Fix-pointer-math-issue-in-handle_ramdisks.patch
-+ features/x86/efi-stub/0012-tools-include-Add-byteshift-headers-for-endian-acces.patch
 + features/x86/efi-stub/0013-x86-mkpiggy-Don-t-open-code-put_unaligned_le32.patch
 + features/x86/efi-stub/0014-x86-boot-Restrict-CFLAGS-for-hostprogs.patch
 + features/x86/efi-stub/0015-x86-efi-Fix-endian-issues-and-unaligned-accesses.patch

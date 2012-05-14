@@ -39,8 +39,6 @@
 + bugfix/all/dm-Deal-with-merge_bvec_fn-in-component-devices-bett.patch
 + features/all/Kbuild-kconfig-Verbose-version-of-listnewconfig.patch
 
-+ bugfix/patch-3.3.4
-
 + debian/sched-autogroup-disabled.patch
 + bugfix/all/rt2800-disable-powersaving-as-default.patch
 + features/all/cgroups-Allow-memory-cgroup-support-to-be-included-b.patch

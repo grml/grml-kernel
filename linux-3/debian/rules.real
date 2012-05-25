@@ -344,7 +344,7 @@ endif
 	cp $(DIR)/System.map $(PACKAGE_DIR)/boot/System.map-$(REAL_VERSION)
 	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/build
 	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/source
-	rm $(PACKAGE_DIR)/lib/firmware -rf
+
 endif
 	+$(MAKE_SELF) \
 	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_templates \

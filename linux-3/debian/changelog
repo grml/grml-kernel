@@ -1,3 +1,17 @@
+linux-2.6 (3.3.7-1+grml.1) grml-testing; urgency=low
+
+  * Update to stable release 3.3.7, dropping included patches:
+    - bugfix/all/NFSv4-Ensure-that-we-check-lock-exclusive-shared-typ.patch
+    - bugfix/all/revert-autofs-work-around-unhappy-compat-problem-on-.patch
+    - bugfix/arm/ARM-orion5x-Fix-GPIO-enable-bits-for-MPP9.patch
+    - bugfix/x86/dell-laptop-terminate-quirks-list-properly.patch
+    - bugfix/x86/drm-i915-fix-integer-overflow-in-i915_gem_*
+    - features/x86/efi-stub/*
+  * Do not remove the firmware directory during build
+  * Bump ABI version
+
+ -- Michael Prokop <mika@grml.org>  Fri, 25 May 2012 16:22:37 +0200
+
 linux-2.6 (3.3.6-1+grml.1) grml-testing; urgency=low
 
   * Update to stable release 3.3.6

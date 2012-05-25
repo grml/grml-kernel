@@ -1,3 +1,9 @@
+linux-2.6 (3.3.7-1+grml.2) grml-testing; urgency=low
+
+  * Install firmware files to /lib/firmware/$(REAL_VERSION)
+
+ -- Michael Prokop <mika@grml.org>  Sat, 26 May 2012 00:03:20 +0200
+
 linux-2.6 (3.3.7-1+grml.1) grml-testing; urgency=low
 
   * Update to stable release 3.3.7, dropping included patches:

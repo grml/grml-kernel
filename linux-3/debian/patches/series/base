@@ -98,4 +98,3 @@
 
 + bugfix/all/brcmsmac-INTERMEDIATE-but-not-AMPDU-only-when-tracin.patch
 + bugfix/all/NFSv4-Rate-limit-the-state-manager-for-lock-reclaim-.patch
-+ bugfix/x86/dell-laptop-terminate-quirks-list-properly.patch

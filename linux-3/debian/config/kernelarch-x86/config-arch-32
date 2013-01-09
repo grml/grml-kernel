@@ -199,6 +199,7 @@ CONFIG_LEDS_WRAP=m
 ##
 ## file: drivers/media/radio/Kconfig
 ##
+CONFIG_V4L_RADIO_ISA_DRIVERS=y
 CONFIG_RADIO_CADET=m
 CONFIG_RADIO_RTRACK=m
 CONFIG_RADIO_RTRACK2=m
@@ -235,6 +236,12 @@ CONFIG_MTD_PCMCIA=m
 ## file: drivers/net/arcnet/Kconfig
 ##
 CONFIG_ARCNET_COM20020_ISA=m
+
+##
+## file: drivers/net/can/cc770/Kconfig
+##
+CONFIG_CAN_CC770=m
+CONFIG_CAN_CC770_ISA=m
 
 ##
 ## file: drivers/net/ethernet/3com/Kconfig
@@ -402,7 +409,7 @@ CONFIG_PCMCIA_NINJA_SCSI=m
 ##
 ## file: drivers/staging/comedi/Kconfig
 ##
-CONFIG_COMEDI_ISA_DRIVERS=m
+CONFIG_COMEDI_ISA_DRIVERS=y
 CONFIG_COMEDI_ACL7225B=m
 CONFIG_COMEDI_PCL711=m
 CONFIG_COMEDI_PCL724=m

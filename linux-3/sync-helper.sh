@@ -21,6 +21,7 @@ for file in \
   config/mips/ \
   config/mipsel/ \
   config/powerpc/ \
+  config/powerpcspe/ \
   config/ppc64/ \
   config/s390/ \
   config/s390x/ \

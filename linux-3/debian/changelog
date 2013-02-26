@@ -1,3 +1,10 @@
+linux (3.7.9-1+grml.1) grml-testing; urgency=low
+
+  * Grml build of 3.7.9 based on Debian's
+    3.7.8-1~experimental.1 as of svn r19822.
+
+ -- Michael Prokop <mika@grml.org>  Tue, 26 Feb 2013 11:10:23 +0100
+
 linux (3.7.6-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.7.6 based on Debian's unreleased

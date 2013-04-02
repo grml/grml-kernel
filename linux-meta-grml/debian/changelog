@@ -1,3 +1,9 @@
+linux-meta-grml (3.8.5-1+grml.1) grml-testing; urgency=low
+
+  * Update for new kernel release.
+
+ -- Michael Prokop <mika@grml.org>  Tue, 02 Apr 2013 18:13:44 +0200
+
 linux-meta-grml (3.7.6-1+grml.2) grml-testing; urgency=low
 
   * Adjust Depends for actual linux-image-3.7-1-grml build.

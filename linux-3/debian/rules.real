@@ -196,6 +196,7 @@ install-doc: $(STAMPS_DIR)/build-doc
 	mkdir -p $(OUT_DIR)
 	cp -a CREDITS MAINTAINERS README REPORTING-BUGS Documentation $(OUT_DIR)
 	rm -rf $(OUT_DIR)/Documentation/DocBook
+	set -o pipefail; \
 	cd $(DIR)/Documentation/DocBook; \
 	find * -name '*.html' -print \
 	| \
@@ -208,6 +209,7 @@ install-manual: DIR=$(BUILD_DIR)/build-doc
 install-manual: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-manual: $(STAMPS_DIR)/build-doc
 	dh_prep
+	set -o pipefail; \
 	find $(DIR)/Documentation/DocBook/man/ -name '*.9' | xargs dh_installman
 	+$(MAKE_SELF) install-base GENCONTROL_ARGS='$(call DEFINE_MULTIARCH,foreign)'
 
@@ -229,11 +231,12 @@ install-headers_$(ARCH)_$(FEATURESET): $(STAMPS_DIR)/source_$(FEATURESET)
 	dh_testroot
 	dh_prep
 
+	set -o pipefail; \
 	cd $(SOURCE_DIR); \
 	( \
 	  echo Makefile; \
 	  find arch/$(KERNEL_ARCH) -maxdepth 1 -name 'Makefile*' -print; \
-	  find arch/$(KERNEL_ARCH) -name 'module.lds' -print; \
+	  find arch/$(KERNEL_ARCH) \( -name 'module.lds' -o -name 'Kbuild.platforms' -o -name 'Platform' \) -print; \
 	  find $$(find arch/$(KERNEL_ARCH) \( -name include -o -name scripts \) -type d -print) -print; \
 	  find include -print; \
 	) \
@@ -356,6 +359,7 @@ install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain:
 ifeq ($(MODULES),True)
 	+$(MAKE_CLEAN) -C $(DIR) modules_install DEPMOD='$(CURDIR)/debian/bin/no-depmod' INSTALL_MOD_PATH='$(CURDIR)'/$(PACKAGE_DIR) INSTALL_MOD_STRIP=1 INSTALL_FW_PATH='$(CURDIR)'/$(PACKAGE_DIR)/lib/firmware/$(REAL_VERSION)
 ifeq ($(DEBUG),True)
+	set -o pipefail; \
 	find $(PACKAGE_DIR) -name '*.ko' | sed 's|$(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/kernel/||' | while read module ; do \
 	  objcopy --add-gnu-debuglink=$(DIR)/$$module $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/kernel/$$module || exit; \
 	done
@@ -383,7 +387,7 @@ install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_image: DTB_INSTALL_DIR = /u
 install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_image:
 	install -m644 '$(DIR)/arch/$(KERNEL_ARCH)/boot/zImage' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
 	+$(MAKE_CLEAN) -C $(DIR) dtbs
-	shopt -s nullglob ; for i in $(DIR)/arch/arm/boot/*.dtb ; do \
+	shopt -s nullglob ; for i in $(DIR)/arch/arm/boot/dts/*.dtb ; do \
 		install -D -m644 $$i '$(PACKAGE_DIR)'/'$(DTB_INSTALL_DIR)'/$$(basename $$i) ; \
 	done
 endif
@@ -478,6 +482,11 @@ ifeq ($(MODULES),True)
 	find $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)/ -mindepth 1 -maxdepth 1 \! -name kernel -exec rm {} \+
 	rm $(DEBUG_DIR)/lib/firmware -rf
 endif
+# Add symlinks to vmlinux from the locations expected by kdump-tools,
+# systemtap and others
+	ln -s boot/vmlinux-$(REAL_VERSION) $(DEBUG_DIR)/
+	mkdir -p $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)
+	ln -s ../../../boot/vmlinux-$(REAL_VERSION) $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)/vmlinux
 	+$(MAKE_SELF) install-base
 
 install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=debian/installer

@@ -2,8 +2,9 @@ Section: kernel
 Priority: optional
 Maintainer: Grml Team <team@grml.org>
 Uploaders: Michael Prokop <mika@grml.org>
-Standards-Version: 3.9.2
+Standards-Version: 3.9.4
 Build-Depends: debhelper (>> 7), cpio, kmod | module-init-tools, python (>= 2.7), lzma [armel], kernel-wedge (>= 2.84), quilt, patchutils, bc
 Build-Depends-Indep: bzip2, xmlto
 Vcs-Git: git://git.grml.org/grml-kernel.git
 Vcs-Browser: http://git.grml.org/?p=grml-kernel.git;a=tree;f=linux-3
+Homepage: https://www.kernel.org/

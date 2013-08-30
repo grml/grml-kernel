@@ -1,3 +1,9 @@
+linux (3.10.10-1+grml.1) grml-testing; urgency=low
+
+  * Grml build of 3.10.10.
+
+ -- Michael Prokop <mika@grml.org>  Fri, 30 Aug 2013 10:06:41 +0200
+
 linux (3.10.6-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.10.6 based on Debian's

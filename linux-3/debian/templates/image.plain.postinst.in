@@ -11,19 +11,17 @@ my $capb = capb('backup', 'escape');
 $|=1;
 
 # Predefined values:
-my $version           = "=V";
+my $version           = "@abiname@@localversion@";
 my $link_in_boot      = "";
 my $no_symlink        = "";
 my $do_symlink        = "Yes";  # target machine defined
-my $kimage            = "=K";
-my $initrd            = "=I";        # initrd kernel
+my $kimage            = "@image-stem@";
+my $initrd            = "@initramfs@";
 my $mkimage           = "";     # command to generate the initrd image
 my $use_hard_links    = ''; # hardlinks do not work across fs boundaries
 my $postinst_hook     = '';          #Normally we do not
 my $minimal_swap      = '';          # Do not swap symlinks
 my $ignore_depmod_err = '';          # normally we do not
-my $kernel_arch       = "=B";
-my $ramdisk           = '';
 my $package_name      = "linux-image-$version";
 
 #known variables
@@ -69,7 +67,6 @@ if (-r "$CONF_LOC" && -f "$CONF_LOC"  ) {
       $image_dest      = "$1"  if /image_dest\s*=\s*(\S+)/i;
       $postinst_hook   = "$1"  if /postinst_hook\s*=\s*(\S+)/i;
       $mkimage         = "$1"  if /mkimage\s*=\s*(.+)$/i;
-      $ramdisk         = "$1"  if /ramdisk\s*=\s*(.+)$/i;
     }
     close CONF;
     $have_conffile = "Yes";
@@ -98,8 +95,6 @@ if ($do_symlink && $no_symlink) {
 
 # most of our work is done in $image_dest (nominally /)
 chdir("$image_dest") or die "could not chdir to $image_dest:$!\n";
-
-$ENV{KERNEL_ARCH}=$kernel_arch if $kernel_arch;
 
 
 die "Internal Error: Could not find image (" . $realimageloc
@@ -527,98 +522,6 @@ sub do_modules {
       }
     }
   }
-
-  # If we are installing (not upgrading) a package for a newer
-  # upstream version than that of the running kernel, check whether
-  # the user might be missing necessary firmware, perhaps because
-  # it has now been removed from the kernel.
-  #
-  # We base this check on the modules used in the running kernel and
-  # the corresponding (by name) modules in the new kernel.  This is
-  # not entirely accurate because:
-  # 1. A device may now be handled by a module with a different name,
-  #    leading us to miss the dependency
-  # 2. A device may be handled by a module that needs firmware only
-  #    for some other device, leading us to claim a dependency wrongly
-
-  if (!defined($ARGV[1]) || $ARGV[1] eq '') {
-    sub version_code {
-      my $version = shift;
-      $version =~ s/^2\.(\d+)\.(\d+).*/2*65536 + $1*256 + $2/e
-	or $version =~ s/^(\d+)\.(\d+).*/$1*65536 + $2*256/e
-	or $version = 0;
-      return $version;
-    }
-    (undef, undef, my $running_version) = POSIX::uname();
-
-    if (version_code($version) > version_code($running_version)) {
-      my $missing = '';
-      my %module_paths;
-      open(DEP, "<$modules_base/$version/modules.dep") or return;
-      while (<DEP>) {
-	if (m|(.*/([^/]*)\.ko):|) {
-	  my ($path, $module) = ($1, $2);
-	  $module =~ s/-/_/g;
-	  $module_paths{$module} = $path;
-	}
-      }
-      close(DEP);
-      open(MODULES, '</proc/modules') or return;
-      while (<MODULES>) {
-	s/ .*//s;
-	my $module = $_;
-	my $module_path = $module_paths{$module};
-	if (defined($module_path)) {
-	  my $first = 1;
-	  if ($module_path !~ m|^/|) {
-	    $module_path = "$modules_base/$version/$module_path";
-	  }
-	  open(MODINFO, "modinfo -F firmware '$module_path' |");
-	  while (<MODINFO>) {
-	    chomp;
-	    my $firmware = $_;
-	    unless (-e "/lib/firmware/$firmware" ||
-		    -e "/lib/firmware/$version/$firmware") {
-	      if ($first) {
-		$missing .= "\\n" if $missing ne '';
-		$missing .= "$module: ";
-		$first = 0;
-	      } else {
-		$missing .= ', ';
-	      }
-	      $missing .= $firmware;
-	    }
-	  }
-	  close(MODINFO);
-	}
-      }
-      close(MODULES);
-
-      if ($missing ne '') {
-	my ($ret, $seen);
-	my $text = "${package_name}/postinst/missing-firmware-${version}";
-
-	($ret, $seen) = subst($text, 'runningversion', $running_version);
-	die "Error setting debconf substitutions in $text: $seen" if $ret;
-
-	($ret, $seen) = subst($text, 'version', $version);
-	die "Error setting debconf substitutions in $text: $seen" if $ret;
-
-	($ret, $seen) = subst($text, 'missing', $missing);
-	die "Error setting debconf substitutions in $text: $seen" if $ret;
-
-	($ret, $seen) = input('high', $text);
-	if ($ret && $ret != 30) {
-	  die "Error setting debconf question $text: $seen";
-	}
-
-	($ret, $seen) = go();
-	if ($ret && $ret != 30) {
-	  die "Error asking debconf question $text: $seen";
-	}
-      }
-    }
-  }
 }
 
 # We may not have any modules installed
@@ -626,16 +529,6 @@ if (-d "$modules_base/$version") {
   &do_modules();
 }
 
-
-# Warn if we are ignoring the old ramdisk setting
-if ($ramdisk =~ /\S/) {
-    my ($question, $ret, $seen);
-    $question = "${package_name}/postinst/ignoring-ramdisk";
-    ($ret,$seen) = input('high', "$question");
-    die "Error setting debconf question $question: $seen" if $ret && $ret != 30;
-    ($ret,$seen) = go();
-    die "Error asking debconf question $question: $seen" if $ret && $ret != 30;
-}
 
 # Only change the symlinks if we are not being upgraded
 if (! defined $ARGV[1] || ! $ARGV[1] || $ARGV[1] =~ m/<unknown>/o) {

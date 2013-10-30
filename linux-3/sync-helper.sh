@@ -9,6 +9,7 @@ fi
 
 for file in \
   config/alpha/ \
+  config/arm64/ \
   config/armel/ \
   config/armhf/ \
   config/hppa/ \
@@ -41,7 +42,8 @@ for file in \
   patches/features/all/wacom/ \
   patches/series-orig \
   patches/series-rt \
-  po/
+  po/ \
+  templates/po
 do
   rm -rf $file
 done

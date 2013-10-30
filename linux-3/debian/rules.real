@@ -76,22 +76,22 @@ mkdir -p '$(1)'
 cp -al $(filter-out debian .pc .svk .svn .git, $(wildcard * .[^.]*)) '$(1)'
 endef
 
-$(BUILD_DIR)/linux-source-$(UPSTREAMVERSION).tar.bz2: DIR = $(BUILD_DIR)/linux-source-$(UPSTREAMVERSION)
-$(BUILD_DIR)/linux-source-$(UPSTREAMVERSION).tar.bz2: $(STAMPS_DIR)/source
+$(BUILD_DIR)/linux-source-$(UPSTREAMVERSION).tar.xz: DIR = $(BUILD_DIR)/linux-source-$(UPSTREAMVERSION)
+$(BUILD_DIR)/linux-source-$(UPSTREAMVERSION).tar.xz: $(STAMPS_DIR)/source
 	rm -rf '$@' '$(DIR)'
 	$(call copy_source,$(DIR))
 	chmod -R u+rw,go=rX '$(DIR)'
-	cd '$(BUILD_DIR)'; tar -cjf 'linux-source-$(UPSTREAMVERSION).tar.bz2' 'linux-source-$(UPSTREAMVERSION)'
+	cd '$(BUILD_DIR)'; tar -caf 'linux-source-$(UPSTREAMVERSION).tar.xz' 'linux-source-$(UPSTREAMVERSION)'
 	rm -rf '$(DIR)'
 
-$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-%.patch.bz2: $(STAMPS_DIR)/source_none $(STAMPS_DIR)/source_%
+$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-%.patch.xz: $(STAMPS_DIR)/source_none $(STAMPS_DIR)/source_%
 	set -o pipefail;						\
 	(cd '$(BUILD_DIR)';						\
 	 set +e;							\
          diff -urN -p -x debian -x .pc -x .svk -x .svn -x .git source_none source_$*; \
 	 test $$? -eq 1) |						\
 	filterdiff --remove-timestamps --strip=1 --addoldprefix=a/ --addnewprefix=b/ | \
-	bzip2 -c >$@ ||							\
+	xz -c >$@ ||							\
 	(rm -f $@; exit 1)
 
 define patch_cmd
@@ -145,7 +145,6 @@ ifdef CFLAGS_KERNEL
 endif
 	+$(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' V=1 listnewconfig
 	+yes "" | $(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' oldconfig >/dev/null
-	+$(MAKE_CLEAN) -C '$(SOURCE_DIR)' O='$(CURDIR)/$(DIR)' prepare
 	@$(stamp)
 
 $(STAMPS_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_$(TYPE): DIR=$(BUILD_DIR)/build_$(ARCH)_$(FEATURESET)_$(FLAVOUR)
@@ -165,8 +164,8 @@ $(STAMPS_DIR)/build-doc: $(STAMPS_DIR)/source
 	@$(stamp)
 
 install-base:
+	dh_installdocs $(INSTALLDOCS_ARGS)
 	dh_installchangelogs
-	dh_installdocs
 	dh_strip
 	dh_compress
 	dh_fixperms
@@ -205,7 +204,7 @@ install-manual: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-manual: $(STAMPS_DIR)/build-doc
 	dh_prep
 	set -o pipefail; \
-	find $(DIR)/Documentation/DocBook/man/ -name '*.9' | xargs dh_installman
+	find $(DIR)/Documentation/DocBook/man/ -name '*.9.gz' | xargs dh_installman
 	+$(MAKE_SELF) install-base
 
 install-headers_$(ARCH): PACKAGE_NAMES = linux-headers-$(ABINAME)-all linux-headers-$(ABINAME)-all-$(ARCH)
@@ -288,13 +287,7 @@ install-headers_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_$(
 	ln -s /usr/src/$(PACKAGE_NAME) $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/build
 	ln -s /usr/src/$(PACKAGE_NAME_COMMON) $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/source
 
-	install -d $(PACKAGE_DIR)/DEBIAN
-	sed -e 's/=V/$(REAL_VERSION)/g' \
-	  debian/templates/temp.headers.plain/postinst \
-	  > $(PACKAGE_DIR)/DEBIAN/postinst
-	chmod 755 $(PACKAGE_DIR)/DEBIAN/postinst
-
-	+$(MAKE_SELF) install-base
+	+$(MAKE_SELF) install-base INSTALLDOCS_ARGS="--link-doc=$(PACKAGE_NAME_COMMON)"
 
 install-libc-dev_$(ARCH): PACKAGE_NAME = linux-libc-dev
 install-libc-dev_$(ARCH): DH_OPTIONS = -p$(PACKAGE_NAME)
@@ -362,9 +355,7 @@ endif
 	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/build
 	rm -f $(PACKAGE_DIR)/lib/modules/$(REAL_VERSION)/source
 endif
-	+$(MAKE_SELF) \
-	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_templates \
-	  PACKAGE_NAME='$(PACKAGE_NAME)' PACKAGE_DIR='$(PACKAGE_DIR)' REAL_VERSION='$(REAL_VERSION)'
+	dh_installdebconf
 	+$(MAKE_SELF) \
 	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_bug \
 	  PACKAGE_DIR='$(PACKAGE_DIR)' PACKAGE_NAME='$(PACKAGE_NAME)' REAL_VERSION='$(REAL_VERSION)'
@@ -417,38 +408,6 @@ install-image_s390_$(FEATURESET)_$(FLAVOUR)_plain_image \
 install-image_s390x_$(FEATURESET)_$(FLAVOUR)_plain_image:
 	install -m644 '$(DIR)/arch/s390/boot/image' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
 
-ifneq ($(INITRAMFS),False)
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_templates: ARG_INITRD = YES
-endif
-
-ARG_KIMAGE = vmlinuz
-install-image_hppa_$(FEATURESET)_$(FLAVOUR)_plain_templates \
-install-image_mips_$(FEATURESET)_$(FLAVOUR)_plain_templates \
-install-image_mipsel_$(FEATURESET)_$(FLAVOUR)_plain_templates \
-install-image_powerpc_$(FEATURESET)_$(FLAVOUR)_plain_templates \
-install-image_powerpcspe_$(FEATURESET)_$(FLAVOUR)_plain_templates \
-install-image_ppc64_$(FEATURESET)_$(FLAVOUR)_plain_templates: ARG_KIMAGE = vmlinux
-
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_templates:
-	for i in $(wildcard debian/templates/temp.image.plain/*); do \
-	  sed \
-	    -e 's@=B@$(KERNEL_ARCH)@g' \
-	    -e 's/=I/$(ARG_INITRD)/g' \
-	    -e 's/=K/$(ARG_KIMAGE)/g' \
-	    -e 's/=V/$(REAL_VERSION)/g' \
-	    $$i > debian/$(PACKAGE_NAME).$$(basename $$i) || exit; \
-	done
-	mkdir -p debian/$(PACKAGE_NAME).po
-	for i in $(wildcard debian/po/*.po); do \
-	  sed \
-	    -e 's/=V/$(REAL_VERSION)/g' \
-	    $$i > debian/$(PACKAGE_NAME).po/$$(basename $$i) || exit; \
-	done
-	mkdir -p debian/$(PACKAGE_NAME)/DEBIAN
-	po2debconf --podir debian/$(PACKAGE_NAME).po \
-	  -o debian/$(PACKAGE_NAME)/DEBIAN/templates \
-	  debian/$(PACKAGE_NAME).templates
-
 install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_bug:
 	dh_installdirs usr/share/bug/$(PACKAGE_NAME)
 	dh_install debian/templates/image.plain.bug/* usr/share/bug/$(PACKAGE_NAME)
@@ -466,14 +425,11 @@ install-image-dbg_$(ARCH)_$(FEATURESET)_$(FLAVOUR): $(STAMPS_DIR)/build_$(ARCH)_
 	dh_testroot
 	dh_prep
 	dh_installdirs usr/lib/debug usr/lib/debug/boot usr/share/lintian/overrides/
-	sed -e 's/=V/$(REAL_VERSION)/g' \
-	  debian/templates/image-dbg.lintian-override.in \
-	  > $(PACKAGE_DIR)/usr/share/lintian/overrides/$(PACKAGE_NAME)
+	dh_lintian
 	install -m644 $(DIR)/vmlinux $(DEBUG_DIR)/boot/vmlinux-$(REAL_VERSION)
 ifeq ($(MODULES),True)
 	+$(MAKE_CLEAN) -C $(DIR) modules_install DEPMOD='$(CURDIR)/debian/bin/no-depmod' INSTALL_MOD_PATH='$(CURDIR)'/$(DEBUG_DIR)
 	find $(DEBUG_DIR)/lib/modules/$(REAL_VERSION)/ -mindepth 1 -maxdepth 1 \! -name kernel -exec rm {} \+
-	rm $(DEBUG_DIR)/lib/firmware -rf
 endif
 # Add symlinks to vmlinux from the locations expected by kdump-tools,
 # systemtap and others
@@ -494,11 +450,19 @@ install-udeb_$(ARCH):
 	dh_gencontrol
 	dh_builddeb
 
-install-source: DH_OPTIONS = -plinux-source-$(VERSION)
-install-source: $(BUILD_DIR)/linux-source-$(UPSTREAMVERSION).tar.bz2 $(foreach FEATURESET,$(filter-out none,$(ALL_FEATURESETS)),$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-$(FEATURESET).patch.bz2)
+install-source: PACKAGE_NAME = linux-source-$(VERSION)
+install-source: DH_OPTIONS = -p$(PACKAGE_NAME)
+install-source: $(BUILD_DIR)/linux-source-$(UPSTREAMVERSION).tar.xz $(foreach FEATURESET,$(filter-out none,$(ALL_FEATURESETS)),$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-$(FEATURESET).patch.xz)
 	dh_testdir
 	dh_testroot
+	dh_installdirs /usr/src/linux-config-$(UPSTREAMVERSION)
 	dh_install '$^' /usr/src
-	+$(MAKE_SELF) install-base
+	for triplet in $(ALL_TRIPLETS); do \
+	  xz -c $(BUILD_DIR)/build_$$triplet/.config >debian/$(PACKAGE_NAME)/usr/src/linux-config-$(UPSTREAMVERSION)/config.$$triplet.xz; \
+	done
+# We don't want to recompress, but -Znone is not compatible with older
+# tools and is currently rejected by dak.  -Zgzip -z0 has almost the
+# same effect.
+	+$(MAKE_SELF) install-base BUILDDEB_ARGS='-Zgzip -z0'
 
 # vim: filetype=make

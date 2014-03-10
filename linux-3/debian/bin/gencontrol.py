@@ -6,6 +6,7 @@ sys.path.append("debian/lib/python")
 import codecs
 import errno
 import glob
+import io
 import os
 import os.path
 import subprocess
@@ -131,10 +132,12 @@ class Gencontrol(Base):
 
         if self.version.linux_modifier is None:
             try:
-                vars['abiname'] = '-%s' % self.config['abi', arch]['abiname']
+                abiname_part = '-%s' % self.config['abi', arch]['abiname']
             except KeyError:
-                vars['abiname'] = self.abiname
-            makeflags['ABINAME'] = vars['abiname']
+                abiname_part = self.abiname_part
+            makeflags['ABINAME'] = vars['abiname'] = \
+                self.version.linux_upstream + abiname_part
+            makeflags['ABINAME_PART'] = abiname_part
 
         if foreign_kernel:
             packages_headers_arch = []
@@ -160,10 +163,7 @@ class Gencontrol(Base):
                      ["$(MAKE) -f debian/rules.real install-libc-dev_%s %s" %
                       (arch, makeflags)])
 
-        if self.version.linux_revision_backports:
-            # Installer is not (currently) built from backports
-            pass
-        elif os.getenv('DEBIAN_KERNEL_DISABLE_INSTALLER'):
+        if os.getenv('DEBIAN_KERNEL_DISABLE_INSTALLER'):
             if self.changelog[0].distribution == 'UNRELEASED':
                 import warnings
                 warnings.warn(u'Disable installer modules on request (DEBIAN_KERNEL_DISABLE_INSTALLER set)')
@@ -178,11 +178,13 @@ class Gencontrol(Base):
                 kw_env['KW_DEFCONFIG_DIR'] = installer_def_dir
                 kw_env['KW_CONFIG_DIR'] = installer_arch_dir
                 kw_proc = subprocess.Popen(
-                    ['kernel-wedge', 'gen-control',
-                     self.abiname],
+                    ['kernel-wedge', 'gen-control', vars['abiname']],
                     stdout=subprocess.PIPE,
                     env=kw_env)
-                udeb_packages = read_control(kw_proc.stdout)
+                if not isinstance(kw_proc.stdout, io.IOBase):
+                    udeb_packages = read_control(io.open(kw_proc.stdout.fileno(), encoding='utf-8', closefd=False))
+                else:
+                    udeb_packages = read_control(io.TextIOWrapper(kw_proc.stdout, 'utf-8'))
                 kw_proc.wait()
                 if kw_proc.returncode != 0:
                     raise RuntimeError('kernel-wedge exited with code %d' %
@@ -258,7 +260,11 @@ class Gencontrol(Base):
         config_entry_relations = self.config.merge('relations', arch, featureset, flavour)
 
         compiler = config_entry_base.get('compiler', 'gcc')
-        relations_compiler = PackageRelation(config_entry_relations[compiler])
+
+        relations_compiler_headers = PackageRelation(
+            config_entry_relations.get('headers%' + compiler) or
+            config_entry_relations.get(compiler))
+
         relations_compiler_build_dep = PackageRelation(config_entry_relations[compiler])
         for group in relations_compiler_build_dep:
             for item in group:
@@ -329,7 +335,7 @@ class Gencontrol(Base):
         if config_entry_build.get('modules', True):
             makeflags['MODULES'] = True
             package_headers = self.process_package(headers[0], vars)
-            package_headers['Depends'].extend(relations_compiler)
+            package_headers['Depends'].extend(relations_compiler_headers)
             packages_own.append(package_headers)
             extra['headers_arch_depends'].append('%s (= ${binary:Version})' % packages_own[-1]['Package'])
 
@@ -414,11 +420,11 @@ class Gencontrol(Base):
         if config_entry_image['type'] == 'plain':
             substitute_file('headers.plain.postinst',
                             'debian/linux-headers-%s%s.postinst' %
-                            (self.abiname, vars['localversion']))
+                            (vars['abiname'], vars['localversion']))
             for name in ['postinst', 'postrm', 'preinst', 'prerm', 'templates']:
                 substitute_file('image.plain.%s' % name,
                                 'debian/linux-image-%s%s.%s' %
-                                (self.abiname, vars['localversion'], name))
+                                (vars['abiname'], vars['localversion'], name))
             for path in glob.glob('debian/templates/po/*.po'):
                 substitute_file('po/' + os.path.basename(path),
                                 'debian/po/' + os.path.basename(path),
@@ -426,7 +432,7 @@ class Gencontrol(Base):
         if build_debug:
             substitute_file('image-dbg.lintian-override',
                             'debian/linux-image-%s%s-dbg.lintian-overrides' %
-                            (self.abiname, vars['localversion']))
+                            (vars['abiname'], vars['localversion']))
 
     def merge_packages(self, packages, new, arch):
         for new_package in new:
@@ -468,7 +474,9 @@ class Gencontrol(Base):
             'source_package': self.changelog[0].source,
             'abiname': self.abiname,
         }
-        self.config['version', ] = {'source': self.version.complete, 'abiname': self.abiname}
+        self.config['version', ] = {'source': self.version.complete,
+                                    'upstream': self.version.linux_upstream,
+                                    'abiname': self.abiname}
 
         distribution = self.changelog[0].distribution
         if distribution in ('unstable', ):
@@ -485,7 +493,7 @@ class Gencontrol(Base):
 
     def process_real_image(self, entry, fields, vars):
         entry = self.process_package(entry, vars)
-        for key, value in fields.iteritems():
+        for key, value in fields.items():
             if key in entry:
                 real = entry[key]
                 real.extend(value)
@@ -498,7 +506,7 @@ class Gencontrol(Base):
         super(Gencontrol, self).write(packages, makefile)
 
     def write_config(self):
-        f = file("debian/config.defines.dump", 'w')
+        f = open("debian/config.defines.dump", 'wb')
         self.config.dump(f)
         f.close()
 

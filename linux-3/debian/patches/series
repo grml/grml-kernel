@@ -13,6 +13,8 @@ features/all/Kbuild-kconfig-Verbose-version-of-listnewconfig.patch
 #features/all/drivers-media-dvb-usb-af9005-request_firmware.patch
 #features/all/sound-pci-cs46xx-request_firmware.patch
 #debian/iwlwifi-do-not-request-unreleased-firmware.patch
+#bugfix/all/firmware_class-fix-read-size-check.patch
+#bugfix/all/firmware_class-return-specific-errors-from-file-read.patch
 #bugfix/all/firmware_class-log-every-success-and-failure.patch
 #bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch
 bugfix/all/radeon-firmware-is-required-for-drm-and-kms-on-r600-onward.patch
@@ -23,16 +25,15 @@ grml/vesa_fallback_on_kms_failure.patch
 
 # Patches and source files from aufs3 repository, imported with
 # debian/patches/features/all/aufs3/gen-patch.
-features/all/aufs3/aufs3-base.patch
-features/all/aufs3/aufs3-standalone.patch
 features/all/aufs3/aufs3-kbuild.patch
+features/all/aufs3/aufs3-base.patch
+features/all/aufs3/aufs3-mmap.patch
+features/all/aufs3/aufs3-standalone.patch
 features/all/aufs3/aufs3-add.patch
 # Debian-specific changes
 debian/aufs3-mark-as-staging.patch
-debian/AUFS_PROC_MAP-is-BROKEN.patch
 
 # Change some defaults for security reasons
-features/all/sysrq-mask.patch
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch
 debian/rds-Disable-auto-loading-as-mitigation-against-local.patch
 debian/decnet-Disable-auto-loading-as-mitigation-against-lo.patch
@@ -62,7 +63,6 @@ bugfix/arm/omap-musb-choice.patch
 
 # Miscellaneous bug fixes
 bugfix/mips/disable-advansys.patch
-bugfix/powerpc/lpar-console.patch
 bugfix/arm/ixp4xx_iobe.patch
 bugfix/x86/viafb-autoload-on-olpc-xo1.5-only.patch
 bugfix/all/misc-bmp085-Enable-building-as-a-module.patch
@@ -74,6 +74,13 @@ features/all/efi-autoload-efivars.patch
 # m68k Kconfig bugfix
 bugfix/m68k/ethernat-kconfig.patch
 
-bugfix/all/crypto-ansi_cprng-Fix-off-by-one-error-in-non-block-.patch
 features/all/mvsas-Recognise-device-subsystem-9485-9485-as-88SE94.patch
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
+debian/add-sysctl-to-disallow-unprivileged-CLONE_NEWUSER-by-default.patch
+bugfix/all/disable-some-marvell-phys.patch
+features/all/media-az6007-support-Technisat-Cablestar-Combo-HDCI-.patch
+bugfix/all/staging-lustre-Make-LUSTRE_LLITE_LLOOP-tristate.patch
+bugfix/all/i2c-designware-remove-HAVE_CLK-build-dependecy.patch
+debian/snd-pcsp-disable-autoload.patch
+bugfix/all/bluetooth-allocate-static-minor-for-vhci.patch
+bugfix/all/rtl8187-fix-regression-on-MIPS-without-coherent-DMA.patch

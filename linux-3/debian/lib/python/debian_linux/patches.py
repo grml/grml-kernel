@@ -1,6 +1,9 @@
+from __future__ import print_function
+
 import glob
 import os
 import shutil
+import subprocess
 
 
 class Operation(object):
@@ -23,7 +26,7 @@ class Operation(object):
             s = "OK"
         else:
             s = "FAIL"
-        print """  (%s) %-4s %s""" % (self.operation, s, self.name)
+        print("""  (%s) %-4s %s""" % (self.operation, s, self.name))
 
     def do(self, dir):
         raise NotImplementedError
@@ -33,16 +36,17 @@ class Operation(object):
 
 
 class OperationPatch(Operation):
-    def __init__(self, name, fopen, data):
+    def __init__(self, name, filename, data):
         super(OperationPatch, self).__init__(name, data)
-        self.fopen = fopen
+        self.filename = filename
 
-    def _call(self, dir, extraargs):
-        cmdline = "cd %s; patch -p1 -f -s -t --no-backup-if-mismatch %s" % (dir, extraargs)
-        f = os.popen(cmdline, 'wb')
-        shutil.copyfileobj(self.fopen(), f)
-        if f.close():
-            raise RuntimeError("Patch failed")
+    def _call(self, dir, *extraargs):
+        with open(self.filename) as f:
+            subprocess.check_call(
+                    ("patch", "-p1", "-f", "-s", "-t", "--no-backup-if-mismatch") + extraargs,
+                    cwd=dir,
+                    stdin=f,
+            )
 
     def patch_push(self, dir):
         self._call(dir, '--fuzz=1')
@@ -71,7 +75,7 @@ class SubOperation(Operation):
             s = "OK"
         else:
             s = "FAIL"
-        print """    %-10s %-4s %s""" % ('(%s)' % self.operation, s, self.name)
+        print("""    %-10s %-4s %s""" % ('(%s)' % self.operation, s, self.name))
 
 
 class SubOperationFilesRemove(SubOperation):
@@ -91,17 +95,11 @@ class SubOperationFilesUnifdef(SubOperation):
 
     def do(self, dir):
         filename = os.path.join(dir, self.name)
-        cmdline = "unifdef %s %s" % (filename, ' '.join(self.data))
-        f = os.popen(cmdline, 'rb')
-        data = f.read()
-        ret = f.close()
-        if ret is None:
+        ret = subprocess.call(("unifdef", "-o", filename, filename) + tuple(self.data))
+        if ret == 0:
             raise RuntimeError("unifdef of %s removed nothing" % self.name)
-        elif ret != 256:
+        elif ret != 1:
             raise RuntimeError("unifdef failed")
-        f1 = file(filename, 'wb')
-        f1.write(data)
-        f1.close()
 
 
 class OperationFiles(Operation):
@@ -113,24 +111,25 @@ class OperationFiles(Operation):
         'unifdef': SubOperationFilesUnifdef,
     }
 
-    def __init__(self, name, fopen, data):
+    def __init__(self, name, filename, data):
         super(OperationFiles, self).__init__(name, data)
 
         ops = []
 
-        for line in fopen():
-            line = line.strip()
-            if not line or line[0] == '#':
-                continue
+        with open(filename) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line[0] == '#':
+                    continue
 
-            items = line.split()
-            operation, filename = items[:2]
-            data = items[2:]
+                items = line.split()
+                operation, filename = items[:2]
+                data = items[2:]
 
-            if operation not in self.suboperations:
-                raise RuntimeError('Undefined operation "%s" in series %s' % (operation, name))
+                if operation not in self.suboperations:
+                    raise RuntimeError('Undefined operation "%s" in series %s' % (operation, name))
 
-            ops.append(self.suboperations[operation](filename, data))
+                ops.append(self.suboperations[operation](filename, data))
 
         self.ops = ops
 
@@ -149,9 +148,6 @@ class PatchSeries(list):
     def __init__(self, name, root, fp):
         self.name, self.root = name, root
 
-        from gzip import GzipFile
-        from bz2 import BZ2File
-
         for line in fp:
             line = line.strip()
 
@@ -164,18 +160,12 @@ class PatchSeries(list):
 
             if operation in self.operations:
                 f = os.path.join(self.root, filename)
-                for suffix, cls in (('', file), ('.bz2', BZ2File), ('.gz', GzipFile)):
-                    f1 = f + suffix
-                    if os.path.exists(f1):
-                        # Must copy current bindings into the lambda-function
-                        fopen = lambda cls=cls, f1=f1: cls(f1)
-                        break
+                if os.path.exists(f):
+                    self.append(self.operations[operation](filename, f, data))
                 else:
                     raise RuntimeError("Can't find patch %s for series %s" % (filename, self.name))
             else:
                 raise RuntimeError('Undefined operation "%s" in series %s' % (operation, name))
-
-            self.append(self.operations[operation](filename, fopen, data))
 
     def __call__(self, cond=bool, dir='.', reverse=False):
         if not reverse:

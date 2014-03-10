@@ -1,15 +1,22 @@
 [base]
 #featuresets:
+# none
 # rt
 flavours:
  amd64
 kernel-arch: x86
+
+#[build]
+#debug-info: true
 
 [image]
 bootloaders: grub-pc extlinux lilo
 configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
+
+[relations]
+headers%gcc-4.8: linux-compiler-gcc-4.8-x86
 
 [amd64_description]
 hardware: 64-bit PCs

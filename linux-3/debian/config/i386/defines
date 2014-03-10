@@ -1,6 +1,9 @@
 [base]
 flavours:
  486
+#featuresets:
+# none
+# rt
 kernel-arch: x86
 
 [image]
@@ -8,6 +11,9 @@ bootloaders: grub-pc extlinux lilo
 configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
+
+[relations]
+headers%gcc-4.8: linux-compiler-gcc-4.8-x86
 
 [486_description]
 hardware: older PCs
@@ -17,4 +23,5 @@ parts: up
 [486_image]
 configs:
  kernelarch-x86/config-arch-32
+ i386/config.486
 

@@ -1,13 +1,5 @@
-.svn
-build
-config.defines.dump
-control
-control.md5sum
-files
-linux-*
-rules.gen
-stamps
-xen-linux-system-*
-
+!/patches
+!*.patch
+!*.diff
 *.pyc
-bin/patch.apply
+/po/

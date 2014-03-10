@@ -1,7 +1,8 @@
 import collections
-import itertools
 import os.path
 import re
+import six
+import six.moves
 
 from . import utils
 
@@ -35,7 +36,10 @@ class Changelog(list):
     def __init__(self, dir='', version=None):
         if version is None:
             version = Version
-        f = file(os.path.join(dir, "debian/changelog"))
+        if six.PY3:
+            f = open(os.path.join(dir, "debian/changelog"), encoding="UTF-8")
+        else:
+            f = open(os.path.join(dir, "debian/changelog"))
         while True:
             line = f.readline()
             if not line:
@@ -53,7 +57,7 @@ class Changelog(list):
 
 
 class Version(object):
-    _version_rules = ur"""
+    _version_rules = r"""
 ^
 (?:
     (?P<epoch>
@@ -82,11 +86,9 @@ $
         self.upstream = match.group("upstream")
         self.revision = match.group("revision")
 
-    def __unicode__(self):
-        return self.complete
-
     def __str__(self):
-        return unicode(self).encode('utf-8')
+        return self.complete
+    __unicode__ = __str__
 
     @property
     def complete(self):
@@ -108,7 +110,7 @@ $
 
 
 class VersionLinux(Version):
-    _version_linux_rules = ur"""
+    _version_linux_rules = r"""
 ^
 (?P<version>
     \d+\.\d+
@@ -185,8 +187,9 @@ class PackageArchitecture(collections.MutableSet):
     def __len__(self):
         return self._data.__len__()
 
-    def __unicode__(self):
+    def __str__(self):
         return u' '.join(sorted(self))
+    __unicode__ = __str__
 
     def add(self, value):
         self._data.add(value)
@@ -195,7 +198,7 @@ class PackageArchitecture(collections.MutableSet):
         self._data.discard(value)
 
     def extend(self, value):
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             for i in re.split('\s', value.strip()):
                 self.add(i)
         else:
@@ -213,7 +216,7 @@ class PackageDescription(object):
             self.append(long)
             self.append_short(short)
 
-    def __unicode__(self):
+    def __str__(self):
         wrap = utils.TextWrapper(width=74, fix_sentence_endings=True).wrap
         short = u', '.join(self.short)
         long_pars = []
@@ -221,6 +224,7 @@ class PackageDescription(object):
             long_pars.append(wrap(i))
         long = u'\n .\n '.join([u'\n '.join(i) for i in long_pars])
         return short + u'\n ' + long
+    __unicode__ = __str__
 
     def append(self, str):
         str = str.strip()
@@ -245,8 +249,9 @@ class PackageRelation(list):
         if value:
             self.extend(value, override_arches)
 
-    def __unicode__(self):
-        return u', '.join((unicode(i) for i in self))
+    def __str__(self):
+        return u', '.join(six.text_type(i) for i in self)
+    __unicode__ = __str__
 
     def _search_value(self, value):
         for i in self:
@@ -255,7 +260,7 @@ class PackageRelation(list):
         return None
 
     def append(self, value, override_arches=None):
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             value = PackageRelationGroup(value, override_arches)
         elif not isinstance(value, PackageRelationGroup):
             raise ValueError(u"got %s" % type(value))
@@ -266,7 +271,7 @@ class PackageRelation(list):
             super(PackageRelation, self).append(value)
 
     def extend(self, value, override_arches=None):
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             value = (j.strip() for j in re.split(u',', value.strip()))
         for i in value:
             self.append(i, override_arches)
@@ -277,31 +282,32 @@ class PackageRelationGroup(list):
         if value:
             self.extend(value, override_arches)
 
-    def __unicode__(self):
-        return u' | '.join((unicode(i) for i in self))
+    def __str__(self):
+        return u' | '.join(six.text_type(i) for i in self)
+    __unicode__ = __str__
 
     def _search_value(self, value):
-        for i, j in itertools.izip(self, value):
+        for i, j in six.moves.zip(self, value):
             if i.name != j.name or i.version != j.version:
                 return None
         return self
 
     def _update_arches(self, value):
-        for i, j in itertools.izip(self, value):
+        for i, j in six.moves.zip(self, value):
             if i.arches:
                 for arch in j.arches:
                     if arch not in i.arches:
                         i.arches.append(arch)
 
     def append(self, value, override_arches=None):
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             value = PackageRelationEntry(value, override_arches)
         elif not isinstance(value, PackageRelationEntry):
             raise ValueError
         super(PackageRelationGroup, self).append(value)
 
     def extend(self, value, override_arches=None):
-        if isinstance(value, basestring):
+        if isinstance(value, six.string_types):
             value = (j.strip() for j in re.split('\|', value.strip()))
         for i in value:
             self.append(i, override_arches)
@@ -338,7 +344,7 @@ class PackageRelationEntry(object):
                 OP_GT: OP_LE,
         }
 
-        operators_text = dict([(b, a) for a, b in operators.iteritems()])
+        operators_text = dict((b, a) for a, b in operators.items())
 
         __slots__ = '_op',
 
@@ -348,11 +354,12 @@ class PackageRelationEntry(object):
         def __neg__(self):
             return self.__class__(self.operators_text[self.operators_neg[self._op]])
 
-        def __unicode__(self):
+        def __str__(self):
             return self.operators_text[self._op]
+        __unicode__ = __str__
 
     def __init__(self, value=None, override_arches=None):
-        if not isinstance(value, basestring):
+        if not isinstance(value, six.string_types):
             raise ValueError
 
         self.parse(value)
@@ -360,13 +367,14 @@ class PackageRelationEntry(object):
         if override_arches:
             self.arches = list(override_arches)
 
-    def __unicode__(self):
+    def __str__(self):
         ret = [self.name]
         if self.operator is not None and self.version is not None:
-            ret.extend((u' (', unicode(self.operator), u' ', self.version, u')'))
+            ret.extend((u' (', six.text_type(self.operator), u' ', self.version, u')'))
         if self.arches:
             ret.extend((u' [', u' '.join(self.arches), u']'))
         return u''.join(ret)
+    __unicode__ = __str__
 
     def parse(self, value):
         match = self._re.match(value)
@@ -387,14 +395,14 @@ class PackageRelationEntry(object):
 
 class Package(dict):
     _fields = collections.OrderedDict((
-        ('Package', unicode),
-        ('Source', unicode),
+        ('Package', six.text_type),
+        ('Source', six.text_type),
         ('Architecture', PackageArchitecture),
-        ('Section', unicode),
-        ('Priority', unicode),
-        ('Maintainer', unicode),
-        ('Uploaders', unicode),
-        ('Standards-Version', unicode),
+        ('Section', six.text_type),
+        ('Priority', six.text_type),
+        ('Maintainer', six.text_type),
+        ('Uploaders', six.text_type),
+        ('Standards-Version', six.text_type),
         ('Build-Depends', PackageRelation),
         ('Build-Depends-Indep', PackageRelation),
         ('Provides', PackageRelation),
@@ -419,7 +427,7 @@ class Package(dict):
 
     def iterkeys(self):
         keys = set(self.keys())
-        for i in self._fields.iterkeys():
+        for i in self._fields.keys():
             if i in self:
                 keys.remove(i)
                 yield i

@@ -1,4 +1,5 @@
 import codecs
+import six
 from collections import OrderedDict
 
 from .debian import *
@@ -29,9 +30,7 @@ class Makefile(object):
                     self.rules[i] = self.Rule(i)
 
     def write(self, out):
-        r = self.rules.keys()
-        r.sort()
-        for i in r:
+        for i in sorted(self.rules.keys()):
             self.rules[i].write(out)
 
     class Rule(object):
@@ -70,7 +69,7 @@ class MakeFlags(dict):
         return "%s(%s)" % (self.__class__.__name__, repr)
 
     def __str__(self):
-        return ' '.join(["%s='%s'" % i for i in sorted(self.iteritems())])
+        return ' '.join("%s='%s'" % i for i in sorted(self.items()))
 
     def copy(self):
         return self.__class__(super(MakeFlags, self).copy())
@@ -129,25 +128,21 @@ class Gencontrol(object):
         if templates_extra is None:
             return
 
-        packages.extend(self.process_packages(templates_extra, {}))
+        packages_extra = self.process_packages(templates_extra, self.vars)
+        packages.extend(packages_extra)
         extra_arches = {}
-        for package in templates_extra:
+        for package in packages_extra:
             arches = package['Architecture']
             for arch in arches:
                 i = extra_arches.get(arch, [])
                 i.append(package)
                 extra_arches[arch] = i
-        archs = extra_arches.keys()
-        archs.sort()
-        for arch in archs:
+        for arch in sorted(extra_arches.keys()):
             cmds = []
             for i in extra_arches[arch]:
-                tmp = []
-                if 'X-Version-Overwrite-Epoch' in i:
-                        tmp.append("-v1:%s" % self.version['source'])
-                cmds.append("$(MAKE) -f debian/rules.real install-dummy DH_OPTIONS='-p%s' GENCONTROL_ARGS='%s'" % (i['Package'], ' '.join(tmp)))
-            makefile.add('binary-arch_%s' % arch['binary-arch_%s_extra' % arch])
-            makefile.add("binary-arch_%s_extra" % arch, cmds=cmds)
+                cmds.append("$(MAKE) -f debian/rules.real install-dummy ARCH='%s' DH_OPTIONS='-p%s'" % (arch, i['Package']))
+            makefile.add('binary-arch_%s' % arch, [u'binary-arch_%s_extra' % arch])
+            makefile.add("binary-arch_%s_extra" % arch, cmds = cmds)
 
     def do_arch(self, packages, makefile, arch, vars, makeflags, extra):
         vars['arch'] = arch
@@ -280,10 +275,10 @@ class Gencontrol(object):
         def subst(match):
             return vars[match.group(1)]
 
-        return re.sub(r'@([-_a-z]+)@', subst, unicode(s))
+        return re.sub(r'@([-_a-z]+)@', subst, six.text_type(s))
 
     def write(self, packages, makefile):
-        self.write_control(packages.itervalues())
+        self.write_control(packages.values())
         self.write_makefile(makefile)
 
     def write_config(self):
@@ -295,7 +290,7 @@ class Gencontrol(object):
         self.write_rfc822(codecs.open("debian/control", 'w', 'utf-8'), list)
 
     def write_makefile(self, makefile):
-        f = file("debian/rules.gen", 'w')
+        f = open("debian/rules.gen", 'w')
         makefile.write(f)
         f.close()
 

@@ -1,3 +1,10 @@
+linux (3.13.6-1+grml.1) grml-testing; urgency=low
+
+  * Grml build of 3.13.6 based on Debian's
+    3.13.5-1 as of svn r21122.
+
+ -- Michael Prokop <mika@grml.org>  Mon, 10 Mar 2014 10:05:57 +0100
+
 linux (3.11.6-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.11.6 based on Debian's

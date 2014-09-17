@@ -19,6 +19,7 @@ features/all/Kbuild-kconfig-Verbose-version-of-listnewconfig.patch
 # Grml patches
 grml/grml_logo.patch
 grml/vesa_fallback_on_kms_failure.patch
+grml/ext4-readonly.patch
 
 # Patches and source files from aufs3 repository, imported with
 # debian/patches/features/all/aufs3/gen-patch.

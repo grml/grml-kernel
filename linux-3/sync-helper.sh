@@ -17,13 +17,21 @@ for file in \
   config/i386/config.686-pae \
   config/i386/rt/ \
   config/ia64/ \
+  config/kernelarch-arm/ \
   config/kernelarch-mips/ \
+  config/kernelarch-powerpc/ \
+  config/kernelarch-s390/ \
+  config/kernelarch-sparc/ \
   config/m68k/ \
   config/mips/ \
+  config/mips64/ \
+  config/mips64el/ \
   config/mipsel/ \
+  config/or1k/ \
   config/powerpc/ \
   config/powerpcspe/ \
   config/ppc64/ \
+  config/ppc64el/ \
   config/s390/ \
   config/s390x/ \
   config/sh4/ \

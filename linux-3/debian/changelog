@@ -1,3 +1,11 @@
+linux (3.16.2-3+grml.1) grml-testing; urgency=low
+
+  * Grml build of 3.16.2 based on Debian's
+    3.16.2-3 as of svn r21839.
+  * Add patch fixing ext4 readonly handling
+
+ -- Michael Prokop <mika@grml.org>  Wed, 17 Sep 2014 19:37:32 +0200
+
 linux (3.13.6-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.13.6 based on Debian's

@@ -12,11 +12,11 @@ $|=1;
 
 # Predefined values:
 my $version           = "@abiname@@localversion@";
+my $arch              = "@arch@";
 my $link_in_boot      = "";
 my $no_symlink        = "";
 my $do_symlink        = "Yes";  # target machine defined
 my $kimage            = "@image-stem@";
-my $initrd            = "@initramfs@";
 my $mkimage           = "";     # command to generate the initrd image
 my $use_hard_links    = ''; # hardlinks do not work across fs boundaries
 my $postinst_hook     = '';          #Normally we do not
@@ -532,9 +532,7 @@ if (-d "$modules_base/$version") {
 # Only change the symlinks if we are not being upgraded
 if (! defined $ARGV[1] || ! $ARGV[1] || $ARGV[1] =~ m/<unknown>/o) {
   image_magic($kimage, $image_dest);
-  if ($initrd) {
-    image_magic("initrd.img", $image_dest);
-  }
+  image_magic("initrd.img", $image_dest);
 }
 else {
   lstat($kimage);
@@ -542,11 +540,56 @@ else {
     handle_missing_link($kimage, $image_dest, "$kimage-$version", 
                         $realimageloc);
   }
-  if ($initrd) {
-    lstat("initrd.img");
-    if (! -e _) {
-      handle_missing_link("initrd.img", $image_dest, "initrd.img-$version",
-			  $realimageloc);
+  lstat("initrd.img");
+  if (! -e _) {
+    handle_missing_link("initrd.img", $image_dest, "initrd.img-$version",
+			$realimageloc);
+  }
+}
+
+# This routine detects chroots by checking if the devicenumber/inode pair
+# of / are the same as that of /sbin/init. This may fail if not running as
+# root or if /proc is not mounted, in which case 2 is returned.
+sub detect_chroot {
+  my ($dev1, $ino1) = stat("/") or return 2;
+  my ($dev2, $ino2) = stat("/proc/1/root") or return 2;
+  return ($dev1 != $dev2) || ($ino1 != $ino2);
+}
+
+sub is_package_installed {
+    my ($package) = @_;
+    for (`dpkg-query 2>/dev/null --showformat '\${status}\\n' -W '$package'`) {
+        return 1 if / installed\n$/;
+    }
+    return 0;
+}
+
+# On mips and mipsel warn users if they need to configure their boot loader
+# to load initramfs. mips64 and mips64el are ignored as they always had an
+# initramfs. For that look if the current kernel is booted using initramfs.
+# We ignore the chroot case, and we also ignore the GRUB case, as
+# update-grub will automatically add the initramfs to grub.cfg.
+if (($arch eq "mips" || $arch eq "mipsel")
+    && !is_package_installed("grub-yeeloong")
+    && detect_chroot() == 0) {
+  if (-r "/proc/cmdline" && -f "/proc/cmdline") {
+    if (open(CMDLINE, "/proc/cmdline")) {
+      if (<CMDLINE> !~ m/rd_start=/) {
+        my $ret;
+        my $seen;
+        my $question = "${package_name}/postinst/mips-initrd-$version";
+    
+        ($ret,$seen) = input('critical', "$question");
+        if ($ret && $ret != 30 ) {
+          die "Error setting debconf question $question: $seen";
+        }
+    
+        ($ret,$seen) = go();
+        if ($ret && $ret != 30 ) {
+          die "Error asking debconf question $question: $seen";
+        }
+      }
+      close CMDLINE;
     }
   }
 }

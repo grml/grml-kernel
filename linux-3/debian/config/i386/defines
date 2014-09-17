@@ -1,3 +1,7 @@
+[abi]
+ignore-changes:
+ module:arch/x86/kvm/*
+
 [base]
 flavours:
  486
@@ -6,11 +10,21 @@ flavours:
 # rt
 kernel-arch: x86
 
+[build]
+image-file: arch/x86/boot/bzImage
+
+[description]
+part-long-pae: This kernel requires PAE (Physical Address Extension).
+ This feature is supported by the Intel Pentium Pro/II/III/4/4M/D, Xeon,
+ Core and Atom; AMD Geode NX, Athlon (K7), Duron, Opteron, Sempron,
+ Turion or Phenom; Transmeta Efficeon; VIA C7; and some other processors.
+
 [image]
 bootloaders: grub-pc extlinux lilo
 configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
+install-stem: vmlinuz
 
 [relations]
 headers%gcc-4.8: linux-compiler-gcc-4.8-x86

@@ -19,7 +19,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 
 --- a/Documentation/kernel-parameters.txt
 +++ b/Documentation/kernel-parameters.txt
-@@ -513,8 +513,8 @@ bytes respectively. Such letter suffixes
+@@ -569,8 +569,8 @@ bytes respectively. Such letter suffixes
  	ccw_timeout_log [S390]
  			See Documentation/s390/CommonIO for details.
  
@@ -27,14 +27,14 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 -			Format: {name of the controller(s) to disable}
 +	cgroup_disable= [KNL] Disable/enable a particular controller
 +	cgroup_enable=	Format: {name of the controller(s) to disable/enable}
- 				{Currently supported controllers - "memory"}
- 
- 	checkreqprot	[SELINUX] Set initial checkreqprot flag value.
+ 			The effects of cgroup_disable=foo are:
+ 			- foo isn't auto-mounted if you mount all cgroups in
+ 			  a single hierarchy
 --- a/init/Kconfig
 +++ b/init/Kconfig
-@@ -934,6 +934,14 @@ config MEMCG
- 	  This config option also selects MM_OWNER config option, which
- 	  could in turn add some fork/exit overhead.
+@@ -960,6 +960,14 @@ config MEMCG
+ 	  disable memory resource controller and you can avoid overheads.
+ 	  (and lose benefits of memory resource controller)
  
 +config MEMCG_DISABLED
 +	bool "Memory Resource Controller disabled by default"
@@ -49,7 +49,7 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  	depends on MEMCG && SWAP
 --- a/kernel/cgroup.c
 +++ b/kernel/cgroup.c
-@@ -5442,7 +5442,7 @@ static void cgroup_release_agent(struct
+@@ -5182,7 +5182,7 @@ static void cgroup_release_agent(struct
  	mutex_unlock(&cgroup_mutex);
  }
  
@@ -58,9 +58,9 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
  {
  	struct cgroup_subsys *ss;
  	char *token;
-@@ -5458,17 +5458,29 @@ static int __init cgroup_disable(char *s
- 		 */
- 		for_each_builtin_subsys(ss, i) {
+@@ -5194,17 +5194,29 @@ static int __init cgroup_disable(char *s
+ 
+ 		for_each_subsys(ss, i) {
  			if (!strcmp(token, ss->name)) {
 -				ss->disabled = 1;
 -				printk(KERN_INFO "Disabling %s control group"
@@ -89,17 +89,17 @@ Signed-off-by: Ben Hutchings <ben@decadent.org.uk>
 +__setup("cgroup_enable=", cgroup_enable);
 +
  /**
-  * css_from_dir - get corresponding css from the dentry of a cgroup dir
+  * css_tryget_online_from_dir - get corresponding css from a cgroup dentry
   * @dentry: directory dentry of interest
 --- a/mm/memcontrol.c
 +++ b/mm/memcontrol.c
-@@ -7002,6 +7002,9 @@ static void mem_cgroup_bind(struct cgrou
+@@ -7015,6 +7015,9 @@ static void mem_cgroup_bind(struct cgrou
+ }
  
- struct cgroup_subsys mem_cgroup_subsys = {
- 	.name = "memory",
+ struct cgroup_subsys memory_cgrp_subsys = {
 +#ifdef CONFIG_MEMCG_DISABLED
 +	.disabled = 1,
 +#endif
- 	.subsys_id = mem_cgroup_subsys_id,
  	.css_alloc = mem_cgroup_css_alloc,
  	.css_online = mem_cgroup_css_online,
+ 	.css_offline = mem_cgroup_css_offline,

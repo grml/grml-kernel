@@ -32,10 +32,6 @@ export PYTHONPATH = $(CURDIR)/debian/lib/python
 export DH_OPTIONS
 export DEB_HOST_ARCH DEB_HOST_GNU_TYPE DEB_BUILD_ARCH
 
-ifneq (,$(filter experimental UNRELEASED,$(DISTRIBUTION)))
-  export KW_CHECK_NONFATAL = y
-endif
-
 include debian/rules.defs
 
 stamp = [ -d $(dir $@) ] || mkdir $(dir $@); touch $@
@@ -196,12 +192,13 @@ install-doc: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-doc: $(STAMPS_DIR)/build-doc
 	dh_prep
 	mkdir -p $(OUT_DIR)
-	cp -a CREDITS MAINTAINERS README REPORTING-BUGS Documentation $(OUT_DIR)
-	rm -rf $(OUT_DIR)/Documentation/DocBook
+	set -o pipefail; \
+	find CREDITS MAINTAINERS README REPORTING-BUGS Documentation \
+		-name '.gitignore' -prune -o -name DocBook -prune -o -print | \
+	cpio -pd --preserve-modification-time '$(CURDIR)/$(OUT_DIR)'
 	set -o pipefail; \
 	cd $(DIR)/Documentation/DocBook; \
-	find * -name '*.html' -print \
-	| \
+	find * -name '*.html' -print | \
 	cpio -pd --preserve-modification-time '$(CURDIR)/$(OUT_DIR)/html'
 	gzip -9qfr $(OUT_DIR)/Documentation
 	+$(MAKE_SELF) install-base
@@ -313,10 +310,10 @@ install-libc-dev_$(ARCH):
 	rm -rf $(OUT_DIR)/include/drm $(OUT_DIR)/include/scsi
 	find $(OUT_DIR)/include \( -name .install -o -name ..install.cmd \) -execdir rm {} +
 
-	# Move include/asm to arch-specific directory
+# Move include/asm to arch-specific directory
 	mkdir -p $(OUT_DIR)/include/$(DEB_HOST_MULTIARCH)
 	mv $(OUT_DIR)/include/asm $(OUT_DIR)/include/$(DEB_HOST_MULTIARCH)/
-	
+
 	+$(MAKE_SELF) install-base
 
 install-support: PACKAGE_NAME = linux-support-$(ABINAME)
@@ -347,9 +344,10 @@ install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain:
 	dh_testroot
 	dh_prep
 	dh_installdirs 'boot'
+	install -m644 '$(DIR)/$(IMAGE_FILE)' $(INSTALL_DIR)/$(IMAGE_INSTALL_STEM)-$(REAL_VERSION)
 	+$(MAKE_SELF) \
-	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_image \
-	  DIR='$(DIR)' PACKAGE_DIR='$(PACKAGE_DIR)' INSTALL_DIR='$(INSTALL_DIR)' REAL_VERSION='$(REAL_VERSION)'
+	  install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_dt \
+	  DIR='$(DIR)' PACKAGE_DIR='$(PACKAGE_DIR)' REAL_VERSION='$(REAL_VERSION)'
 ifeq ($(MODULES),True)
 	+$(MAKE_CLEAN) -C $(DIR) modules_install DEPMOD='$(CURDIR)/debian/bin/no-depmod' INSTALL_MOD_PATH='$(CURDIR)'/$(PACKAGE_DIR) INSTALL_MOD_STRIP=1 INSTALL_FW_PATH='$(CURDIR)'/$(PACKAGE_DIR)/lib/firmware/$(REAL_VERSION)
 ifeq ($(DEBUG),True)
@@ -369,52 +367,20 @@ endif
 	  PACKAGE_DIR='$(PACKAGE_DIR)' PACKAGE_NAME='$(PACKAGE_NAME)' REAL_VERSION='$(REAL_VERSION)'
 	+$(MAKE_SELF) install-base
 
-install-image_sparc_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_sparc64_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_sh4_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/arch/$(KERNEL_ARCH)/boot/zImage' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
-
-ifneq ($(filter armel armhf,$(ARCH)),)
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_image: DTB_INSTALL_DIR = /usr/lib/linux-image-$(REAL_VERSION)
-install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/arch/$(KERNEL_ARCH)/boot/zImage' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
+install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_dt: DT_INSTALL_DIR = $(PACKAGE_DIR)/usr/lib/linux-image-$(REAL_VERSION)
+install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_dt:
+ifneq ($(filter arm64 armel armhf,$(ARCH)),)
 	+$(MAKE_CLEAN) -C $(DIR) dtbs
-	shopt -s nullglob ; for i in $(DIR)/arch/arm/boot/dts/*.dtb ; do \
-		install -D -m644 $$i '$(PACKAGE_DIR)'/'$(DTB_INSTALL_DIR)'/$$(basename $$i) ; \
+	shopt -s nullglob ; for i in $(DIR)/arch/$(KERNEL_ARCH)/boot/dts/*.dtb ; do \
+		install -D -m644 $$i '$(DT_INSTALL_DIR)'/$$(basename $$i) ; \
 	done
 endif
-
-install-image_amd64_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_i386_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/arch/$(KERNEL_ARCH)/boot/bzImage' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
-
-install-image_alpha_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/arch/$(KERNEL_ARCH)/boot/vmlinux.gz' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
-
-install-image_ia64_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_m68k_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/vmlinux.gz' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
-
-install-image_hppa_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_mips_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_mipsel_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/vmlinux' $(INSTALL_DIR)/vmlinux-$(REAL_VERSION)
-
-install-image_powerpc_$(FEATURESET)_$(FLAVOUR)_plain_image: WRAPPER_INSTALL_DIR = '$(CURDIR)'/$(PACKAGE_DIR)/usr/lib/linux-image-$(REAL_VERSION)
-install-image_powerpcspe_$(FEATURESET)_$(FLAVOUR)_plain_image: WRAPPER_INSTALL_DIR = '$(CURDIR)'/$(PACKAGE_DIR)/usr/lib/linux-image-$(REAL_VERSION)
-install-image_ppc64_$(FEATURESET)_$(FLAVOUR)_plain_image: WRAPPER_INSTALL_DIR = '$(CURDIR)'/$(PACKAGE_DIR)/usr/lib/linux-image-$(REAL_VERSION)
-install-image_powerpc_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_powerpcspe_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_ppc64_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/vmlinux' $(INSTALL_DIR)/vmlinux-$(REAL_VERSION)
+ifneq ($(filter powerpc powerpcspe ppc64,$(ARCH)),)
 	+$(MAKE_CLEAN) -C '$(DIR)' bootwrapper_install \
-	  WRAPPER_OBJDIR='$(WRAPPER_INSTALL_DIR)' \
-	  WRAPPER_DTSDIR='$(WRAPPER_INSTALL_DIR)'/dts \
-	  WRAPPER_BINDIR='$(WRAPPER_INSTALL_DIR)'
-
-install-image_s390_$(FEATURESET)_$(FLAVOUR)_plain_image \
-install-image_s390x_$(FEATURESET)_$(FLAVOUR)_plain_image:
-	install -m644 '$(DIR)/arch/s390/boot/image' $(INSTALL_DIR)/vmlinuz-$(REAL_VERSION)
+	  WRAPPER_OBJDIR='$(CURDIR)/$(DT_INSTALL_DIR)' \
+	  WRAPPER_DTSDIR='$(CURDIR)/$(DT_INSTALL_DIR)'/dts \
+	  WRAPPER_BINDIR='$(CURDIR)/$(DT_INSTALL_DIR)'
+endif
 
 install-image_$(ARCH)_$(FEATURESET)_$(FLAVOUR)_plain_bug:
 	dh_installdirs usr/share/bug/$(PACKAGE_NAME)

@@ -1,12 +1,17 @@
+[abi]
+ignore-changes:
+ module:arch/x86/kvm/*
+
 [base]
+flavours:
+ amd64
 #featuresets:
 # none
 # rt
-flavours:
- amd64
 kernel-arch: x86
 
-#[build]
+[build]
+image-file: arch/x86/boot/bzImage
 #debug-info: true
 
 [image]
@@ -14,6 +19,7 @@ bootloaders: grub-pc extlinux lilo
 configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
+install-stem: vmlinuz
 
 [relations]
 headers%gcc-4.8: linux-compiler-gcc-4.8-x86

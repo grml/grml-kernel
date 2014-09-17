@@ -51,8 +51,8 @@ if [ "$(base_version "$new_ver")" != "$(base_version "$cur_ver")" ]; then
 fi
 
 case "$cur_pkg_ver" in
-    *~experimental*)
-	new_pkg_ver="$new_ver-1~experimental.1"
+    *~exp*)
+	new_pkg_ver="$new_ver-1~exp1"
 	;;
     *)
 	new_pkg_ver="$new_ver-1"
@@ -65,7 +65,7 @@ dch -v "$new_pkg_ver" --preserve --multimaint-merge -D UNRELEASED \
     echo "New upstream stable update: "
     while [ "v$cur_ver" != "v$new_ver" ]; do
         cur_ver="$(next_update "$cur_ver")"
-        echo "http://www.kernel.org/pub/linux/kernel/v3.x/ChangeLog-$cur_ver"
+        echo "https://www.kernel.org/pub/linux/kernel/v3.x/ChangeLog-$cur_ver"
     done)"
 
 # Then insert the shortlogs with sed

@@ -1,10 +1,6 @@
-[abi]
-ignore-changes:
- module:arch/x86/kvm/*
-
 [base]
 flavours:
- 486
+ 586
 #featuresets:
 # none
 # rt
@@ -20,7 +16,7 @@ part-long-pae: This kernel requires PAE (Physical Address Extension).
  Turion or Phenom; Transmeta Efficeon; VIA C7; and some other processors.
 
 [image]
-bootloaders: grub-pc extlinux lilo
+bootloaders: grub-pc extlinux
 configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
@@ -29,13 +25,14 @@ install-stem: vmlinuz
 [relations]
 headers%gcc-4.8: linux-compiler-gcc-4.8-x86
 
-[486_description]
+[586_description]
 hardware: older PCs
 hardware-long: PCs with a single processor not supporting PAE
 parts: up
 
-[486_image]
+[586_image]
 configs:
  kernelarch-x86/config-arch-32
- i386/config.486
+ i386/config.586
+recommends: libc6-i686
 

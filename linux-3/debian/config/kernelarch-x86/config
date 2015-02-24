@@ -30,6 +30,7 @@ CONFIG_X86_MCE_INTEL=y
 CONFIG_X86_MCE_AMD=y
 # CONFIG_X86_ANCIENT_MCE is not set
 CONFIG_X86_MCE_INJECT=m
+CONFIG_X86_16BIT=y
 CONFIG_I8K=m
 CONFIG_MICROCODE=y
 CONFIG_MICROCODE_INTEL=y
@@ -377,11 +378,16 @@ CONFIG_CRYPTO_DEV_CCP_DD=m
 CONFIG_CRYPTO_DEV_CCP_CRYPTO=m
 
 ##
+## file: drivers/crypto/qat/Kconfig
+##
+CONFIG_CRYPTO_DEV_QAT_DH895xCC=m
+
+##
 ## file: drivers/dma/Kconfig
 ##
 CONFIG_DMADEVICES=y
+# CONFIG_INTEL_MID_DMAC is not set
 CONFIG_INTEL_IOATDMA=m
-CONFIG_NET_DMA=y
 
 ##
 ## file: drivers/edac/Kconfig
@@ -397,6 +403,7 @@ CONFIG_EDAC_E7XXX=m
 CONFIG_EDAC_E752X=m
 CONFIG_EDAC_I82875P=m
 CONFIG_EDAC_I3000=m
+CONFIG_EDAC_IE31200=m
 CONFIG_EDAC_I82860=m
 CONFIG_EDAC_R82600=m
 CONFIG_EDAC_I5000=m
@@ -474,7 +481,6 @@ CONFIG_DRM_I915=m
 CONFIG_DRM_I915_KMS=y
 CONFIG_DRM_I915_FBDEV=y
 # CONFIG_DRM_I915_PRELIMINARY_HW_SUPPORT is not set
-# CONFIG_DRM_I915_UMS is not set
 
 ##
 ## file: drivers/gpu/drm/mgag200/Kconfig
@@ -538,6 +544,7 @@ CONFIG_SENSORS_GL518SM=m
 CONFIG_SENSORS_GL520SM=m
 CONFIG_SENSORS_IT87=m
 CONFIG_SENSORS_MAX1619=m
+CONFIG_SENSORS_MENF21BMC_HWMON=m
 CONFIG_SENSORS_LM63=m
 CONFIG_SENSORS_LM75=m
 CONFIG_SENSORS_LM77=m
@@ -718,6 +725,12 @@ CONFIG_ISDN_DIVAS_MAINT=m
 ## file: drivers/leds/Kconfig
 ##
 CONFIG_LEDS_CLEVO_MAIL=m
+CONFIG_LEDS_MENF21BMC=m
+
+##
+## file: drivers/media/dvb-frontends/Kconfig
+##
+CONFIG_DVB_RTL2832_SDR=m
 
 ##
 ## file: drivers/media/platform/Kconfig
@@ -737,6 +750,21 @@ CONFIG_IR_ITE_CIR=m
 CONFIG_IR_FINTEK=m
 CONFIG_IR_NUVOTON=m
 CONFIG_IR_WINBOND_CIR=m
+
+##
+## file: drivers/media/tuners/Kconfig
+##
+CONFIG_MEDIA_TUNER_MSI001=m
+
+##
+## file: drivers/media/usb/as102/Kconfig
+##
+CONFIG_DVB_AS102=m
+
+##
+## file: drivers/media/usb/go7007/Kconfig
+##
+# CONFIG_VIDEO_GO7007 is not set
 
 ##
 ## file: drivers/media/usb/tm6000/Kconfig
@@ -759,6 +787,7 @@ CONFIG_I2O_PROC=m
 ##
 CONFIG_LPC_ICH=m
 CONFIG_MFD_KEMPLD=m
+CONFIG_MFD_MENF21BMC=m
 
 ##
 ## file: drivers/misc/Kconfig
@@ -1098,10 +1127,8 @@ CONFIG_USB_ZD1201=m
 ##
 ## file: drivers/net/wireless/brcm80211/Kconfig
 ##
-CONFIG_BRCMFMAC=m
 #. Sony Vaio laptops
 CONFIG_BRCMFMAC_SDIO=y
-# CONFIG_BRCMFMAC_USB is not set
 
 ##
 ## file: drivers/net/wireless/mwifiex/Kconfig
@@ -1199,6 +1226,7 @@ CONFIG_MSI_WMI=m
 CONFIG_TOPSTAR_LAPTOP=m
 CONFIG_ACPI_TOSHIBA=m
 CONFIG_TOSHIBA_BT_RFKILL=m
+CONFIG_TOSHIBA_HAPS=m
 CONFIG_ACPI_CMPC=m
 CONFIG_INTEL_IPS=m
 CONFIG_IBM_RTL=m
@@ -1263,7 +1291,7 @@ CONFIG_SCSI_IPR=m
 # CONFIG_SCSI_IPR_DUMP is not set
 CONFIG_SCSI_QLOGIC_1280=m
 CONFIG_SCSI_DC395x=m
-CONFIG_SCSI_DC390T=m
+CONFIG_SCSI_AM53C974=m
 CONFIG_SCSI_DEBUG=m
 
 ##
@@ -1300,12 +1328,10 @@ CONFIG_COMEDI=m
 CONFIG_COMEDI_DEFAULT_BUF_SIZE_KB=2048
 CONFIG_COMEDI_DEFAULT_BUF_MAXSIZE_KB=20480
 CONFIG_COMEDI_MISC_DRIVERS=y
-CONFIG_COMEDI_KCOMEDILIB=m
 CONFIG_COMEDI_BOND=m
 CONFIG_COMEDI_TEST=m
 CONFIG_COMEDI_PARPORT=m
 CONFIG_COMEDI_SERIAL2002=m
-# CONFIG_COMEDI_SKEL is not set
 CONFIG_COMEDI_SSV_DNP=m
 # CONFIG_COMEDI_ISA_DRIVERS is not set
 CONFIG_COMEDI_UNIOXX5=m
@@ -1374,21 +1400,13 @@ CONFIG_COMEDI_NI_MIO_CS=m
 CONFIG_COMEDI_QUATECH_DAQP_CS=m
 CONFIG_COMEDI_USB_DRIVERS=y
 CONFIG_COMEDI_DT9812=m
+CONFIG_COMEDI_NI_USB6501=m
 CONFIG_COMEDI_USBDUX=m
 CONFIG_COMEDI_USBDUXFAST=m
 CONFIG_COMEDI_USBDUXSIGMA=m
 CONFIG_COMEDI_VMK80XX=m
 CONFIG_COMEDI_8255=m
-
-##
-## file: drivers/staging/crystalhd/Kconfig
-##
-CONFIG_CRYSTALHD=m
-
-##
-## file: drivers/staging/et131x/Kconfig
-##
-CONFIG_ET131X=m
+CONFIG_COMEDI_KCOMEDILIB=m
 
 ##
 ## file: drivers/staging/gdm72xx/Kconfig
@@ -1397,7 +1415,9 @@ CONFIG_WIMAX_GDM72XX=m
 # CONFIG_WIMAX_GDM72XX_QOS is not set
 # CONFIG_WIMAX_GDM72XX_K_MODE is not set
 # CONFIG_WIMAX_GDM72XX_WIMAX2 is not set
+## choice: Select interface
 CONFIG_WIMAX_GDM72XX_USB=y
+## end choice
 CONFIG_WIMAX_GDM72XX_USB_PM=y
 
 ##
@@ -1436,19 +1456,9 @@ CONFIG_LUSTRE_LLITE_LLOOP=m
 CONFIG_STAGING_MEDIA=y
 
 ##
-## file: drivers/staging/media/as102/Kconfig
-##
-CONFIG_DVB_AS102=m
-
-##
 ## file: drivers/staging/media/bcm2048/Kconfig
 ##
 # CONFIG_I2C_BCM2048 is not set
-
-##
-## file: drivers/staging/media/go7007/Kconfig
-##
-# CONFIG_VIDEO_GO7007 is not set
 
 ##
 ## file: drivers/staging/media/lirc/Kconfig
@@ -1464,30 +1474,9 @@ CONFIG_LIRC_SIR=m
 CONFIG_LIRC_ZILOG=m
 
 ##
-## file: drivers/staging/media/msi3101/Kconfig
-##
-CONFIG_USB_MSI3101=m
-CONFIG_MEDIA_TUNER_MSI001=m
-
-##
 ## file: drivers/staging/media/omap24xx/Kconfig
 ##
 # CONFIG_VIDEO_TCM825X is not set
-
-##
-## file: drivers/staging/media/rtl2832u_sdr/Kconfig
-##
-CONFIG_DVB_RTL2832_SDR=m
-
-##
-## file: drivers/staging/media/sn9c102/Kconfig
-##
-# CONFIG_USB_SN9C102 is not set
-
-##
-## file: drivers/staging/media/solo6x10/Kconfig
-##
-CONFIG_SOLO6X10=m
 
 ##
 ## file: drivers/staging/rtl8192e/Kconfig
@@ -1503,11 +1492,6 @@ CONFIG_RTLLIB_CRYPTO_WEP=m
 CONFIG_RTL8192E=m
 
 ##
-## file: drivers/staging/rtl8192ee/Kconfig
-##
-CONFIG_R8192EE=m
-
-##
 ## file: drivers/staging/rtl8192u/Kconfig
 ##
 CONFIG_RTL8192U=m
@@ -1520,23 +1504,9 @@ CONFIG_8723AU_AP_MODE=y
 CONFIG_8723AU_BT_COEXIST=y
 
 ##
-## file: drivers/staging/rtl8821ae/Kconfig
-##
-CONFIG_R8821AE=m
-
-##
 ## file: drivers/staging/rts5208/Kconfig
 ##
 CONFIG_RTS5208=m
-# CONFIG_RTS5208_DEBUG is not set
-
-##
-## file: drivers/staging/usbip/Kconfig
-##
-CONFIG_USBIP_CORE=m
-CONFIG_USBIP_VHCI_HCD=m
-CONFIG_USBIP_HOST=m
-# CONFIG_USBIP_DEBUG is not set
 
 ##
 ## file: drivers/staging/vt6656/Kconfig
@@ -1555,7 +1525,12 @@ CONFIG_THERMAL=m
 # CONFIG_CPU_THERMAL is not set
 CONFIG_INTEL_POWERCLAMP=m
 CONFIG_X86_PKG_TEMP_THERMAL=m
-CONFIG_ACPI_INT3403_THERMAL=m
+# CONFIG_INT340X_THERMAL is not set
+
+##
+## file: drivers/thunderbolt/Kconfig
+##
+CONFIG_THUNDERBOLT=m
 
 ##
 ## file: drivers/tty/Kconfig
@@ -1588,6 +1563,7 @@ CONFIG_SERIAL_8250_MANY_PORTS=y
 CONFIG_SERIAL_8250_SHARE_IRQ=y
 # CONFIG_SERIAL_8250_DETECT_IRQ is not set
 CONFIG_SERIAL_8250_RSA=y
+CONFIG_SERIAL_8250_FINTEK=m
 
 ##
 ## file: drivers/usb/Kconfig
@@ -1605,6 +1581,10 @@ CONFIG_USB_SPEEDTOUCH=m
 ## file: drivers/usb/gadget/Kconfig
 ##
 CONFIG_USB_GADGET=m
+
+##
+## file: drivers/usb/gadget/udc/Kconfig
+##
 CONFIG_USB_EG20T=m
 
 ##
@@ -1617,6 +1597,14 @@ CONFIG_USB_UHCI_HCD=m
 CONFIG_USB_SL811_HCD=m
 # CONFIG_USB_SL811_HCD_ISO is not set
 CONFIG_USB_SL811_CS=m
+
+##
+## file: drivers/usb/usbip/Kconfig
+##
+CONFIG_USBIP_CORE=m
+CONFIG_USBIP_VHCI_HCD=m
+CONFIG_USBIP_HOST=m
+# CONFIG_USBIP_DEBUG is not set
 
 ##
 ## file: drivers/vfio/Kconfig
@@ -1692,6 +1680,7 @@ CONFIG_FB_SIMPLE=y
 ##
 ## file: drivers/watchdog/Kconfig
 ##
+CONFIG_MENF21BMC_WATCHDOG=m
 CONFIG_ACQUIRE_WDT=m
 CONFIG_ADVANTECH_WDT=m
 CONFIG_ALIM1535_WDT=m
@@ -1707,8 +1696,8 @@ CONFIG_I6300ESB_WDT=m
 CONFIG_IE6XX_WDT=m
 CONFIG_IT8712F_WDT=m
 CONFIG_HP_WATCHDOG=m
-CONFIG_HPWDT_NMI_DECODING=y
 CONFIG_KEMPLD_WDT=m
+CONFIG_HPWDT_NMI_DECODING=y
 CONFIG_SC1200_WDT=m
 CONFIG_NV_TCO=m
 CONFIG_60XX_WDT=m

@@ -4,6 +4,7 @@ import sys
 sys.path.append('debian/lib/python')
 
 import fnmatch
+import glob
 import stat
 
 from debian_linux.abi import Symbols
@@ -44,13 +45,11 @@ class CheckAbi(object):
 
         self.filename_new = "%s/Module.symvers" % dir
 
-        upstream_version = self.config['version',]['upstream']
         try:
-            version_abi = (upstream_version + '-' +
+            version_abi = (self.config['version',]['abiname_base'] + '-' +
                            self.config['abi', arch]['abiname'])
         except KeyError:
-            version_abi = (upstream_version + '-' +
-                           self.config['abi', ]['abiname'])
+            version_abi = self.config['version',]['abiname']
         self.filename_ref = "debian/abi/%s/%s_%s_%s" % (version_abi, arch, featureset, flavour)
 
     def __call__(self, out):
@@ -174,6 +173,9 @@ class CheckImage(object):
         self.dir = dir
         self.arch, self.featureset, self.flavour = arch, featureset, flavour
 
+        self.changelog = Changelog(version=VersionLinux)[0]
+
+        self.config_entry_base = config.merge('base', arch, featureset, flavour)
         self.config_entry_build = config.merge('build', arch, featureset, flavour)
         self.config_entry_image = config.merge('image', arch, featureset, flavour)
 
@@ -198,15 +200,34 @@ class CheckImage(object):
         if not value:
             return 0
 
-        value = int(value)
+        dtb_size = 0
+        if self.config_entry_image.get('check-size-with-dtb'):
+            for dtb in glob.glob(
+                    os.path.join(self.dir, 'arch',
+                                 self.config_entry_base['kernel-arch'],
+                                 'boot/dts/*.dtb')):
+                dtb_size = max(dtb_size, os.stat(dtb).st_size)
 
-        size = os.stat(image)[stat.ST_SIZE]
+        size = os.stat(image).st_size + dtb_size
 
         if size > value:
             out.write('Image too large (%d > %d)!  Refusing to continue.\n' % (size, value))
             return 1
 
-        out.write('Image fits (%d <= %d).  Continuing.\n' % (size, value))
+        # 1% overhead is desirable in order to cope with growth
+        # through the lifetime of a stable release. Warn if this is
+        # not the case.
+        usage = (float(size)/value) * 100.0
+        out.write('Image size %d/%d, using %.2f%%.  ' % (size, value, usage))
+        if size > value:
+            sys.write('Too large.  Refusing to continue.\n')
+            return 1
+        elif usage >= 99.0:
+            out.write('Under 1%% space in %s.  ' % self.changelog.distribution)
+        else:
+            out.write('Image fits.  ')
+        out.write('Continuing.\n')
+
         return 0
 
 

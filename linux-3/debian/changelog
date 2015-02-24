@@ -1,3 +1,11 @@
+linux (3.19-1+grml.1) grml-testing; urgency=low
+
+  * Grml build of 3.19 based on Debian's
+    (yet unreleased) 3.19-1~exp2 as of svn r22418.
+  * Add patch aufs3.19 20150223
+
+ -- Michael Prokop <mika@grml.org>  Tue, 24 Feb 2015 20:03:28 +0100
+
 linux (3.16.7-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.16.7 based on Debian's

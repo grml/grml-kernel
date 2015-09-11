@@ -1,12 +1,12 @@
 From: J. R. Okajima <hooanon05@yahoo.co.jp>
-Date: Sat Jun 6 21:25:05 2015 +0900
-Subject: aufs4.x-rcN standalone patch
-Origin: https://github.com/sfjro/aufs4-standalone/tree/aa65d099b5220918a0509c91ece96b79f7cb4b2d
+Date: Tue Jun 23 15:19:49 2015 +0900
+Subject: aufs4.1 standalone patch
+Origin: https://github.com/sfjro/aufs4-standalone/tree/1a70d6a1618c28280e11783efed84d48e7cb15f2
 Bug-Debian: https://bugs.debian.org/541828
 
 Patch headers added by debian/patches/features/all/aufs4/gen-patch
 
-aufs4.x-rcN standalone patch
+aufs4.1 standalone patch
 
 diff --git a/fs/dcache.c b/fs/dcache.c
 index bc261e2..8d7951d 100644

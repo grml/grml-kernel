@@ -5,7 +5,7 @@
 CONFIG_SMP=y
 CONFIG_X86_BIGSMP=y
 CONFIG_NR_CPUS=32
-CONFIG_VM86=y
+# CONFIG_VM86 is not set
 CONFIG_TOSHIBA=m
 CONFIG_X86_REBOOTFIXUPS=y
 ## choice: High Memory Support
@@ -356,7 +356,7 @@ CONFIG_ISAPNP=y
 ## file: drivers/pnp/pnpbios/Kconfig
 ##
 CONFIG_PNPBIOS=y
-CONFIG_PNPBIOS_PROC_FS=y
+# CONFIG_PNPBIOS_PROC_FS is not set
 
 ##
 ## file: drivers/scsi/Kconfig

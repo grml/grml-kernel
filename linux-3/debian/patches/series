@@ -28,6 +28,8 @@ grml/ext4-readonly.patch
 features/all/aufs4/aufs4-base.patch
 features/all/aufs4/aufs4-mmap.patch
 features/all/aufs4/aufs4-standalone.patch
+features/all/aufs4/aufs4-add.patch
+features/all/aufs4/aufs4-kbuild.patch
 
 # Change some defaults for security reasons
 debian/af_802154-Disable-auto-loading-as-mitigation-against.patch

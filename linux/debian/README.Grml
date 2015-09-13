@@ -7,7 +7,7 @@ To build this, obtain:
 
 then, unpack:
   tar afx linux-3.8.5.tar.xz
-  cp -a grml-kernel/linux-3/debian linux-3.8.5/
+  cp -a grml-kernel/linux/debian linux-3.8.5/
 
 then, prepare orig.tar.gz:
   cp linux-3.8.5.tar.xz linux_3.8.5.orig.tar.xz

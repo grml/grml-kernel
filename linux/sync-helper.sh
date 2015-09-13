@@ -3,7 +3,7 @@
 # a *bit* easier
 
 if ! test -f README.Grml ; then
-  echo "Please invoke this script inside the grml-kernel/linux-3/debian directory." >&2
+  echo "Please invoke this script inside the grml-kernel/linux/debian directory." >&2
   exit 1
 fi
 

@@ -6,5 +6,5 @@ Standards-Version: 3.9.5
 Build-Depends: debhelper, cpio, kmod, python, python-six, lzma [armel], kernel-wedge, quilt, patchutils, bc
 Build-Depends-Indep: xz-utils, xmlto
 Vcs-Git: git://git.grml.org/grml-kernel.git
-Vcs-Browser: http://git.grml.org/?p=grml-kernel.git;a=tree;f=linux-3
+Vcs-Browser: http://git.grml.org/?p=grml-kernel.git;a=tree;f=linux
 Homepage: https://www.kernel.org/

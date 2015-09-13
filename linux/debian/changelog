@@ -1,3 +1,11 @@
+linux (4.1.7-1+grml.1) grml-testing; urgency=low
+
+  * Grml build of 4.1.7 based on Debian's 4.1.3-1 as of svn r22894.
+  * Include aufs4.1 20150629.
+  * Enabled CONFIG_EXT4_ENCRYPTION=m.
+
+ -- Michael Prokop <mika@grml.org>  Mon, 14 Sep 2015 00:55:26 +0200
+
 linux (3.19-1+grml.1) grml-testing; urgency=low
 
   * Grml build of 3.19 based on Debian's

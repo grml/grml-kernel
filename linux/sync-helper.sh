@@ -8,13 +8,12 @@ if ! test -f README.Grml ; then
 fi
 
 for file in \
+  abi \
   config/alpha/ \
   config/arm64/ \
   config/armel/ \
   config/armhf/ \
   config/hppa/ \
-  config/i386/config.486 \
-  config/i386/config.686-pae \
   config/i386/rt/ \
   config/ia64/ \
   config/kernelarch-arm/ \
@@ -26,7 +25,15 @@ for file in \
   config/mips/ \
   config/mips64/ \
   config/mips64el/ \
+  config/mips64r6/ \
+  config/mips64r6el/ \
   config/mipsel/ \
+  config/mipsn32/ \
+  config/mipsn32el/ \
+  config/mipsn32r6/ \
+  config/mipsn32r6el/ \
+  config/mipsr6/ \
+  config/mipsr6el/ \
   config/or1k/ \
   config/powerpc/ \
   config/powerpcspe/ \
@@ -37,6 +44,7 @@ for file in \
   config/sh4/ \
   config/sparc/ \
   config/sparc64/ \
+  config/tilegx/ \
   config/x32/ \
   installer/ \
   patches/bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch \

@@ -15,6 +15,15 @@ endif
 ifdef DEBIAN_KERNEL_JOBS
   MAKEFLAGS += -j$(DEBIAN_KERNEL_JOBS)
 endif
+BUILD_STAGE1 := $(filter stage1,$(DEB_BUILD_PROFILES))
+ifneq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
+# This only disables building the linux-doc and linux-manual packages.
+# The rules for tools packages check separately for the 'nodoc' profile.
+  MAKEFLAGS += DO_DOCS=False
+endif
+ifneq (,$(filter pkg.linux.notools,$(DEB_BUILD_PROFILES)))
+  MAKEFLAGS += DO_TOOLS=False
+endif
 
 .NOTPARALLEL:
 
@@ -30,21 +39,31 @@ build: build-arch build-indep
 
 build-arch: debian/control
 	dh_testdir
+ifndef BUILD_STAGE1
 	$(MAKE) -f debian/rules.gen build-arch_$(DEB_HOST_ARCH)
+endif
 
 build-indep: debian/control
 	dh_testdir
+ifndef BUILD_STAGE1
 	$(MAKE) -f debian/rules.gen build-indep
+endif
 
 binary:	binary-indep binary-arch
 
 binary-arch:
 	dh_testdir
+ifdef BUILD_STAGE1
+	$(MAKE) -f debian/rules.gen binary-libc-dev_$(DEB_HOST_ARCH)
+else
 	$(MAKE) -f debian/rules.gen binary-arch_$(DEB_HOST_ARCH)
+endif
 
 binary-indep:
 	dh_testdir
+ifndef BUILD_STAGE1
 	$(MAKE) -f debian/rules.gen binary-indep
+endif
 
 DIR_ORIG = ../orig/$(SOURCE)-$(VERSION_UPSTREAM)
 TAR_ORIG_NAME = $(SOURCE)_$(VERSION_UPSTREAM).orig.tar.xz
@@ -63,12 +82,12 @@ else
 endif
 
 maintainerclean:
-	rm -f debian/config.defines.dump debian/control debian/control.md5sum debian/linux-* debian/rules.gen debian/po/*.po
+	rm -f debian/config.defines.dump debian/control debian/control.md5sum debian/linux-headers-* debian/linux-image-* debian/rules.gen
 	rm -rf $(filter-out debian .svk .svn .git, $(wildcard * .[^.]*))
 
 clean: debian/control
 	dh_testdir
-	rm -rf $(BUILD_DIR) $(STAMPS_DIR) debian/lib/python/debian_linux/*.pyc debian/lib/python/debian_linux/__pycache__ $$(find debian -maxdepth 1 -type d -name 'linux-*') debian/*-modules-*-di* debian/kernel-image-*-di* debian/xen-linux-system-*
+	rm -rf $(BUILD_DIR) $(STAMPS_DIR) debian/lib/python/debian_linux/*.pyc debian/lib/python/debian_linux/__pycache__ $$(find debian -maxdepth 1 -type d -name 'linux-*') debian/*-modules-*-di* debian/kernel-image-*-di* debian/xen-linux-system-* debian/*-tmp
 	dh_clean
 
 CONTROL_FILES = debian/changelog $(wildcard debian/templates/*.in)

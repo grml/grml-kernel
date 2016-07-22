@@ -6,7 +6,7 @@ Patches
 Debian applies small changes to the kernel source. These are split up into
 separated patches addressing individual problems. Each of the patch files
 contains a description and mentions the author. The patches can be found
-at http://svn.debian.org/wsvn/kernel/dists/trunk/linux/debian/patches/.
+at https://anonscm.debian.org/cgit/kernel/linux.git/tree/debian/patches.
 
 Config Files
 ------------
@@ -51,6 +51,6 @@ See the patches under debian/patches/debian/dfsg.
 
 Further information
 -------------------
-Debian Linux Kernel Handbook: http://kernel-handbook.alioth.debian.org
+Debian Linux Kernel Handbook: https://kernel-handbook.alioth.debian.org
                               or debian-kernel-handbook package
-Debian Wiki: http://wiki.debian.org/DebianKernel
+Debian Wiki: https://wiki.debian.org/DebianKernel

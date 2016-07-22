@@ -1,13 +1,11 @@
 [base]
-flavours:
- 586
-#featuresets:
-# none
-# rt
+featuresets:
+ none
 kernel-arch: x86
 
 [build]
 image-file: arch/x86/boot/bzImage
+vdso: true
 
 [description]
 part-long-pae: This kernel requires PAE (Physical Address Extension).
@@ -21,18 +19,19 @@ configs:
  kernelarch-x86/config
  kernelarch-x86/config-grml
 install-stem: vmlinuz
+breaks: xserver-xorg-input-vmmouse (<< 1:13.0.99)
 
 [relations]
-headers%gcc-4.9: linux-compiler-gcc-4.9-x86
+headers%gcc-5: linux-compiler-gcc-5-x86
 
-[586_description]
+[686_description]
 hardware: older PCs
-hardware-long: PCs with a single processor not supporting PAE
-parts: up
+hardware-long: PCs with one or more processors not supporting PAE
 
-[586_image]
-configs:
- kernelarch-x86/config-arch-32
- i386/config.586
-recommends: libc6-i686
+[686-pae_build]
+debug-info: false
 
+[686-pae_description]
+hardware: modern PCs
+hardware-long: PCs with one or more processors supporting PAE
+parts: pae

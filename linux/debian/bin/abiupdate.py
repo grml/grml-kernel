@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 sys.path.append(sys.path[0] + "/../lib/python")
@@ -164,9 +164,6 @@ class Main(object):
 
     def update_flavour(self, config, arch, featureset, flavour):
         config_base = config.merge('base', arch, featureset, flavour)
-
-        if not config_base.get('modules', True):
-            return
 
         self.log("Updating ABI for arch %s, featureset %s, flavour %s: " % (arch, featureset, flavour))
         try:

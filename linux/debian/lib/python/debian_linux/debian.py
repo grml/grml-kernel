@@ -1,8 +1,6 @@
 import collections
 import os.path
 import re
-import six
-import six.moves
 
 from . import utils
 
@@ -23,23 +21,24 @@ class Changelog(list):
 (?P<distribution>
     [-+0-9a-zA-Z.]+
 )
-\;
+\;\s+urgency=
+(?P<urgency>
+    \w+
+)
 """
     _re = re.compile(_rules, re.X)
 
     class Entry(object):
-        __slot__ = 'distribution', 'source', 'version'
+        __slot__ = 'distribution', 'source', 'version', 'urgency'
 
-        def __init__(self, distribution, source, version):
-            self.distribution, self.source, self.version = distribution, source, version
+        def __init__(self, distribution, source, version, urgency):
+            self.distribution, self.source, self.version, self.urgency = \
+                distribution, source, version, urgency
 
     def __init__(self, dir='', version=None):
         if version is None:
             version = Version
-        if six.PY3:
-            f = open(os.path.join(dir, "debian/changelog"), encoding="UTF-8")
-        else:
-            f = open(os.path.join(dir, "debian/changelog"))
+        f = open(os.path.join(dir, "debian/changelog"), encoding="UTF-8")
         while True:
             line = f.readline()
             if not line:
@@ -53,7 +52,9 @@ class Changelog(list):
                 if not len(self):
                     raise
                 v = Version(match.group('version'))
-            self.append(self.Entry(match.group('distribution'), match.group('source'), v))
+            self.append(self.Entry(match.group('distribution'),
+                                   match.group('source'), v,
+                                   match.group('urgency')))
 
 
 class Version(object):
@@ -88,7 +89,6 @@ $
 
     def __str__(self):
         return self.complete
-    __unicode__ = __str__
 
     @property
     def complete(self):
@@ -164,7 +164,7 @@ $
         self.linux_version = d['version']
         if d['modifier'] is not None:
             assert not d['update']
-            self.linux_upstream = u'-'.join((d['version'], d['modifier']))
+            self.linux_upstream = '-'.join((d['version'], d['modifier']))
         else:
             self.linux_upstream = d['version']
         self.linux_upstream_full = self.linux_upstream + d['update']
@@ -193,8 +193,7 @@ class PackageArchitecture(collections.MutableSet):
         return self._data.__len__()
 
     def __str__(self):
-        return u' '.join(sorted(self))
-    __unicode__ = __str__
+        return ' '.join(sorted(self))
 
     def add(self, value):
         self._data.add(value)
@@ -203,7 +202,7 @@ class PackageArchitecture(collections.MutableSet):
         self._data.discard(value)
 
     def extend(self, value):
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             for i in re.split('\s', value.strip()):
                 self.add(i)
         else:
@@ -223,13 +222,12 @@ class PackageDescription(object):
 
     def __str__(self):
         wrap = utils.TextWrapper(width=74, fix_sentence_endings=True).wrap
-        short = u', '.join(self.short)
+        short = ', '.join(self.short)
         long_pars = []
         for i in self.long:
             long_pars.append(wrap(i))
-        long = u'\n .\n '.join([u'\n '.join(i) for i in long_pars])
-        return short + u'\n ' + long
-    __unicode__ = __str__
+        long = '\n .\n '.join(['\n '.join(i) for i in long_pars])
+        return short + '\n ' + long
 
     def append(self, str):
         str = str.strip()
@@ -255,8 +253,7 @@ class PackageRelation(list):
             self.extend(value, override_arches)
 
     def __str__(self):
-        return u', '.join(six.text_type(i) for i in self)
-    __unicode__ = __str__
+        return ', '.join(str(i) for i in self)
 
     def _search_value(self, value):
         for i in self:
@@ -265,7 +262,7 @@ class PackageRelation(list):
         return None
 
     def append(self, value, override_arches=None):
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             value = PackageRelationGroup(value, override_arches)
         elif not isinstance(value, PackageRelationGroup):
             raise ValueError(u"got %s" % type(value))
@@ -276,8 +273,8 @@ class PackageRelation(list):
             super(PackageRelation, self).append(value)
 
     def extend(self, value, override_arches=None):
-        if isinstance(value, six.string_types):
-            value = (j.strip() for j in re.split(u',', value.strip()))
+        if isinstance(value, str):
+            value = (j.strip() for j in re.split(',', value.strip()))
         for i in value:
             self.append(i, override_arches)
 
@@ -288,40 +285,40 @@ class PackageRelationGroup(list):
             self.extend(value, override_arches)
 
     def __str__(self):
-        return u' | '.join(six.text_type(i) for i in self)
-    __unicode__ = __str__
+        return ' | '.join(str(i) for i in self)
 
     def _search_value(self, value):
-        for i, j in six.moves.zip(self, value):
-            if i.name != j.name or i.version != j.version:
+        for i, j in zip(self, value):
+            if i.name != j.name or i.operator != j.operator or \
+               i.version != j.version or i.restrictions != j.restrictions:
                 return None
         return self
 
     def _update_arches(self, value):
-        for i, j in six.moves.zip(self, value):
+        for i, j in zip(self, value):
             if i.arches:
                 for arch in j.arches:
                     if arch not in i.arches:
                         i.arches.append(arch)
 
     def append(self, value, override_arches=None):
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             value = PackageRelationEntry(value, override_arches)
         elif not isinstance(value, PackageRelationEntry):
             raise ValueError
         super(PackageRelationGroup, self).append(value)
 
     def extend(self, value, override_arches=None):
-        if isinstance(value, six.string_types):
+        if isinstance(value, str):
             value = (j.strip() for j in re.split('\|', value.strip()))
         for i in value:
             self.append(i, override_arches)
 
 
 class PackageRelationEntry(object):
-    __slots__ = "name", "operator", "version", "arches"
+    __slots__ = "name", "operator", "version", "arches", "restrictions"
 
-    _re = re.compile(r'^(\S+)(?: \((<<|<=|=|!=|>=|>>)\s*([^)]+)\))?(?: \[([^]]+)\])?$')
+    _re = re.compile(r'^(\S+)(?: \((<<|<=|=|!=|>=|>>)\s*([^)]+)\))?(?: \[([^]]+)\])?(?: <([^>]+)>)?$')
 
     class _operator(object):
         OP_LT = 1
@@ -332,12 +329,12 @@ class PackageRelationEntry(object):
         OP_GT = 6
 
         operators = {
-                u'<<': OP_LT,
-                u'<=': OP_LE,
-                u'=': OP_EQ,
-                u'!=': OP_NE,
-                u'>=': OP_GE,
-                u'>>': OP_GT,
+                '<<': OP_LT,
+                '<=': OP_LE,
+                '=': OP_EQ,
+                '!=': OP_NE,
+                '>=': OP_GE,
+                '>>': OP_GT,
         }
 
         operators_neg = {
@@ -361,10 +358,12 @@ class PackageRelationEntry(object):
 
         def __str__(self):
             return self.operators_text[self._op]
-        __unicode__ = __str__
+
+        def __eq__(self, other):
+            return type(other) == type(self) and self._op == other._op
 
     def __init__(self, value=None, override_arches=None):
-        if not isinstance(value, six.string_types):
+        if not isinstance(value, str):
             raise ValueError
 
         self.parse(value)
@@ -375,11 +374,12 @@ class PackageRelationEntry(object):
     def __str__(self):
         ret = [self.name]
         if self.operator is not None and self.version is not None:
-            ret.extend((u' (', six.text_type(self.operator), u' ', self.version, u')'))
+            ret.extend((' (', str(self.operator), ' ', self.version, ')'))
         if self.arches:
-            ret.extend((u' [', u' '.join(self.arches), u']'))
-        return u''.join(ret)
-    __unicode__ = __str__
+            ret.extend((' [', ' '.join(self.arches), ']'))
+        if self.restrictions:
+            ret.extend((' <', ' '.join(self.restrictions), '>'))
+        return ''.join(ret)
 
     def parse(self, value):
         match = self._re.match(value)
@@ -396,18 +396,50 @@ class PackageRelationEntry(object):
             self.arches = re.split('\s+', match[3])
         else:
             self.arches = []
+        if match[4] is not None:
+            self.restrictions = re.split('\s+', match[4])
+        else:
+            self.restrictions = []
 
 
-class Package(dict):
+class _ControlFileDict(dict):
+    def __setitem__(self, key, value):
+        try:
+            cls = self._fields[key]
+            if not isinstance(value, cls):
+                value = cls(value)
+        except KeyError:
+            pass
+        super(_ControlFileDict, self).__setitem__(key, value)
+
+    def keys(self):
+        keys = set(super(_ControlFileDict, self).keys())
+        for i in self._fields.keys():
+            if i in self:
+                keys.remove(i)
+                yield i
+        for i in sorted(list(keys)):
+            yield i
+
+    def items(self):
+        for i in self.keys():
+            yield (i, self[i])
+
+    def values(self):
+        for i in self.keys():
+            yield self[i]
+
+
+class Package(_ControlFileDict):
     _fields = collections.OrderedDict((
-        ('Package', six.text_type),
-        ('Source', six.text_type),
+        ('Package', str),
+        ('Source', str),
         ('Architecture', PackageArchitecture),
-        ('Section', six.text_type),
-        ('Priority', six.text_type),
-        ('Maintainer', six.text_type),
-        ('Uploaders', six.text_type),
-        ('Standards-Version', six.text_type),
+        ('Section', str),
+        ('Priority', str),
+        ('Maintainer', str),
+        ('Uploaders', str),
+        ('Standards-Version', str),
         ('Build-Depends', PackageRelation),
         ('Build-Depends-Indep', PackageRelation),
         ('Provides', PackageRelation),
@@ -421,28 +453,14 @@ class Package(dict):
         ('Description', PackageDescription),
     ))
 
-    def __setitem__(self, key, value):
-        try:
-            cls = self._fields[key]
-            if not isinstance(value, cls):
-                value = cls(value)
-        except KeyError:
-            pass
-        super(Package, self).__setitem__(key, value)
 
-    def iterkeys(self):
-        keys = set(self.keys())
-        for i in self._fields.keys():
-            if i in self:
-                keys.remove(i)
-                yield i
-        for i in keys:
-            yield i
-
-    def iteritems(self):
-        for i in self.iterkeys():
-            yield (i, self[i])
-
-    def itervalues(self):
-        for i in self.iterkeys():
-            yield self[i]
+class TestsControl(_ControlFileDict):
+    _fields = collections.OrderedDict((
+        ('Tests', str),
+        ('Test-Command', str),
+        ('Restrictions', str),
+        ('Features', str),
+        ('Depends', PackageRelation),
+        ('Tests-Directory', str),
+        ('Classes', str),
+    ))

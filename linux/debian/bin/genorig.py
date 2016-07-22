@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 sys.path.append("debian/lib/python")
@@ -8,6 +8,7 @@ import os.path
 import re
 import shutil
 import subprocess
+import time
 
 from debian_linux.debian import Changelog, VersionLinux
 from debian_linux.patches import PatchSeries
@@ -39,6 +40,7 @@ class Main(object):
     def __call__(self):
         import tempfile
         self.dir = tempfile.mkdtemp(prefix='genorig', dir='debian')
+        old_umask = os.umask(0o022)
         try:
             if os.path.isdir(self.input_files[0]):
                 self.upstream_export(self.input_files[0])
@@ -46,9 +48,22 @@ class Main(object):
                 self.upstream_extract(self.input_files[0])
             if len(self.input_files) > 1:
                 self.upstream_patch(self.input_files[1])
+
+            # debian_patch() will change file mtimes.  Capture the
+            # original release time so we can apply it to the final
+            # tarball.  Note this doesn't work in case we apply an
+            # upstream patch, as that doesn't carry a release time.
+            orig_date = time.strftime(
+                "%a, %d %b %Y %H:%M:%S +0000",
+                time.gmtime(
+                    os.stat(os.path.join(self.dir, self.orig, 'Makefile'))
+                    .st_mtime))
+
             self.debian_patch()
-            self.tar()
+            os.umask(old_umask)
+            self.tar(orig_date)
         finally:
+            os.umask(old_umask)
             shutil.rmtree(self.dir)
 
     def upstream_export(self, input_repo):
@@ -105,7 +120,7 @@ class Main(object):
         series = PatchSeries(name, "debian/patches", fp)
         series(dir=os.path.join(self.dir, self.orig))
 
-    def tar(self):
+    def tar(self, orig_date):
         out = os.path.join("../orig", self.orig_tar)
         try:
             os.mkdir("../orig")
@@ -117,9 +132,12 @@ class Main(object):
         except OSError:
             pass
         self.log("Generate tarball %s\n" % out)
-        cmdline = ['tar -caf', out, '-C', self.dir, self.orig]
+        cmdline = '''(cd '%s' && find '%s' -print0) |
+                     LC_ALL=C sort -z |
+                     tar -C '%s' --no-recursion --null -T - --mtime '%s' --owner root --group root -caf '%s'
+                  ''' % (self.dir, self.orig, self.dir, orig_date, out)
         try:
-            if os.spawnv(os.P_WAIT, '/bin/sh', ['sh', '-c', ' '.join(cmdline)]):
+            if os.spawnv(os.P_WAIT, '/bin/sh', ['sh', '-c', cmdline]):
                 raise RuntimeError("Can't patch source")
             os.chmod(out, 0o644)
         except:

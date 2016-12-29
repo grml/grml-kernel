@@ -14,14 +14,15 @@ changes to kernel space. ACPI tables contain code invoked by the kernel, so
 do not allow ACPI tables to be overridden if securelevel is set.
 
 Signed-off-by: Linn Crosetto <linn@hpe.com>
+[bwh: Forward-ported to 4.7: ACPI override code moved to drivers/acpi/tables.c]
 ---
  arch/x86/kernel/setup.c | 12 ++++++------
- drivers/acpi/osl.c      |  6 ++++++
+ drivers/acpi/tables.c   |  6 ++++++
  2 files changed, 12 insertions(+), 6 deletions(-)
 
 --- a/arch/x86/kernel/setup.c
 +++ b/arch/x86/kernel/setup.c
-@@ -1136,6 +1136,12 @@ void __init setup_arch(char **cmdline_p)
+@@ -1155,6 +1155,12 @@ void __init setup_arch(char **cmdline_p)
  	/* Allocate bigger log buffer */
  	setup_log_buf(1);
  
@@ -33,8 +34,8 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 +
  	reserve_initrd();
  
- #if defined(CONFIG_ACPI) && defined(CONFIG_BLK_DEV_INITRD)
-@@ -1146,12 +1152,6 @@ void __init setup_arch(char **cmdline_p)
+ 	acpi_table_upgrade();
+@@ -1163,12 +1169,6 @@ void __init setup_arch(char **cmdline_p)
  
  	io_delay_init();
  
@@ -47,9 +48,17 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
  	/*
  	 * Parse the ACPI tables for possible boot-time SMP configuration.
  	 */
---- a/drivers/acpi/osl.c
-+++ b/drivers/acpi/osl.c
-@@ -698,6 +698,12 @@ void __init acpi_initrd_override(void *d
+--- a/drivers/acpi/tables.c
++++ b/drivers/acpi/tables.c
+@@ -36,6 +36,7 @@
+ #include <linux/memblock.h>
+ #include <linux/initrd.h>
+ #include <linux/acpi.h>
++#include <linux/security.h>
+ #include "internal.h"
+ 
+ #ifdef CONFIG_ACPI_CUSTOM_DSDT
+@@ -543,6 +544,12 @@ void __init acpi_table_upgrade(void)
  	if (table_nr == 0)
  		return;
  
@@ -60,5 +69,5 @@ Signed-off-by: Linn Crosetto <linn@hpe.com>
 +	}
 +
  	acpi_tables_addr =
- 		memblock_find_in_range(0, max_low_pfn_mapped << PAGE_SHIFT,
+ 		memblock_find_in_range(0, ACPI_TABLE_UPGRADE_MAX_PHYS,
  				       all_tables_size, PAGE_SIZE);

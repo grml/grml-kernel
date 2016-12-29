@@ -1,5 +1,7 @@
 include $(top_rulesdir)/Makefile.inc
 
+ifeq ($(filter nopython,$(DEB_BUILD_PROFILES)),)
+
 DEB_HOST_ARCH_CPU := $(shell dpkg-architecture -qDEB_HOST_ARCH_CPU)
 
 ifeq ($(DEB_HOST_ARCH_CPU),alpha)
@@ -41,6 +43,11 @@ MAKE_PERF += perfexecdir=lib/perf_$(VERSION)-core plugindir=/usr/lib/traceevent_
 # cplus_demangle() can be found in libiberty (LGPL v2.1+).
 MAKE_PERF += feature-libbfd=0 HAVE_CPLUS_DEMANGLE_SUPPORT=1
 
+# perf can link against libcrypto if available, but the result is
+# undistributable as GPL v2 and OpenSSL are not compatible without
+# an explicit exception.  Override detection of libcrypto.
+MAKE_PERF += NO_LIBCRYPTO=1
+
 all:
 ifdef KERNEL_ARCH_PERF
 # perf changes some default directories depending on whether DESTDIR is
@@ -50,9 +57,9 @@ ifdef KERNEL_ARCH_PERF
 ifeq (,$(filter nodoc,$(DEB_BUILD_PROFILES)))
 	+$(MAKE_PERF) -C $(top_srcdir)/tools/perf/Documentation man VERSION=$(VERSION)
 endif
-# Check that perf didn't get linked against libbfd
+# Check that perf didn't get linked against libbfd or libcrypto
 	type ldd
-	! ldd $(CURDIR)/perf | grep '\blibbfd'
+	! ldd $(CURDIR)/perf | grep -E '\blib(bfd|crypto)'
 # Check that it includes cplus_demangle from libiberty
 	grep cplus_demangle $(CURDIR)/perf
 endif
@@ -74,3 +81,5 @@ endif
 	rmdir --ignore-fail-on-non-empty $(DESTDIR)/etc
 # Check for unversioned files that are likely to result in file conflicts
 	! find $(DESTDIR) -name '*perf*' \! -path '*[_-]$(VERSION)*' | grep .
+
+endif # !nopython

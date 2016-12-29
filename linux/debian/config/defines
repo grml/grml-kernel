@@ -1,10 +1,5 @@
 [abi]
 abiname: 1-grml
-ignore-changes:
-# Should not be used from OOT
- module:drivers/net/wireless/realtek/rtlwifi/*
- module:net/switchdev/*
- xt_compat_match_from_user
 
 [base]
 arches:
@@ -41,7 +36,7 @@ arches:
 #sparc64
 #tilegx
 #x32
-compiler: gcc-5
+compiler: gcc-4.9
 featuresets:
  none
 
@@ -63,7 +58,10 @@ initramfs-generators: initramfs-tools initramfs-fallback
 
 [relations]
 # compilers
-gcc-5: gcc-5 <!stage1>
+gcc-4.6: gcc-4.6
+gcc-4.7: gcc-4.7
+gcc-4.8: gcc-4.8
+gcc-4.9: gcc-4.9
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool

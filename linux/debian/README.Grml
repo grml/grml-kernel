@@ -1,23 +1,24 @@
 To build this, obtain:
 
-  linux-3.8.5.tar.xz from kernel.org
+  linux-4.8.15.tar.xz from kernel.org
   (check signature!)
 
   obtain grml-kernel.git (this repository)
 
 then, unpack:
-  tar afx linux-3.8.5.tar.xz
-  cp -a grml-kernel/linux/debian linux-3.8.5/
+  tar afx linux-4.8.15.tar.xz
+  cp -a grml-kernel/linux/debian linux-4.8.15/
 
 then, prepare orig.tar.gz:
-  cp linux-3.8.5.tar.xz linux_3.8.5.orig.tar.xz
+  cp linux-4.8.15.tar.xz linux_4.8.15.orig.tar.xz
 
 then, prepare debian/control:
-  cd linux-3.8.5 && fakeroot ./debian/rules debian/control
+  cd linux-4.8.15
+  fakeroot ./debian/rules debian/control
   (this will fail, as the message says, this is normal)
 
 To build for an official upload:
-  dpkg-buildpackage -S -us -uc
+  dpkg-buildpackage -S -us -uc -d
   cowbuilder ...
 
 Don't forget to update linux-meta-grml!

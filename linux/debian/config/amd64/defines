@@ -1,4 +1,6 @@
 [base]
+flavours:
+ amd64
 featuresets:
  none
 kernel-arch: x86

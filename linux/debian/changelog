@@ -1,3 +1,12 @@
+linux (4.9.17-1+grml.1) grml-testing; urgency=medium
+
+  * Grml build of 4.9.17 based on Debian's 4.9.13-1~bpo8+1
+    as of git commit 21904084e46ced4 (tag debian/4.9.13-1_bpo8+1).
+  * Fix flavour definitions and configurations, otherwise wrong
+    kernel configs are being used [Closes: issue1328]
+
+ -- Michael Prokop <mika@grml.org>  Wed, 22 Mar 2017 16:44:19 +0100
+
 linux (4.8.15-1+grml.1) grml-testing; urgency=medium
 
   * Grml build of 4.8.15 based on Debian's 4.8.11-1~bpo8+1

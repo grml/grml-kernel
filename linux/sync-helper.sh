@@ -41,6 +41,7 @@ for file in \
   config/ppc64el/ \
   config/s390/ \
   config/s390x/ \
+  config/sh3/ \
   config/sh4/ \
   config/sparc/ \
   config/sparc64/ \

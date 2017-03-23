@@ -1,8 +1,7 @@
 [base]
-flavours:
- amd64
 featuresets:
  none
+# rt
 kernel-arch: x86
 
 [build]
@@ -12,9 +11,9 @@ vdso: true
 
 [image]
 bootloaders: grub-pc grub-efi-amd64 extlinux
-configs:
- kernelarch-x86/config
- kernelarch-x86/config-grml
+#configs:
+# kernelarch-x86/config
+# kernelarch-x86/config-grml
 install-stem: vmlinuz
 
 [relations]

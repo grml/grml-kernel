@@ -1,8 +1,9 @@
 [base]
-flavours:
- 686
+#flavours:
+# 686
 featuresets:
  none
+# rt
 kernel-arch: x86
 
 [build]
@@ -17,15 +18,10 @@ part-long-pae: This kernel requires PAE (Physical Address Extension).
 
 [image]
 bootloaders: grub-pc extlinux
-configs:
- kernelarch-x86/config
- kernelarch-x86/config-grml
+#configs:
+# kernelarch-x86/config
+# kernelarch-x86/config-grml
 install-stem: vmlinuz
-
-[686_image]
-configs:
- i386/config.686
-recommends: libc6-i686
 
 [relations]
 headers%gcc-4.9: linux-compiler-gcc-4.9-x86

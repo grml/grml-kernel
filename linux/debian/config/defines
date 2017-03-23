@@ -1,5 +1,19 @@
 [abi]
 abiname: 1-grml
+ignore-changes:
+ __cpuhp_*
+ module:drivers/iio/common/st_sensors/**
+ module:drivers/net/wireless/**
+ module:drivers/power/supply/bq27xxx_battery
+ module:drivers/usb/host/**
+ module:drivers/usb/musb/**
+ module:net/ceph/libceph
+# btree library is only selected by few drivers so not useful OOT
+ btree_*
+ visitor*
+# Exported for related protocols only
+ can_rx_register
+ ip6_xmit
 
 [base]
 arches:
@@ -24,13 +38,13 @@ arches:
 # mipsn32r6el
 # mips64r6
 # mips64r6el
-#or1k
 #powerpc
 #powerpcspe
 #ppc64
 #ppc64el
 #s390
 #s390x
+#sh3
 #sh4
 #sparc
 #sparc64
@@ -39,10 +53,11 @@ arches:
 compiler: gcc-4.9
 featuresets:
  none
+# rt
 
 [build]
 # Enable module signing by default (implemented in the linux-signed package)
-signed-modules: true
+signed-modules: false
 
 [featureset-rt_base]
 enabled: false
@@ -65,4 +80,4 @@ gcc-4.9: gcc-4.9
 
 # initramfs-generators
 initramfs-fallback: linux-initramfs-tool
-initramfs-tools: initramfs-tools (>= 0.110~)
+initramfs-tools: initramfs-tools (>= 0.120+deb8u2)

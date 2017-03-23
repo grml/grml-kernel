@@ -11,9 +11,11 @@ vdso: true
 
 [image]
 bootloaders: grub-pc grub-efi-amd64 extlinux
-#configs:
-# kernelarch-x86/config
-# kernelarch-x86/config-grml
+configs:
+# to end up with: debian/config/config debian/config/kernelarch-x86/config debian/config/amd64/config debian/config/kernelarch-x86/config-grml
+# see debian/rules.gen after `fakeroot ./debian/rules debian/control`
+ amd64/config
+ kernelarch-x86/config-grml
 install-stem: vmlinuz
 
 [relations]

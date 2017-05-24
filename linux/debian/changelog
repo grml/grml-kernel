@@ -1,3 +1,10 @@
+linux (4.9.29-1+grml.1) grml-testing; urgency=medium
+
+  * Grml build of 4.9.29 based on Debian's 4.9.25-1~bpo8+1
+    as of git commit 1456081e825130f (tag debian/4.9.25-1_bpo8+1).
+
+ -- Michael Prokop <mika@grml.org>  Wed, 24 May 2017 09:36:45 +0200
+
 linux (4.9.17-1+grml.1) grml-testing; urgency=medium
 
   * Grml build of 4.9.17 based on Debian's 4.9.13-1~bpo8+1

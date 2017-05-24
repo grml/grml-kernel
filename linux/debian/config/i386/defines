@@ -1,6 +1,4 @@
 [base]
-#flavours:
-# 686
 featuresets:
  none
 # rt

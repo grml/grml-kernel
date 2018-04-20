@@ -21,9 +21,9 @@ cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
  kernel/bpf/syscall.c | 3 +++
  1 file changed, 3 insertions(+)
 
---- a/kernel/bpf/syscall.c	2018-04-19 08:55:13.000000000 +0200
-+++ b/kernel/bpf/syscall.c	2018-04-20 11:06:20.937672156 +0200
-@@ -1690,6 +1690,9 @@
+--- a/kernel/bpf/syscall.c
++++ b/kernel/bpf/syscall.c
+@@ -1690,6 +1690,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf
  	if (sysctl_unprivileged_bpf_disabled && !capable(CAP_SYS_ADMIN))
  		return -EPERM;
  

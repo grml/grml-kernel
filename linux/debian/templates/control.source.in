@@ -63,7 +63,7 @@ Build-Depends-Indep:
  graphviz <!stage1 !nodoc>,
  python-sphinx <!stage1 !nodoc>,
  python-sphinx-rtd-theme <!stage1 !nodoc>,
-Rules-Requires-Root: no
+# Rules-Requires-Root: no
 Vcs-Git: git://git.grml.org/grml-kernel.git
 Vcs-Browser: http://git.grml.org/?p=grml-kernel.git;a=tree;f=linux
 Homepage: https://www.kernel.org/

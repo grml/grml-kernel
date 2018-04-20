@@ -11,16 +11,17 @@ vdso: true
 
 [image]
 bootloaders: grub-pc grub-efi-amd64 extlinux
-configs:
-# to end up with: debian/config/config debian/config/kernelarch-x86/config debian/config/amd64/config debian/config/kernelarch-x86/config-grml
-# see debian/rules.gen after `fakeroot ./debian/rules debian/control`
- amd64/config
- kernelarch-x86/config-grml
 install-stem: vmlinuz
+breaks: xserver-xorg-input-vmmouse (<< 1:13.0.99)
 
 [relations]
-headers%gcc-4.9: linux-compiler-gcc-4.9-x86
+gcc-7: gcc-7 (>= 7.2.0-20~) <!stage1 !cross>, gcc-7-x86-64-linux-gnu (>= 7.2.0-20~) <!stage1 cross>
+headers%gcc-7: linux-compiler-gcc-7-x86 (>= 4.14.17-1~)
 
 [amd64_description]
 hardware: 64-bit PCs
 hardware-long: PCs with AMD64, Intel 64 or VIA Nano processors
+
+[cloud-amd64_description]
+hardware: x86-64 cloud
+hardware-long: Amazon EC2, Google Compute Engine and Microsoft Azure cloud platforms

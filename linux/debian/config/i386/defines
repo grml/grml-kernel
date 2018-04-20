@@ -22,9 +22,11 @@ configs:
  i386/config
  kernelarch-x86/config-grml
 install-stem: vmlinuz
+breaks: xserver-xorg-input-vmmouse (<< 1:13.0.99)
 
 [relations]
-headers%gcc-4.9: linux-compiler-gcc-4.9-x86
+gcc-7: gcc-7 (>= 7.2.0-20~) <!stage1 !cross>, gcc-7-i686-linux-gnu (>= 7.2.0-20~) <!stage1 cross>
+headers%gcc-7: linux-compiler-gcc-7-x86 (>= 4.14.17-1~)
 
 [686_description]
 hardware: older PCs

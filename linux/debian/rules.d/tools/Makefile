@@ -1,8 +1,9 @@
 SUBDIRS = \
 	hv \
+	lib/lockdep \
+	objtool \
 	perf \
 	power \
 	usb/usbip
-#SUBDIRS += lib/lockdep
 
 include $(top_rulesdir)/Makefile.inc

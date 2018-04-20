@@ -11,6 +11,7 @@ for file in \
   abi \
   config/alpha/ \
   config/arm64/ \
+  config/arm64ilp32/ \
   config/armel/ \
   config/armhf/ \
   config/hppa/ \

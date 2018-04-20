@@ -1,6 +1,6 @@
 --- a/block/blk-core.c
 +++ b/block/blk-core.c
-@@ -1929,6 +1929,18 @@
+@@ -2178,6 +2178,20 @@ generic_make_request_checks(struct bio *bio)
  		}
  	}
  
@@ -9,10 +9,12 @@
 +	 * read-only device. We do this because kernel drivers often lack
 +	 * necessary checks and send these commands to read-only block devices.
 +	 */
-+	if (unlikely((bio_op(bio) != REQ_OP_READ)
-+			&& bdev_read_only(bio->bi_bdev))) {
++	struct block_device *bdev = bdget(disk_devt((bio)->bi_disk));
++	if (likely(bdev != NULL) &&
++	    unlikely((bio_op(bio) != REQ_OP_READ) &&
++	    bdev_read_only(bdev))) {
 +		pr_warn("unexpected write command to %s blocked\n",
-+			bdevname(bio->bi_bdev, b));
++			bio_devname(bio, b));
 +		goto end_io;
 +	}
 +

@@ -1,3 +1,9 @@
+linux-meta-grml (4.15.18-1+grml.1) grml-testing; urgency=medium
+
+  * Update for new kernel release.
+
+ -- Michael Prokop <mika@grml.org>  Wed, 25 Apr 2018 00:08:25 +0200
+
 linux-meta-grml (4.9.0-1+grml.1) grml-testing; urgency=medium
 
   * Update for new kernel release.

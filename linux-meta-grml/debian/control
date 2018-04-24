@@ -10,7 +10,7 @@ Vcs-Browser: https://git.grml.org/?p=grml-kernel.git;a=tree;f=linux-meta-grml
 Package: linux-image-amd64-grml
 Architecture: amd64
 Section: kernel
-Depends: linux-image-4.9.0-1-grml-amd64
+Depends: linux-image-4.15.0-1-grml-amd64
 Description: The newest Linux kernel for amd64, Grml Edition
  This package is a meta-package that will always depend on the newest
  default Linux kernel image (Grml Edition) for amd64 (the arch).
@@ -18,8 +18,7 @@ Description: The newest Linux kernel for amd64, Grml Edition
 Package: linux-image-i386-grml
 Architecture: i386
 Section: kernel
-Depends: linux-image-4.9.0-1-grml-686
+Depends: linux-image-4.15.0-1-grml-686
 Description: The newest Linux kernel for i386, Grml Edition
  This package is a meta-package that will always depend on the newest
  default Linux kernel image (Grml Edition) for i386 (the arch).
-

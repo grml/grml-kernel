@@ -1,24 +1,30 @@
 To build this, obtain:
 
-  linux-4.8.15.tar.xz from kernel.org
-  (check signature!)
-
-  obtain grml-kernel.git (this repository)
-
-then, unpack:
-  tar afx linux-4.8.15.tar.xz
-  cp -a grml-kernel/linux/debian linux-4.8.15/
+  linux-4.15.18.tar.xz + linux-4.15.18.tar.sign from kernel.org
+  grml-kernel.git (this repository)
 
 then, prepare orig.tar.gz:
-  cp linux-4.8.15.tar.xz linux_4.8.15.orig.tar.xz
+
+  cp linux-4.15.18.tar.xz linux_4.15.18.orig.tar.xz
+
+and check signature of Linux kernel:
+
+  xz -d linux-4.15.18.tar.xz
+  gpg --verify linux-4.15.18.tar.sign  # should be signed by Greg Kroah-Hartman's 0x38DBBDC86092693E
+
+then (only if gpg signatures is OK!), unpack:
+  tar afx linux_4.15.18.orig.tar.xz
+  cp -a grml-kernel/linux/debian linux-4.15.18/
 
 then, prepare debian/control:
-  cd linux-4.8.15
+  cd linux-4.15.18
   fakeroot ./debian/rules debian/control
   (this will fail, as the message says, this is normal)
 
 To build for an official upload:
-  dpkg-buildpackage -S -us -uc -d
+  dpkg-buildpackage -S -us -uc -d  # note: this requires dpkg-dev (v1.18.24 as in Debian/stretch)
+                                   # or newer, run `apt-get install dpkg-dev python3 debhelper`
+                                   # in a plain Debian/stretch environment
   cowbuilder ...
 
 Don't forget to update linux-meta-grml!

@@ -181,7 +181,9 @@ class VersionLinux(Version):
     )?
     |
     (?P<revision_other>
-        [^-+]+
+        # this differs from Debian to support Grml's `4.16.11-1+grml.1` version schema
+        #[^-+]+
+        [^-]+
     )
 )
 (?:\+b\d+)?

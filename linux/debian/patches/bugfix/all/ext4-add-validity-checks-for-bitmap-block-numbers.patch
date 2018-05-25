@@ -22,7 +22,7 @@ Cc: stable@vger.kernel.org
 
 --- a/fs/ext4/balloc.c
 +++ b/fs/ext4/balloc.c
-@@ -340,20 +340,25 @@ static ext4_fsblk_t ext4_valid_block_bit
+@@ -338,20 +338,25 @@ static ext4_fsblk_t ext4_valid_block_bit
  	/* check whether block bitmap block number is set */
  	blk = ext4_block_bitmap(sb, desc);
  	offset = blk - group_first_block;
@@ -48,9 +48,9 @@ Cc: stable@vger.kernel.org
 +	    EXT4_B2C(sbi, offset + sbi->s_itb_per_group) >= sb->s_blocksize)
 +		return blk;
  	next_zero_bit = ext4_find_next_zero_bit(bh->b_data,
- 			EXT4_B2C(sbi, offset + EXT4_SB(sb)->s_itb_per_group),
+ 			EXT4_B2C(sbi, offset + sbi->s_itb_per_group),
  			EXT4_B2C(sbi, offset));
-@@ -419,6 +424,7 @@ struct buffer_head *
+@@ -417,6 +422,7 @@ struct buffer_head *
  ext4_read_block_bitmap_nowait(struct super_block *sb, ext4_group_t block_group)
  {
  	struct ext4_group_desc *desc;
@@ -58,7 +58,7 @@ Cc: stable@vger.kernel.org
  	struct buffer_head *bh;
  	ext4_fsblk_t bitmap_blk;
  	int err;
-@@ -427,6 +433,12 @@ ext4_read_block_bitmap_nowait(struct sup
+@@ -425,6 +431,12 @@ ext4_read_block_bitmap_nowait(struct sup
  	if (!desc)
  		return ERR_PTR(-EFSCORRUPTED);
  	bitmap_blk = ext4_block_bitmap(sb, desc);
@@ -73,7 +73,7 @@ Cc: stable@vger.kernel.org
  		ext4_error(sb, "Cannot get buffer for block bitmap - "
 --- a/fs/ext4/ialloc.c
 +++ b/fs/ext4/ialloc.c
-@@ -160,6 +160,7 @@ static struct buffer_head *
+@@ -122,6 +122,7 @@ static struct buffer_head *
  ext4_read_inode_bitmap(struct super_block *sb, ext4_group_t block_group)
  {
  	struct ext4_group_desc *desc;
@@ -81,7 +81,7 @@ Cc: stable@vger.kernel.org
  	struct buffer_head *bh = NULL;
  	ext4_fsblk_t bitmap_blk;
  	int err;
-@@ -169,6 +170,12 @@ ext4_read_inode_bitmap(struct super_bloc
+@@ -131,6 +132,12 @@ ext4_read_inode_bitmap(struct super_bloc
  		return ERR_PTR(-EFSCORRUPTED);
  
  	bitmap_blk = ext4_inode_bitmap(sb, desc);

@@ -23,7 +23,7 @@ cc: Alexei Starovoitov <alexei.starovoitov@gmail.com>
 
 --- a/kernel/bpf/syscall.c
 +++ b/kernel/bpf/syscall.c
-@@ -1690,6 +1690,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf
+@@ -1848,6 +1848,9 @@ SYSCALL_DEFINE3(bpf, int, cmd, union bpf
  	if (sysctl_unprivileged_bpf_disabled && !capable(CAP_SYS_ADMIN))
  		return -EPERM;
  

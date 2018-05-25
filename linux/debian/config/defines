@@ -76,22 +76,20 @@ arches:
 #armhf
 #hppa
  i386
+#ia64
 #m68k
 #mips
+#mips64
+#mips64el
+#mips64r6
+#mips64r6el
 #mipsel
 #mipsn32
 #mipsn32el
 #mipsn32r6
 #mipsn32r6el
-#mips64
-#mips64el
-# Disabled until dak accepts them in the control file
-# mipsr6
-# mipsr6el
-# mipsn32r6
-# mipsn32r6el
-# mips64r6
-# mips64r6el
+#mipsr6
+#mipsr6el
 #powerpc
 #powerpcspe
 #ppc64
@@ -111,8 +109,8 @@ featuresets:
 
 [build]
 debug-info: false
-# Disable module signing for now
-signed-modules: false
+# Disable code signing by default; this can be overridden per-architecture
+signed-code: false
 
 [featureset-rt_base]
 enabled: false

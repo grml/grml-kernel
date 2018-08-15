@@ -40,6 +40,7 @@ for file in \
   config/powerpcspe/ \
   config/ppc64/ \
   config/ppc64el/ \
+  config/riscv64/ \
   config/s390/ \
   config/s390x/ \
   config/sh3/ \
@@ -61,6 +62,7 @@ for file in \
   patches/series-orig \
   patches/series-rt \
   po/ \
+  rules.d/arch/powerpc \
   templates/po
 do
   rm -rf $file

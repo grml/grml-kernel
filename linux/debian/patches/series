@@ -67,7 +67,7 @@ bugfix/x86/platform-x86-ideapad-laptop-add-y520-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-y720-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
-debian/revert-gpu-host1x-add-iommu-support.patch
+#debian/revert-gpu-host1x-add-iommu-support.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/x86/mmap-remember-the-map_fixed-flag-as-vm_fixed.patch
@@ -98,7 +98,7 @@ bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
 bugfix/all/i40e-build-for-64-bit-targets-only.patch
-bugfix/all/ib-fix-rdma_rxe-and-infiniband_rdmavt-dependencies-f.patch
+#bugfix/all/ib-fix-rdma_rxe-and-infiniband_rdmavt-dependencies-f.patch
 
 # Miscellaneous features
 features/all/kbuild-add-build-salt-to-the-kernel-and-modules.patch
@@ -142,8 +142,8 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-bugfix/all/jfs-fix-inconsistency-between-memory-allocation-and-.patch
-bugfix/all/ext4-fix-false-negatives-and-false-positives-in-ext4.patch
+#bugfix/all/jfs-fix-inconsistency-between-memory-allocation-and-.patch
+#bugfix/all/ext4-fix-false-negatives-and-false-positives-in-ext4.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch

@@ -1,3 +1,10 @@
+linux (4.17.14-1+grml.1) grml-testing; urgency=medium
+
+  * Grml build of 4.17.14-1 based on Debian's 4.17.8-1
+    as of git commit 95ecb7bab0ce (tag debian/4.17.8-1).
+
+ -- Michael Prokop <mika@grml.org>  Wed, 15 Aug 2018 15:04:20 +0200
+
 linux (4.16.11-1+grml.1) grml-testing; urgency=medium
 
   * Grml build of 4.16.11-1 based on Debian's 4.16.5-1

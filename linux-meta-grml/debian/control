@@ -2,7 +2,7 @@ Source: linux-meta-grml
 Section: kernel
 Priority: optional
 Maintainer: Grml Team <team@grml.org>
-Standards-Version: 3.9.8
+Standards-Version: 4.2.0
 Build-Depends: debhelper (>= 8)
 Vcs-Git: git://git.grml.org/grml-kernel.git
 Vcs-Browser: https://git.grml.org/?p=grml-kernel.git;a=tree;f=linux-meta-grml

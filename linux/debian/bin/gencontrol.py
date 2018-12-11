@@ -100,7 +100,8 @@ class Gencontrol(Base):
                     'Unable to disable installer modules in release build '
                     '(DEBIAN_KERNEL_DISABLE_INSTALLER set)')
         elif re.match(r"grml.*", self.changelog[0].distribution):
-            print("Disabling installer modules since we are building for Grml.")
+            import warnings
+            warnings.warn('Disabling installer modules since we are building for Grml.')
         elif self.config.merge('packages').get('installer', True):
             # Add udebs using kernel-wedge
             kw_env = os.environ.copy()

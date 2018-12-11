@@ -545,31 +545,6 @@ install-signed-template_$(ARCH):
 		$(CODE_SIGNING_DIR)/source-template/debian/
 	+$(MAKE_SELF) install-base
 
-install-udeb_$(ARCH): export KW_DEFCONFIG_DIR=debian/installer
-install-udeb_$(ARCH): export KW_CONFIG_DIR=debian/installer
-install-udeb_$(ARCH): DH_OPTIONS=$(PACKAGE_NAMES:%=-p%)
-ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
-install-udeb_$(ARCH): export DEB_BUILD_PROFILES=pkg.linux.udeb-unsigned-test-build
-endif
-install-udeb_$(ARCH):
-	dh_testdir
-	dh_prep
-ifeq ($(UDEB_UNSIGNED_TEST_BUILD),True)
-# kernel-wedge doesn't expect a -unsigned suffix; work around that for now
-	while read flavour; do \
-		rm -f debian/linux-image-$(ABINAME)-$$flavour; \
-		ln -s linux-image-$(ABINAME)-$$flavour-unsigned \
-			debian/linux-image-$(ABINAME)-$$flavour; \
-	done < <(awk '!/^#/ { print $$3 }' $(KW_CONFIG_DIR)/kernel-versions)
-endif
-	kernel-wedge install-files $(ABINAME)
-	kernel-wedge check $(PACKAGE_NAMES)
-	dh_fixperms
-ifeq ($(UDEB_UNSIGNED_TEST_BUILD),False)
-	dh_gencontrol
-	dh_builddeb
-endif
-
 install-source: PACKAGE_NAME = $(SOURCE_BASENAME)-source-$(VERSION)
 install-source: DH_OPTIONS = -p$(PACKAGE_NAME)
 install-source: $(BUILD_DIR)/$(SOURCE_BASENAME)-source-$(UPSTREAMVERSION).tar.xz $(foreach FEATURESET,$(filter-out none,$(ALL_FEATURESETS)),$(BUILD_DIR)/linux-patch-$(UPSTREAMVERSION)-$(FEATURESET).patch.xz)

@@ -50,6 +50,7 @@ for file in \
   config/tilegx/ \
   config/x32/ \
   installer/ \
+  patches-rt/ \
   patches/bugfix/all/firmware-remove-redundant-log-messages-from-drivers.patch \
   patches/bugfix/all/firmware_class-log-every-success-and-failure.patch \
   patches/debian/dfsg/ \

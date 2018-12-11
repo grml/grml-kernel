@@ -16,7 +16,7 @@ else ifeq ($(KERNEL_ARCH),x86)
   endif
 endif
 
-MAKE_PERF := $(MAKE) O=$(CURDIR) prefix=/usr V=1 ARCH=$(KERNEL_ARCH) EXTRA_WARNINGS=-Wno-error EXTRA_CFLAGS='$(CFLAGS) $(CPPFLAGS)' LDFLAGS='$(LDFLAGS)'
+MAKE_PERF := $(MAKE) O=$(CURDIR) prefix=/usr V=1 VF=1 ARCH=$(KERNEL_ARCH) WERROR=0 EXTRA_CFLAGS='$(CFLAGS) $(CPPFLAGS)' LDFLAGS='$(LDFLAGS)'
 
 # Disable Gtk UI until it's more usable
 MAKE_PERF += NO_GTK2=1
@@ -37,6 +37,12 @@ MAKE_PERF += NO_LIBCRYPTO=1
 
 # Currently babeltrace support for `perf data' is not automatically detected.
 MAKE_PERF += LIBBABELTRACE=1
+
+# Build with asciidoctor, not asciidoc
+MAKE_PERF += USE_ASCIIDOCTOR=1
+
+# Build with Python 3, not Python 2
+MAKE_PERF += PYTHON=/usr/bin/python3
 
 all:
 ifdef HAVE_PERF

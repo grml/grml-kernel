@@ -8,7 +8,6 @@ debian/mips-disable-werror.patch
 debian/mips-boston-disable-its.patch
 debian/arch-sh4-fix-uimage-build.patch
 debian/powerpcspe-omit-uimage.patch
-debian/modpost-symbol-prefix.patch
 debian/tools-perf-version.patch
 debian/tools-perf-install.patch
 debian/wireless-add-debian-wireless-regdb-certificates.patch
@@ -28,9 +27,8 @@ grml/grml_logo.patch
 grml/vesa_fallback_on_kms_failure.patch
 grml/ext4-readonly.patch
 
-# Patches from aufs4 repository, imported with
-# debian/patches/features/all/aufs4/gen-patch.  These are only the
-# changes needed to allow aufs to be built out-of-tree.
+# Patches from aufs4 repository, imported with debian/bin/genpatch-aufs.
+# These are only the changes needed to allow aufs to be built out-of-tree.
 features/all/aufs4/aufs4-base.patch
 features/all/aufs4/aufs4-mmap.patch
 features/all/aufs4/aufs4-standalone.patch
@@ -67,28 +65,22 @@ bugfix/x86/platform-x86-ideapad-laptop-add-y520-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-y720-15ikbn-to-no_hw.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-ideapad-v510-15ikb-t.patch
 bugfix/x86/platform-x86-ideapad-laptop-add-several-models-to-no.patch
-#debian/revert-gpu-host1x-add-iommu-support.patch
 bugfix/x86/perf-tools-fix-unwind-build-on-i386.patch
 bugfix/sh/sh-boot-do-not-use-hyphen-in-exported-variable-name.patch
 bugfix/x86/mmap-remember-the-map_fixed-flag-as-vm_fixed.patch
 bugfix/x86/mmap-add-an-exception-to-the-stack-gap-for-hotspot-jvm.patch
 bugfix/powerpc/powerpc-lib-sstep-fix-building-for-powerpcspe.patch
 bugfix/powerpc/powerpc-lib-makefile-don-t-pull-in-quad.o-for-32-bit.patch
+bugfix/arm/arm-mm-export-__sync_icache_dcache-for-xen-privcmd.patch
+bugfix/powerpc/powerpc-boot-fix-missing-crc32poly.h-when-building-with-kernel_xz.patch
+bugfix/arm64/arm64-acpi-Add-fixup-for-HPE-m400-quirks.patch
+bugfix/x86/x86-32-disable-3dnow-in-generic-config.patch
 
 # Arch features
 features/mips/MIPS-increase-MAX-PHYSMEM-BITS-on-Loongson-3-only.patch
 features/mips/MIPS-Loongson-3-Add-Loongson-LS3A-RS780E-1-way-machi.patch
 features/x86/x86-memtest-WARN-if-bad-RAM-found.patch
 features/x86/x86-make-x32-syscall-support-conditional.patch
-# Add support for Raspberry PI 3b+
-features/armhf/ARM-dts-bcm2837-Add-Raspberry-Pi-3-B.patch
-features/arm64/arm64-dts-broadcom-Add-reference-to-Raspberry-Pi-3-B.patch
-# Add device-tree for Pinebook from linux next-20180625
-features/arm64/pinebook/0001-arm64-allwinner-a64-Add-RTC-clock-to-phandle-32kHz-e.patch
-features/arm64/pinebook/0002-arm64-dts-allwinner-a64-add-R_I2C-controller.patch
-features/arm64/pinebook/0003-arm64-dts-allwinner-a64-Add-PWM-controllers.patch
-features/arm64/pinebook/0004-arm64-dts-allwinner-add-support-for-Pinebook.patch
-features/arm64/pinebook/0005-arm64-dts-allwinner-a64-add-SRAM-controller-device-t.patch
 
 # Miscellaneous bug fixes
 bugfix/all/kbuild-use-nostdinc-in-compile-tests.patch
@@ -97,14 +89,8 @@ bugfix/all/fs-add-module_softdep-declarations-for-hard-coded-cr.patch
 bugfix/all/partially-revert-usb-kconfig-using-select-for-usb_co.patch
 bugfix/all/kbuild-include-addtree-remove-quotes-before-matching-path.patch
 debian/revert-objtool-fix-config_stack_validation-y-warning.patch
-bugfix/all/i40e-build-for-64-bit-targets-only.patch
-#bugfix/all/ib-fix-rdma_rxe-and-infiniband_rdmavt-dependencies-f.patch
 
 # Miscellaneous features
-features/all/kbuild-add-build-salt-to-the-kernel-and-modules.patch
-features/x86/x86-add-build-salt-to-the-vdso.patch
-features/powerpc/powerpc-add-build-salt-to-the-vdso.patch
-features/arm64/arm64-add-build-salt-to-the-vdso.patch
 
 # Lockdown (formerly 'securelevel') patchset
 features/all/lockdown/0001-Add-the-ability-to-lock-down-access-to-the-running-k.patch
@@ -142,8 +128,6 @@ features/all/lockdown/arm64-add-kernel-config-option-to-lock-down-when.patch
 
 # Security fixes
 debian/i386-686-pae-pci-set-pci-nobios-by-default.patch
-#bugfix/all/jfs-fix-inconsistency-between-memory-allocation-and-.patch
-#bugfix/all/ext4-fix-false-negatives-and-false-positives-in-ext4.patch
 
 # Fix exported symbol versions
 bugfix/all/module-disable-matching-missing-version-crc.patch
@@ -158,14 +142,15 @@ bugfix/x86/revert-perf-build-fix-libunwind-feature-detection-on.patch
 bugfix/all/tools-build-remove-bpf-run-time-check-at-build-time.patch
 bugfix/all/cpupower-bump-soname-version.patch
 bugfix/all/cpupower-fix-checks-for-cpu-existence.patch
-bugfix/all/lockdep-stub-nmi-watchdog-reset.patch
 bugfix/all/tools-lib-api-fs-fs.c-fix-misuse-of-strncpy.patch
 bugfix/all/usbip-fix-misuse-of-strncpy.patch
+bugfix/x86/tools-x86_energy_perf_policy-fix-uninitialized-varia.patch
+bugfix/x86/tools-turbostat-Add-checks-for-failure-of-fgets-and-.patch
 
 # wireless: Disable regulatory.db direct loading (until we sort out signing)
 debian/wireless-disable-regulatory.db-direct-loading.patch
 
+# Licence clarification
+bugfix/all/documentation-media-uapi-explicitly-say-there-are-no-invariant-sections.patch
+
 # ABI maintenance
-debian/hid-avoid-abi-change-in-4.17.6.patch
-debian/dax-avoid-abi-change-in-4.17.6.patch
-debian/init-avoid-abi-change-for-build-salt.patch

@@ -1,4 +1,9 @@
 ##
+## file: arch/Kconfig
+##
+CONFIG_ARCH_MMAP_RND_BITS=8
+
+##
 ## file: arch/x86/Kconfig
 ##
 # CONFIG_64BIT is not set
@@ -52,7 +57,6 @@ CONFIG_X86_GENERIC=y
 ## file: crypto/Kconfig
 ##
 CONFIG_CRYPTO_AES_586=m
-CONFIG_CRYPTO_SALSA20_586=m
 CONFIG_CRYPTO_SERPENT_SSE2_586=m
 CONFIG_CRYPTO_TWOFISH_586=m
 
